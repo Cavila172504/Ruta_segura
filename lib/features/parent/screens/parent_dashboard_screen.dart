@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'parent_map_screen.dart';
 import 'parent_notifications_screen.dart';
 import 'parent_history_screen.dart';
+import 'add_student_screen.dart';
 
 class ParentDashboardScreen extends StatelessWidget {
   const ParentDashboardScreen({super.key});
@@ -70,45 +71,52 @@ class ParentDashboardScreen extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 64, height: 64,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFd9e4ee),
-                                          borderRadius: BorderRadius.circular(16),
-                                          image: const DecorationImage(
-                                            image: NetworkImage('https://images.unsplash.com/photo-1544281679-42011668e1ab?q=80&w=200&auto=format&fit=crop'),
-                                            fit: BoxFit.cover,
-                                          )
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Mateo',
-                                            style: GoogleFonts.publicSans(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w800,
-                                              color: _onSurface,
-                                            ),
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 64, height: 64,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFd9e4ee),
+                                            borderRadius: BorderRadius.circular(16),
+                                            image: const DecorationImage(
+                                              image: NetworkImage('https://images.unsplash.com/photo-1544281679-42011668e1ab?q=80&w=200&auto=format&fit=crop'),
+                                              fit: BoxFit.cover,
+                                            )
                                           ),
-                                          Text(
-                                            'Colegio San Agustín',
-                                            style: GoogleFonts.publicSans(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: _onSurfaceVariant,
-                                            ),
-                                          )
-                                        ],
-                                      )
-                                    ],
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Mateo',
+                                                style: GoogleFonts.publicSans(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: _onSurface,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                'Colegio San Agustín',
+                                                style: GoogleFonts.publicSans(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _onSurfaceVariant,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              )
+                                            ],
+                                          ),
+                                        )
+                                      ],
+                                    ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: _primaryContainer,
                                       borderRadius: BorderRadius.circular(20),
@@ -348,6 +356,57 @@ class ParentDashboardScreen extends StatelessWidget {
           )
         ],
       ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 60),
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            _showAddStudentWarning(context);
+          },
+          icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
+          label: Text('Agregar Alumno', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: Colors.white)),
+          backgroundColor: _primaryContainer,
+          elevation: 4,
+        ),
+      ),
+    );
+  }
+
+  void _showAddStudentWarning(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.blue, size: 28),
+              const SizedBox(width: 12),
+              Text('Atención', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            'Para registrar un nuevo alumno es necesario ingresar el código de la unidad educativa o del transporte asignado a la que quiere ingresar.\n\n¿Desea continuar?',
+            style: GoogleFonts.publicSans(fontSize: 15),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text('Cancelar', style: GoogleFonts.publicSans(color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Ocultar el diálogo
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddStudentScreen())); // Ir a la pantalla
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primaryContainer,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text('Aceptar', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -399,37 +458,42 @@ class ParentDashboardScreen extends StatelessWidget {
   }
 
   Widget _navItem(BuildContext context, {required IconData icon, required String label, required bool isActive, required Widget target}) {
-    return GestureDetector(
-      onTap: () {
-        if (!isActive) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => target));
-        }
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFdbeaFE) : Colors.transparent, // blue-100 fallback
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? _primaryContainer : Colors.grey.shade400,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label.toUpperCase(),
-              style: GoogleFonts.publicSans(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (!isActive) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => target));
+          }
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFFdbeaFE) : Colors.transparent, // blue-100 fallback
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
                 color: isActive ? _primaryContainer : Colors.grey.shade400,
+                size: 22,
               ),
-            )
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label.toUpperCase(),
+                style: GoogleFonts.publicSans(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                  color: isActive ? _primaryContainer : Colors.grey.shade400,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              )
+            ],
+          ),
         ),
       ),
     );

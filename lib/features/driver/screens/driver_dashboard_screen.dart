@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import 'driver_map_screen.dart';
 import 'driver_attendance_screen.dart';
+import 'driver_qr_screen.dart';
 
 class DriverDashboardScreen extends ConsumerWidget {
   const DriverDashboardScreen({super.key});
@@ -82,8 +83,14 @@ class DriverDashboardScreen extends ConsumerWidget {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.notifications, color: AppColors.primaryContainer),
-                    onPressed: () {},
+                    icon: const Icon(Icons.qr_code_2, color: AppColors.primaryContainer, size: 28),
+                    onPressed: () {
+                      // Temporalmente puenteamos la unidad hardcodeada o se extraería del perfil de Firebase.
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => const DriverQrScreen(unitCode: 'UNIDAD-42'),
+                      ));
+                    },
+                    tooltip: 'Mostrar QR',
                   ),
                 ],
               ),
