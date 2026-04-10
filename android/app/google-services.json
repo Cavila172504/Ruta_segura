@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "706491407166",
+    "project_id": "rutasegura-a74f7",
+    "storage_bucket": "rutasegura-a74f7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706491407166:android:01fedb49515310b2036a6f",
+        "android_client_info": {
+          "package_name": "com.rutasegura.ruta_segura"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdvkAygHbD0LlsX2WIjwii26iLUWDX0iw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
