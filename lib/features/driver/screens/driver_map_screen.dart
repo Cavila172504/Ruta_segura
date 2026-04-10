@@ -32,7 +32,7 @@ class DriverMapScreen extends ConsumerWidget {
                       zoomControlsEnabled: false,
                       mapToolbarEnabled: false,
                       onMapCreated: (controller) {
-                        ref.read(mapControllerProvider.notifier).state = controller;
+                        ref.read(mapControllerProvider.notifier).setController(controller);
                       },
                     );
                   },

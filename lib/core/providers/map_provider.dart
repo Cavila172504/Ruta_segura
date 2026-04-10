@@ -23,5 +23,16 @@ final currentLocationStreamProvider = StreamProvider<Position>((ref) {
 // Estado inicial genérico por defecto (Centro educativo, por ejemplo)
 const LatLng defaultInitialLocation = LatLng(4.6533326, -74.083652); // Ejemplo: Bogotá - Centro
 
-// Controladores del mapa
-final mapControllerProvider = StateProvider<GoogleMapController?>((ref) => null);
+// Controladores del mapa (Migración a Notifier para Riverpod 3.x)
+class MapControllerNotifier extends Notifier<GoogleMapController?> {
+  @override
+  GoogleMapController? build() => null;
+  
+  void setController(GoogleMapController controller) {
+    state = controller;
+  }
+}
+
+final mapControllerProvider = NotifierProvider<MapControllerNotifier, GoogleMapController?>(
+  () => MapControllerNotifier()
+);

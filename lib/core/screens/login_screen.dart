@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../services/firebase_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
+
+enum AuthMode { login, register, forgotPassword }
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +22,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   String? _errorMessage;
   bool _isLoading = false;
+  AuthMode _authMode = AuthMode.login;
+  bool _obscurePassword = true;
+  String _selectedRole = 'parent';
 
   @override
   void dispose() {
@@ -27,12 +33,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleAuth() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Por favor ingrese correo y contraseña');
+    if (email.isEmpty) {
+      setState(() => _errorMessage = 'Por favor ingrese su correo electrónico');
+      return;
+    }
+    
+    if (_authMode != AuthMode.forgotPassword && password.isEmpty) {
+      setState(() => _errorMessage = 'Por favor ingrese su contraseña');
       return;
     }
 
@@ -43,7 +54,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final firebaseService = ref.read(firebaseServiceProvider);
-      final creds = await firebaseService.signIn(email, password);
+      
+      if (_authMode == AuthMode.forgotPassword) {
+        await firebaseService.sendPasswordReset(email);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enlace de recuperación enviado. Revisa tu correo.')),
+        );
+        setState(() => _authMode = AuthMode.login);
+        return;
+      }
+
+      UserCredential? creds;
+      
+      if (_authMode == AuthMode.login) {
+        creds = await firebaseService.signIn(email, password);
+      } else {
+        creds = await firebaseService.signUp(email, password, _selectedRole);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cuenta creada excitósamente. Por favor, revisa tu correo para verificar la cuenta antes de ingresar.')),
+        );
+        setState(() {
+          _authMode = AuthMode.login;
+          _passwordController.clear();
+        });
+        return;
+      }
       
       if (creds?.user != null) {
         final role = await firebaseService.getUserRole(creds!.user!.uid);
@@ -53,27 +90,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         
         // Routing temporal hasta tener GoRouter listo
         if (role == 'driver') {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const DriverDashboardScreen())
-          );
+          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const DriverDashboardScreen()));
         } else if (role == 'parent') {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const ParentDashboardScreen())
-          );
-        } else if (role == 'admin') {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const AdminDashboardScreen())
-          );
+          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ParentDashboardScreen()));
         } else {
-          // Si por ahora es otro rol, forzamos a ver la de admin para testear el diseño
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const AdminDashboardScreen())
-          );
+          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
         }
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Credenciales inválidas o error de conexión.';
+        final errorStr = e.toString();
+        if (errorStr.contains('verificado')) {
+           _errorMessage = 'Correo no verificado. Revisa SPAM (Acabamos de reenviarlo).';
+        } else if (errorStr.contains('email-already-in-use')) {
+           _errorMessage = 'Este correo ya está registrado. Por favor entra en "Ingresar".';
+        } else {
+           _errorMessage = 'Credenciales inválidas o error de conexión al intentar acceder.';
+        }
       });
     } finally {
       if (mounted) {
@@ -215,58 +248,106 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(height: 24),
 
                           // Input de Contraseña
-                          Text(
-                            'CONTRASEÑA',
-                            style: GoogleFonts.publicSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.5,
-                              color: AppColors.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            style: GoogleFonts.publicSans(color: AppColors.onSurface),
-                            decoration: InputDecoration(
-                              hintText: '••••••••',
-                              hintStyle: TextStyle(color: AppColors.outline.withOpacity(0.5)),
-                              prefixIcon: const Icon(Icons.lock, color: Colors.grey),
-                              suffixIcon: const Icon(Icons.visibility_off, color: Colors.grey),
-                              filled: true,
-                              fillColor: AppColors.surfaceContainerLowest,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
+                          if (_authMode != AuthMode.forgotPassword) ...[
+                            Text(
+                              'CONTRASEÑA',
+                              style: GoogleFonts.publicSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                                color: AppColors.onSurfaceVariant,
                               ),
                             ),
-                          ),
-
-                          const SizedBox(height: 12),
-                          // Texto: Olvidó contraseña
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {},
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.secondary,
-                                padding: EdgeInsets.zero,
-                              ),
-                              child: Text(
-                                '¿OLVIDÓ SU CONTRASEÑA?',
-                                style: GoogleFonts.publicSans(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              style: GoogleFonts.publicSans(color: AppColors.onSurface),
+                              decoration: InputDecoration(
+                                hintText: '••••••••',
+                                hintStyle: TextStyle(color: AppColors.outline.withOpacity(0.5)),
+                                prefixIcon: const Icon(Icons.lock, color: Colors.grey),
+                                suffixIcon: IconButton(
+                                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
+                                ),
+                                filled: true,
+                                fillColor: AppColors.surfaceContainerLowest,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
+                          ],
 
-                          // Botón Ingresar Metadata (Metálico)
+                          const SizedBox(height: 12),
+                          // Optional Role Selector
+                          if (_authMode == AuthMode.register) ...[
+                            Text(
+                              'ROL DEL USUARIO',
+                              style: GoogleFonts.publicSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceContainerLowest,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedRole,
+                                  isExpanded: true,
+                                  dropdownColor: AppColors.surfaceContainerLowest,
+                                  items: const [
+                                    DropdownMenuItem(value: 'parent', child: Text('Padre de familia')),
+                                    DropdownMenuItem(value: 'driver', child: Text('Conductor')),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _selectedRole = val);
+                                  },
+                                ),
+                              ),
+                            ),
+                          ] else if (_authMode == AuthMode.login) ...[
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _authMode = AuthMode.forgotPassword;
+                                    _errorMessage = null;
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.secondary,
+                                  padding: EdgeInsets.zero,
+                                ),
+                                child: Text(
+                                  '¿OLVIDÓ SU CONTRASEÑA?',
+                                  style: GoogleFonts.publicSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+
+                          // Botón Ingresar / Registrar
                           InkWell(
-                            onTap: _isLoading ? null : _handleLogin,
+                            onTap: _isLoading ? null : _handleAuth,
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
                               decoration: BoxDecoration(
@@ -291,7 +372,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
-                                          'INGRESAR',
+                                          _authMode == AuthMode.login 
+                                            ? 'INGRESAR' 
+                                            : _authMode == AuthMode.register 
+                                              ? 'REGISTRARME'
+                                              : 'ENVIAR CORREO',
                                           style: GoogleFonts.publicSans(
                                             fontSize: 18,
                                             fontWeight: FontWeight.w900,
@@ -308,6 +393,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                             ),
                           ),
+                          const SizedBox(height: 16),
+                          
+                          // Toggle Mode
+                          if (_authMode == AuthMode.login)
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _authMode = AuthMode.register;
+                                  _errorMessage = null;
+                                });
+                              },
+                              child: Text(
+                                '¿No tienes cuenta? Crear una ahora',
+                                style: GoogleFonts.publicSans(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          else
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _authMode = AuthMode.login;
+                                  _errorMessage = null;
+                                });
+                              },
+                              icon: const Icon(Icons.arrow_back, color: AppColors.primary, size: 16),
+                              label: Text(
+                                'Volver al inicio de sesión',
+                                style: GoogleFonts.publicSans(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),

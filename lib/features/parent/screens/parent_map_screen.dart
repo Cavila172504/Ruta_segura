@@ -38,7 +38,7 @@ class ParentMapScreen extends ConsumerWidget {
                       mapToolbarEnabled: false,
                       onMapCreated: (controller) {
                         try{
-                           ref.read(mapControllerProvider.notifier).state = controller;
+                           ref.read(mapControllerProvider.notifier).setController(controller);
                         } catch(e){}
                       },
                     );

@@ -19,10 +19,55 @@ class FirebaseService {
 
   Future<UserCredential?> signIn(String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
+      final creds = await _auth.signInWithEmailAndPassword(
         email: email, 
         password: password
       );
+      
+      // Validación estricta de correo electrónico según requerimiento
+      if (creds.user != null && !creds.user!.emailVerified) {
+        // Enviar otro correo en caso de que lo hayan perdido
+        await creds.user!.sendEmailVerification();
+        await _auth.signOut();
+        throw Exception('El correo no ha sido verificado. Hemos re-enviado el enlace, revisa tu SPAM o bandeja de entrada e intenta ingresar de nuevo.');
+      }
+      return creds;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<UserCredential?> signUp(String email, String password, String role) async {
+    try {
+      final creds = await _auth.createUserWithEmailAndPassword(
+        email: email, 
+        password: password
+      );
+      if (creds.user != null) {
+        // Enviar el correo de validación inmediatamente
+        await creds.user!.sendEmailVerification();
+
+        // ADVERTENCIA DE SEGURIDAD: Guardar la contraseña en texto plano
+        // directamente en Firestore según la solicitud del usuario para fines de Soporte Local.
+        await _firestore.collection('users').doc(creds.user!.uid).set({
+          'role': role,
+          'email': email,
+          'password': password, // <- Almacenamiento en texto plano (Inseguro / Requisito Funcional)
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        
+        // Cerramos la sesión localmente para obligarlo a verificar su correo antes de entrar
+        await _auth.signOut();
+      }
+      return creds;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
       rethrow;
     }
