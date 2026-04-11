@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/services/firebase_service.dart';
-import '../../../core/services/location_service.dart';
+import '../../../core/providers/app_providers.dart';
+import 'parent_map_picker_screen.dart';
 
 class AddStudentScreen extends ConsumerStatefulWidget {
   const AddStudentScreen({super.key});
@@ -15,8 +16,11 @@ class AddStudentScreen extends ConsumerStatefulWidget {
 
 class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _studentNameController = TextEditingController();
+  final _cedulaController = TextEditingController(); // Cédula del Padre
   final _unitCodeController = TextEditingController(); // Código de la Unidad / Bus
   final MobileScannerController _scannerController = MobileScannerController();
+
+  LatLng? _selectedLocation; // Ubicación en el mapa
 
   bool _isScanning = false;
   bool _isLoading = false;
@@ -25,6 +29,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   @override
   void dispose() {
     _studentNameController.dispose();
+    _cedulaController.dispose();
     _unitCodeController.dispose();
     _scannerController.dispose();
     super.dispose();
@@ -32,14 +37,23 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
   Future<void> _registerStudent() async {
     final name = _studentNameController.text.trim();
+    final cedula = _cedulaController.text.trim();
     final unitCode = _unitCodeController.text.trim();
 
     if (name.isEmpty) {
       setState(() => _errorMessage = 'Debes ingresar el nombre del estudiante');
       return;
     }
+    if (cedula.isEmpty) {
+      setState(() => _errorMessage = 'Debes ingresar la cédula del padre de familia');
+      return;
+    }
     if (unitCode.isEmpty) {
       setState(() => _errorMessage = 'Debes ingresar el número de la unidad escolar');
+      return;
+    }
+    if (_selectedLocation == null) {
+      setState(() => _errorMessage = 'Debes fijar la ubicación de parada en el mapa');
       return;
     }
 
@@ -49,30 +63,24 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     });
 
     try {
-      final firebaseService = ref.read(firebaseServiceProvider);
-      // Pedimos ubicación para fijarla como la Parada del Estudiante
-      final locationService = LocationService();
-      
-      setState(() => _errorMessage = 'Obteniendo coordenadas GPS fijas para la parada...');
-      final position = await locationService.getCurrentPosition();
-      
-      if (position == null) {
-        throw Exception("Es obligatorio conceder permisos de GPS para fijar la parada de la casa.");
-      }
+      final authRepo = ref.read(authRepositoryProvider);
+      final studentRepo = ref.read(studentRepositoryProvider);
 
       // Extraer UID del padre (Usuario actual logueado)
-      final parentUid = await firebaseService.getCurrentUserId();
+      final parentUid = await authRepo.getCurrentUserId();
       
       if (parentUid == null) throw Exception("Sesión no válida");
 
       setState(() => _errorMessage = 'Guardando datos en el servidor...');
+      
       // Guardar estudiante en base de datos
-      await firebaseService.registerStudent(
+      await studentRepo.registerStudent(
         parentId: parentUid,
         studentName: name,
         unitCode: unitCode,
-        stopLat: position.latitude,
-        stopLng: position.longitude,
+        cedulaPadre: cedula,
+        stopLat: _selectedLocation!.latitude,
+        stopLng: _selectedLocation!.longitude,
       );
 
       if (!mounted) return;
@@ -141,9 +149,42 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
               ),
               const SizedBox(height: 32),
 
+              // Cédula del Padre
+              Text(
+                'CÉDULA DEL PADRE DE FAMILIA',
+                style: GoogleFonts.publicSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _cedulaController,
+                style: GoogleFonts.publicSans(),
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() => _errorMessage = null),
+                decoration: InputDecoration(
+                  hintText: 'Ej. 1712345678',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.badge, color: Colors.grey),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
               // Nombre del Estudiante
               Text(
-                'NOMBRE DEL ESTUDIANTE',
+                'NOMBRES DEL ESTUDIANTE',
                 style: GoogleFonts.publicSans(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -168,6 +209,54 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Fijar Parada en Mapa
+              Text(
+                'UBICACIÓN DE LA PARADA',
+                style: GoogleFonts.publicSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    FocusScope.of(context).unfocus();
+                    final LatLng? result = await Navigator.push(
+                      context, 
+                      MaterialPageRoute(builder: (_) => const ParentMapPickerScreen())
+                    );
+                    if (result != null) {
+                      setState(() {
+                        _selectedLocation = result;
+                        _errorMessage = null; // Quitar error si lo había
+                      });
+                    }
+                  },
+                  icon: Icon(
+                    _selectedLocation != null ? Icons.check_circle : Icons.add_location_alt,
+                    color: _selectedLocation != null ? Colors.white : AppColors.primaryContainer,
+                  ),
+                  label: Text(
+                    _selectedLocation != null ? 'PARADA FIJADA EN MAPA' : 'FIJAR EN MAPA',
+                    style: GoogleFonts.publicSans(
+                      fontWeight: FontWeight.bold, 
+                      color: _selectedLocation != null ? Colors.white : AppColors.primaryContainer,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _selectedLocation != null ? Colors.green : AppColors.surface,
+                    side: _selectedLocation != null ? null : const BorderSide(color: AppColors.outline, width: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: _selectedLocation != null ? 4 : 0,
                   ),
                 ),
               ),

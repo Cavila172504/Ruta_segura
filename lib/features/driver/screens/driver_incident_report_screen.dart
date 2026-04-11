@@ -274,7 +274,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                               ),
                               Switch(
                                 value: _shareLocation,
-                                activeColor: Colors.white,
+                                activeThumbColor: Colors.white,
                                 activeTrackColor: AppColors.secondary,
                                 inactiveThumbColor: Colors.white,
                                 inactiveTrackColor: const Color(0xFF167159).withOpacity(0.2), // on-secondary-container

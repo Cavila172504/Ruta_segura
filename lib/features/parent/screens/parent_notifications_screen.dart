@@ -168,21 +168,23 @@ class ParentNotificationsScreen extends StatelessWidget {
           // Bottom Nav Bar
           Positioned(
             bottom: 0, left: 0, right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [BoxShadow(color: _primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _navItem(context, icon: Icons.home, label: 'Inicio', isActive: false, target: const ParentDashboardScreen()),
-                  _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
-                  _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: true, target: const ParentNotificationsScreen()),
-                  _navItem(context, icon: Icons.history, label: 'Historial', isActive: false, target: const ParentHistoryScreen()),
-                ],
+            child: SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [BoxShadow(color: _primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _navItem(context, icon: Icons.home, label: 'Inicio', isActive: false, target: const ParentDashboardScreen()),
+                    _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
+                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: true, target: const ParentNotificationsScreen()),
+                    _navItem(context, icon: Icons.history, label: 'Historial', isActive: false, target: const ParentHistoryScreen()),
+                  ],
+                ),
               ),
             ),
           )
@@ -227,7 +229,14 @@ class ParentNotificationsScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(title, style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF191c1d))),
+                      Expanded(
+                        child: Text(
+                          title, 
+                          style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF191c1d)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(time, style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF424751))),
                     ],
                   ),

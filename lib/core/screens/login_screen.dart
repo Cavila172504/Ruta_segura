@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
-import '../services/firebase_service.dart';
+import '../providers/app_providers.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
@@ -22,6 +22,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController(); // Nuevo
   final _companyCodeController = TextEditingController(); // Nuevo (Multi-Tenant)
+  final _nameController = TextEditingController(); // Nombres completos
   String? _errorMessage;
   bool _isLoading = false;
   AuthMode _authMode = AuthMode.login;
@@ -35,6 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _companyCodeController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -47,6 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
     final companyCode = _companyCodeController.text.trim(); // Nuevo
+    final name = _nameController.text.trim(); // Nombre
 
     // Validaciones de Formato
     if (email.isEmpty) {
@@ -78,6 +81,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() => _errorMessage = 'Debe ingresar el código de su cooperativa o unidad educativa');
         return;
       }
+      if (name.isEmpty) {
+        setState(() => _errorMessage = 'Debe ingresar sus nombres completos');
+        return;
+      }
     }
 
     setState(() {
@@ -86,10 +93,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final firebaseService = ref.read(firebaseServiceProvider);
+      final authRepo = ref.read(authRepositoryProvider);
       
       if (_authMode == AuthMode.forgotPassword) {
-        await firebaseService.sendPasswordReset(email);
+        await authRepo.sendPasswordReset(email);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -104,9 +111,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       UserCredential? creds;
       
       if (_authMode == AuthMode.login) {
-        creds = await firebaseService.signIn(email, password);
+        creds = await authRepo.signIn(email, password);
       } else {
-        creds = await firebaseService.signUp(email, password, _selectedRole, companyCode);
+        creds = await authRepo.signUp(email, password, _selectedRole, companyCode, name);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -123,7 +130,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       
       if (creds?.user != null) {
-        final role = await firebaseService.getUserRole(creds!.user!.uid);
+        final role = await authRepo.getUserRole(creds!.user!.uid);
         if (!mounted) return;
         
         if (role == 'driver') {
@@ -409,6 +416,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       });
                                     },
                                   ),
+                                  filled: true,
+                                  fillColor: AppColors.surfaceContainerLowest,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              
+                              // Nuevo campo: Nombres Completos
+                              Text(
+                                'NOMBRES COMPLETOS',
+                                style: GoogleFonts.publicSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _nameController,
+                                onChanged: (_) {
+                                  if (_errorMessage != null) setState(() => _errorMessage = null);
+                                },
+                                style: GoogleFonts.publicSans(color: AppColors.onSurface),
+                                decoration: InputDecoration(
+                                  hintText: 'Ej: Juan Pérez',
+                                  hintStyle: TextStyle(color: AppColors.outline.withOpacity(0.5)),
+                                  prefixIcon: const Icon(Icons.person, color: Colors.grey),
                                   filled: true,
                                   fillColor: AppColors.surfaceContainerLowest,
                                   border: OutlineInputBorder(

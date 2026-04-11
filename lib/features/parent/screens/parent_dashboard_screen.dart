@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/app_providers.dart';
 import 'parent_map_screen.dart';
 import 'parent_notifications_screen.dart';
 import 'parent_history_screen.dart';
 import 'add_student_screen.dart';
 
-class ParentDashboardScreen extends StatelessWidget {
+class ParentDashboardScreen extends ConsumerWidget {
   const ParentDashboardScreen({super.key});
 
   // Colores del tema Parent (Blue Theme)
@@ -16,7 +18,16 @@ class ParentDashboardScreen extends StatelessWidget {
   final Color _onSurfaceVariant = const Color(0xFF424751);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userProfileAsync = ref.watch(userProfileProvider);
+    // Extraemos el primer nombre (hasta el primer espacio) o mostramos completo si no tiene espacio
+    final rawName = userProfileAsync.value?['name'] as String? ?? 'Padre / Madre';
+    final firstName = rawName.split(' ').first;
+    
+    final now = DateTime.now();
+    final months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    final dateStr = '${now.day} de ${months[now.month - 1]}, ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
     return Scaffold(
       backgroundColor: _surface,
       body: Stack(
@@ -31,9 +42,9 @@ class ParentDashboardScreen extends StatelessWidget {
                 children: [
                   // Greeting Section
                   Text(
-                    'Buenos días, María',
+                    'Buenos días, $firstName',
                     style: GoogleFonts.publicSans(
-                      fontSize: 28,
+                      fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: _onSurface,
                       letterSpacing: -0.5,
@@ -41,7 +52,7 @@ class ParentDashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Lunes, 12 de Octubre',
+                    dateStr,
                     style: GoogleFonts.publicSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -237,63 +248,7 @@ class ParentDashboardScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 32),
-
-                  // Notifications Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Actividad Reciente',
-                        style: GoogleFonts.publicSans(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: _onSurface,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ParentNotificationsScreen()));
-                        },
-                        child: Text(
-                          'VER TODO',
-                          style: GoogleFonts.publicSans(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.5,
-                            color: _primary,
-                          ),
-                        ),
-                      )
-                    ],
-                  ),
-
-                  // Notifications List
-                  _buildNotificationItem(
-                    icon: Icons.departure_board,
-                    iconColor: const Color(0xFF5b666e),
-                    iconBg: const Color(0xFFd9e4ee),
-                    title: 'El bus ha iniciado el recorrido',
-                    subtitle: 'Hace 5 minutos • Parada Central',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildNotificationItem(
-                    icon: Icons.warning,
-                    iconColor: const Color(0xFF703800), // tertiary variant
-                    iconBg: const Color(0xFFffdcc4), // tertiary fixed
-                    title: 'Ligero retraso en tráfico',
-                    subtitle: 'Hace 15 minutos • Av. Las Américas',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildNotificationItem(
-                    icon: Icons.done_all,
-                    iconColor: const Color(0xFF5b666e),
-                    iconBg: const Color(0xFFd9e4ee),
-                    title: 'Asignación de ruta confirmada',
-                    subtitle: 'Hoy, 06:00 AM • Sistema',
-                  ),
-
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 80), // Espacio final para que no lo cubra el nav
                 ],
               ),
             ),
@@ -334,23 +289,25 @@ class ParentDashboardScreen extends StatelessWidget {
           // Bottom Nav Bar
           Positioned(
             bottom: 0, left: 0, right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(color: _primaryContainer.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))
-                ]
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _navItem(context, icon: Icons.home, label: 'Inicio', isActive: true, target: const ParentDashboardScreen()),
-                  _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
-                  _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: false, target: const ParentNotificationsScreen()),
-                  _navItem(context, icon: Icons.history, label: 'Historial', isActive: false, target: const ParentHistoryScreen()),
-                ],
+            child: SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [
+                    BoxShadow(color: _primaryContainer.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))
+                  ]
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _navItem(context, icon: Icons.home, label: 'Inicio', isActive: true, target: const ParentDashboardScreen()),
+                    _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
+                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: false, target: const ParentNotificationsScreen()),
+                    _navItem(context, icon: Icons.history, label: 'Historial', isActive: false, target: const ParentHistoryScreen()),
+                  ],
+                ),
               ),
             ),
           )
