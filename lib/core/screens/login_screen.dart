@@ -77,10 +77,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() => _errorMessage = 'Las contraseñas no coinciden');
         return;
       }
-      if (companyCode.isEmpty) {
-        setState(() => _errorMessage = 'Debe ingresar el código de su cooperativa o unidad educativa');
-        return;
-      }
       if (name.isEmpty) {
         setState(() => _errorMessage = 'Debe ingresar sus nombres completos');
         return;
@@ -113,7 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (_authMode == AuthMode.login) {
         creds = await authRepo.signIn(email, password);
       } else {
-        creds = await authRepo.signUp(email, password, _selectedRole, companyCode, name);
+        creds = await authRepo.signUp(email, password, _selectedRole, name);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -457,37 +453,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                               const SizedBox(height: 24),
                               
-                              // Nuevo campo: Código de Cooperativa
-                              Text(
-                                'CÓDIGO DE COOPERATIVA / UNIDAD EDUCATIVA',
-                                style: GoogleFonts.publicSans(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.5,
-                                  color: AppColors.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _companyCodeController,
-                                onChanged: (_) {
-                                  if (_errorMessage != null) setState(() => _errorMessage = null);
-                                },
-                                style: GoogleFonts.publicSans(color: AppColors.onSurface),
-                                decoration: InputDecoration(
-                                  hintText: 'Ej: RUTA-42',
-                                  hintStyle: TextStyle(color: AppColors.outline.withOpacity(0.5)),
-                                  prefixIcon: const Icon(Icons.business, color: Colors.grey),
-                                  filled: true,
-                                  fillColor: AppColors.surfaceContainerLowest,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
+                            ], // Fin de sección registro adicional
+
 
                             // Optional Role Selector
                             if (_authMode == AuthMode.register) ...[
@@ -513,6 +480,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     isExpanded: true,
                                     dropdownColor: AppColors.surfaceContainerLowest,
                                     items: const [
+                                      DropdownMenuItem(value: 'admin', child: Text('Administrador')),
                                       DropdownMenuItem(value: 'parent', child: Text('Padre de familia')),
                                       DropdownMenuItem(value: 'driver', child: Text('Conductor')),
                                     ],

@@ -7,6 +7,9 @@ import 'driver_stop_detail_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/providers/map_provider.dart';
 
+import '../../../core/providers/app_providers.dart';
+import '../../../core/providers/route_provider.dart';
+
 class DriverMapScreen extends ConsumerWidget {
   const DriverMapScreen({super.key});
 
@@ -20,24 +23,60 @@ class DriverMapScreen extends ConsumerWidget {
           Positioned.fill(
             child: Consumer(
               builder: (context, ref, _) {
+                // Sincronizar ubicación con Firestore
+                ref.listen(currentLocationStreamProvider, (previous, next) async {
+                  final position = next.value;
+                  if (position != null) {
+                    final profile = await ref.read(userProfileProvider.future);
+                    final unitCode = profile?['unitCode'] as String? ?? 'UNIDAD-GENERICA';
+                    
+                    ref.read(trackingRepositoryProvider).updateDriverLocation(
+                      unitCode, 
+                      position.latitude, 
+                      position.longitude,
+                    );
+                  }
+                });
+
                 final locationAsync = ref.watch(currentLocationStreamProvider);
                 
-                return locationAsync.when(
-                  data: (position) {
-                    final latLng = LatLng(position.latitude, position.longitude);
-                    return GoogleMap(
-                      initialCameraPosition: CameraPosition(target: latLng, zoom: 16),
-                      myLocationEnabled: true,
+                LatLng initialPos = defaultInitialLocation;
+                if (locationAsync.hasValue) {
+                  initialPos = LatLng(locationAsync.value!.latitude, locationAsync.value!.longitude);
+                }
+
+                return Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(target: initialPos, zoom: 16),
+                      myLocationEnabled: locationAsync.hasValue,
                       myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,
                       mapToolbarEnabled: false,
                       onMapCreated: (controller) {
                         ref.read(mapControllerProvider.notifier).setController(controller);
                       },
-                    );
-                  },
-                  loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                  error: (error, _) => Center(child: Text('Habilita el GPS para ver el mapa', style: GoogleFonts.publicSans(color: Colors.grey))),
+                    ),
+                    if (locationAsync.hasError)
+                      Positioned(
+                        top: 140,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'GPS deshabilitado - Usando ubicación base',
+                              style: GoogleFonts.publicSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),

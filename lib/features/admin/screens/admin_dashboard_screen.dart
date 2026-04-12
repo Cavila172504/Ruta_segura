@@ -49,7 +49,10 @@ class AdminDashboardScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Resumen General', style: GoogleFonts.manrope(fontSize: 28, fontWeight: FontWeight.w800, color: _onSurface)),
+                Expanded(
+                  child: Text('Resumen General', style: GoogleFonts.manrope(fontSize: 28, fontWeight: FontWeight.w800, color: _onSurface), overflow: TextOverflow.ellipsis),
+                ),
+                const SizedBox(width: 8),
                 Text('LIVE FEED • UTC-5', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600, letterSpacing: 1.5)),
               ],
             ),
@@ -201,29 +204,36 @@ class AdminDashboardScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 48, height: 48,
-                decoration: BoxDecoration(color: const Color(0xFFF0ECF6), borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: iconColor),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: _onSurface)),
-                  Row(
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(color: const Color(0xFFF0ECF6), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(icon, color: iconColor),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(isWarning ? Icons.warning : Icons.schedule, size: 14, color: isWarning ? _error : Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: isWarning ? _error : Colors.grey.shade600, fontWeight: isWarning ? FontWeight.w600 : FontWeight.normal)),
+                      Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: _onSurface), overflow: TextOverflow.ellipsis),
+                      Row(
+                        children: [
+                          Icon(isWarning ? Icons.warning : Icons.schedule, size: 14, color: isWarning ? _error : Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: isWarning ? _error : Colors.grey.shade600, fontWeight: isWarning ? FontWeight.w600 : FontWeight.normal), overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      )
                     ],
-                  )
-                ],
-              )
-            ],
+                  ),
+                )
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(12)),

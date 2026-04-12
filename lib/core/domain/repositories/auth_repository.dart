@@ -9,7 +9,6 @@ abstract class AuthRepository {
     String email, 
     String password, 
     String role, 
-    String companyCode, 
     String fullName
   );
   

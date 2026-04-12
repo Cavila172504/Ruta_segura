@@ -194,7 +194,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
                   children: [
                     _navItem(context, icon: Icons.home, label: 'Inicio', isActive: false, target: const ParentDashboardScreen()),
                     _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
-                    _navItem(context, icon: Icons.notifications, label: 'Alertas', isActive: true, target: const ParentNotificationsScreen()),
+                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: true, target: const ParentNotificationsScreen()),
                   ],
                 ),
               ),

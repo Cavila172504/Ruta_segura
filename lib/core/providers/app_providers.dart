@@ -33,6 +33,18 @@ final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final uid = await authRepo.getCurrentUserId();
   if (uid == null) return null;
   
-  final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-  return doc.data();
+  // Buscamos el perfil en la nueva estructura organizada por roles
+  for (final roleCol in ['admins', 'parents', 'drivers']) {
+    final query = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(roleCol)
+        .collection('members')
+        .where('uid', isEqualTo: uid)
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      return query.docs.first.data();
+    }
+  }
+  return null;
 });

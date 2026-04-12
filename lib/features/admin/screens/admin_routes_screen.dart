@@ -139,93 +139,92 @@ class AdminRoutesScreen extends StatelessWidget {
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
         ),
         child: LayoutBuilder(builder: (context, constraints) {
-          bool isDesktop = constraints.maxWidth > 600;
+          bool isDesktop = constraints.maxWidth > 800;
           
-          List<Widget> children = [
-            // Info Column
-            Expanded(
-              flex: 4,
-              child: Row(
-                children: [
-                  Container(
-                    width: 48, height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      image: DecorationImage(image: NetworkImage(imgUrl), fit: BoxFit.cover, colorFilter: isActive ? null : const ColorFilter.mode(Colors.grey, BlendMode.saturation)),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: _onSurface)),
-                        Text('Cód: $code', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
-                      ],
-                    ),
-                  )
-                ],
-              ),
-            ),
-            // Driver
-            Expanded(
-              flex: 3,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.person, color: _primary, size: 16),
-                  const SizedBox(width: 8),
-                  Text(driver, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade700)),
-                ],
-              ),
-            ),
-            // Students
-            Expanded(
-              flex: 2,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.group, color: Colors.grey.shade600, size: 16),
-                  const SizedBox(width: 8),
-                  Text('$students Estudiantes', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade700)),
-                ],
-              ),
-            ),
-            // Status
-            Expanded(
-              flex: 2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: isActive ? const Color(0xFFE2DDF4) : const Color(0xFFE5E1EB), borderRadius: BorderRadius.circular(16)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(width: 6, height: 6, decoration: BoxDecoration(color: isActive ? Colors.green : Colors.grey, shape: BoxShape.circle)),
-                    const SizedBox(width: 8),
-                    Text(isActive ? 'ACTIVA' : 'INACTIVA', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? _onSurface : Colors.grey.shade700)),
-                  ],
+          Widget infoWidget = Row(
+            children: [
+              Container(
+                width: 48, height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  image: DecorationImage(image: NetworkImage(imgUrl), fit: BoxFit.cover, colorFilter: isActive ? null : const ColorFilter.mode(Colors.grey, BlendMode.saturation)),
                 ),
               ),
+              const SizedBox(width: 16),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: _onSurface), overflow: TextOverflow.ellipsis),
+                    Text('Cód: $code', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
+                  ],
+                ),
+              )
+            ],
+          );
+
+          Widget driverWidget = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.person, color: _primary, size: 16),
+              const SizedBox(width: 8),
+              Flexible(child: Text(driver, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade700), overflow: TextOverflow.ellipsis)),
+            ],
+          );
+
+          Widget studentsWidget = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.group, color: Colors.grey.shade600, size: 16),
+              const SizedBox(width: 8),
+              Text('$students Estudiantes', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade700)),
+            ],
+          );
+
+          Widget statusWidget = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: isActive ? const Color(0xFFE2DDF4) : const Color(0xFFE5E1EB), borderRadius: BorderRadius.circular(16)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 6, height: 6, decoration: BoxDecoration(color: isActive ? Colors.green : Colors.grey, shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Text(isActive ? 'ACTIVA' : 'INACTIVA', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? _onSurface : Colors.grey.shade700)),
+              ],
             ),
-            if (isDesktop) const Icon(Icons.more_vert, color: Colors.grey),
-          ];
+          );
 
           if (isDesktop) {
-            return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: children);
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+              children: [
+                Expanded(flex: 4, child: infoWidget),
+                const SizedBox(width: 12),
+                Expanded(flex: 3, child: driverWidget),
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: studentsWidget),
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: statusWidget),
+                const Icon(Icons.more_vert, color: Colors.grey),
+              ],
+            );
           } else {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                children[0], // Info
+                infoWidget,
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [children[1], const SizedBox(height: 8), children[2]],
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [driverWidget, const SizedBox(height: 8), studentsWidget],
+                      ),
                     ),
-                    children[3] // Status
+                    const SizedBox(width: 12),
+                    statusWidget
                   ],
                 )
               ],

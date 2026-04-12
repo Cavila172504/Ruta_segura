@@ -33,8 +33,7 @@ class FirebaseAuthRepository implements AuthRepository {
     String email, 
     String password, 
     String role, 
-    String companyCode, 
-    String fullName
+    String fullName,
   ) async {
     try {
       final creds = await _auth.createUserWithEmailAndPassword(
@@ -47,29 +46,29 @@ class FirebaseAuthRepository implements AuthRepository {
         await creds.user!.sendEmailVerification();
         final uid = creds.user!.uid;
 
-        // 1. Directorio Raíz Global
-        await _firestore.collection('users').doc(uid).set({
-          'name': fullName,
-          'role': role,
-          'email': email,
-          'companyCode': companyCode,
-          'password': password, // Requisito funcional local
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        
-        // 2. Organización SaaS dentro de la Compañía
-        final rolePlural = role == 'admin' ? 'admins' : (role == 'driver' ? 'drivers' : 'parents');
+        // Mapeamos el rol a una subcoleccion legible
+        final String roleCollection;
+        switch (role) {
+          case 'admin':  roleCollection = 'admins';  break;
+          case 'driver': roleCollection = 'drivers'; break;
+          default:       roleCollection = 'parents'; break;
+        }
+
+        // ID del documento = nombre limpio (sin espacios duplicados, en minúsculas)
+        final docId = fullName.trim().replaceAll(RegExp(r'\s+'), '_').toLowerCase();
+
+        // 1. Guardamos en subcoleccion por rol: users/{rol}/{nombre}
         await _firestore
-            .collection('companies')
-            .doc(companyCode)
-            .collection(rolePlural)
-            .doc(uid)
+            .collection('users')
+            .doc(roleCollection)
+            .collection('members')
+            .doc(docId)
             .set({
+              'uid': uid,
               'name': fullName,
               'email': email,
-              'uid': uid,
               'role': role,
-              'joinedAt': FieldValue.serverTimestamp(),
+              'createdAt': FieldValue.serverTimestamp(),
             });
 
         await _auth.signOut();
@@ -97,13 +96,21 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<String?> getUserRole(String uid) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-      if (doc.exists && doc.data() != null) {
-        return doc.data()!['role'] as String?;
+      // Buscamos el rol en cada subcoleccion de roles
+      for (final roleCollection in ['admins', 'parents', 'drivers']) {
+        final query = await _firestore
+            .collection('users')
+            .doc(roleCollection)
+            .collection('members')
+            .where('uid', isEqualTo: uid)
+            .limit(1)
+            .get();
+        if (query.docs.isNotEmpty) {
+          return query.docs.first.data()['role'] as String?;
+        }
       }
       return null;
     } catch (e) {
-      print('Error obteniendo el rol del usuario: $e');
       return null;
     }
   }

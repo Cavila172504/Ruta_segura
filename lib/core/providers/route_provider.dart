@@ -47,7 +47,10 @@ final studentStopProvider = StreamProvider<LatLng?>((ref) {
       .where('parentId', isEqualTo: user.uid)
       .snapshots()
       .map((snap) {
-        if (snap.docs.isEmpty) return null;
+        if (snap.docs.isEmpty) {
+          // Fallback para pruebas: Centro de un sector residencial en Quito
+          return const LatLng(-0.180653, -78.467834); 
+        }
         final data = snap.docs.first.data();
         return LatLng(data['stopLat'] as double, data['stopLng'] as double);
       });

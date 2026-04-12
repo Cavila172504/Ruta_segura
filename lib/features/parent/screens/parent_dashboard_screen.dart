@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import 'parent_map_screen.dart';
 import 'parent_notifications_screen.dart';
-import 'parent_history_screen.dart';
 import 'add_student_screen.dart';
 
 class ParentDashboardScreen extends ConsumerWidget {
@@ -382,7 +381,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                   children: [
                     _navItem(context, icon: Icons.home, label: 'Inicio', isActive: true, target: const ParentDashboardScreen()),
                     _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
-                    _navItem(context, icon: Icons.notifications, label: 'Alertas', isActive: false, target: const ParentNotificationsScreen()),
+                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: false, target: const ParentNotificationsScreen()),
                   ],
                 ),
               ),
@@ -488,9 +487,6 @@ class ParentDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statsCard(String value, String label, IconData icon, Color iconColor) {
-    return Container(); // Mantengo la firma por si se usa en otros lados, pero retorna vacío
-  }
 
   Widget _navItem(BuildContext context, {required IconData icon, required String label, required bool isActive, required Widget target}) {
     return Expanded(

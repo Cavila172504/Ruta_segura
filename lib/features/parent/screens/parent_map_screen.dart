@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'parent_dashboard_screen.dart';
 import 'parent_notifications_screen.dart';
-import 'parent_history_screen.dart';
 import 'parent_proximity_alert_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -10,6 +9,9 @@ import '../../../core/providers/map_provider.dart';
 import '../../../core/providers/route_provider.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/screens/login_screen.dart';
+
+import '../../../core/services/notification_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class ParentMapScreen extends ConsumerWidget {
   const ParentMapScreen({super.key});
@@ -28,18 +30,69 @@ class ParentMapScreen extends ConsumerWidget {
           Positioned.fill(
             child: Consumer(
               builder: (context, ref, _) {
+                // Lógica de Proximidad
+                ref.listen(liveBusLocationProvider, (previous, next) {
+                  final busLoc = next.value;
+                  final studentStop = ref.read(studentStopProvider).value;
+                  
+                  if (busLoc != null && studentStop != null) {
+                    final distance = Geolocator.distanceBetween(
+                      busLoc.latitude, busLoc.longitude,
+                      studentStop.latitude, studentStop.longitude,
+                    );
+
+                    if (distance < 600) {
+                      final etaMin = (distance / 300).ceil();
+                      
+                      // Notificación local (Sistema) - Se ve con pantalla apagada
+                      NotificationService().showLocalNotification(
+                        id: 1,
+                        title: '¡La unidad esta proxima en llegar!',
+                        body: 'Distancia: ${distance.toInt()}m • Tiempo estimado: $etaMin min. Conductor: Roberto Mendez',
+                      );
+
+                      // Notificación en app (UI)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('¡La unidad esta proxima en llegar!', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text('Distancia: ${distance.toInt()}m • Tiempo estimado: $etaMin min'),
+                              Text('Conductor: Roberto Mendez', style: GoogleFonts.publicSans(fontSize: 12)),
+                            ],
+                          ),
+                          backgroundColor: _primary,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          duration: const Duration(seconds: 10),
+                        ),
+                      );
+                    }
+                  }
+                });
+
                 final locationAsync = ref.watch(currentLocationStreamProvider);
-                
-                return locationAsync.when(
-                  data: (position) {
-                    final routePoints = ref.watch(busRouteProvider);
-                    final polylines = ref.watch(activePolylinesProvider);
-                    final liveBusLocation = ref.watch(liveBusLocationProvider).value;
-                    final studentStop = ref.watch(studentStopProvider).value;
-                    
-                    return GoogleMap(
-                      initialCameraPosition: CameraPosition(target: liveBusLocation ?? routePoints.first, zoom: 14),
-                      myLocationEnabled: true,
+                final routePoints = ref.watch(busRouteProvider);
+                final polylines = ref.watch(activePolylinesProvider);
+                final liveBusLocation = ref.watch(liveBusLocationProvider).value;
+                final studentStop = ref.watch(studentStopProvider).value;
+
+                LatLng initialPos = defaultInitialLocation;
+                if (liveBusLocation != null) {
+                  initialPos = liveBusLocation;
+                } else if (studentStop != null) {
+                  initialPos = studentStop;
+                } else if (routePoints.isNotEmpty) {
+                  initialPos = routePoints.first;
+                }
+
+                return Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(target: initialPos, zoom: 14),
+                      myLocationEnabled: locationAsync.hasValue,
                       myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,
                       mapToolbarEnabled: false,
@@ -50,7 +103,7 @@ class ParentMapScreen extends ConsumerWidget {
                             markerId: const MarkerId('home'),
                             position: studentStop,
                             infoWindow: const InfoWindow(title: 'Mi Parada (Hogar)'),
-                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange), // Representación de casita
                           ),
                         if (liveBusLocation != null)
                           Marker(
@@ -66,14 +119,31 @@ class ParentMapScreen extends ConsumerWidget {
                           ),
                       },
                       onMapCreated: (controller) {
-                        try{
-                           ref.read(mapControllerProvider.notifier).setController(controller);
-                        } catch(e){}
+                        try {
+                          ref.read(mapControllerProvider.notifier).setController(controller);
+                        } catch (e) {}
                       },
-                    );
-                  },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Center(child: Text('Habilita el GPS', style: GoogleFonts.publicSans())),
+                    ),
+                    if (locationAsync.hasError)
+                      Positioned(
+                        top: 140,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'GPS deshabilitado - Usando ubicación de bus',
+                              style: GoogleFonts.publicSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),
@@ -185,8 +255,36 @@ class ParentMapScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _navItem(context, icon: Icons.home, label: 'Inicio', isActive: false, target: const ParentDashboardScreen()),
-                    _navItem(context, icon: Icons.map, label: 'Mapa', isActive: true, target: const ParentMapScreen()),
-                    _navItem(context, icon: Icons.notifications, label: 'Alertas', isActive: false, target: const ParentNotificationsScreen()),
+                    // BOTÓN DE PRUEBA (Temporal)
+                    GestureDetector(
+                      onLongPress: () async {
+                        final authRepo = ref.read(authRepositoryProvider);
+                        final uid = await authRepo.getCurrentUserId();
+                        // Intentamos obtener perfil o usamos unidad por defecto
+                        final profile = ref.read(userProfileProvider).value;
+                        final unitCode = profile?['activeUnitCode'] as String? ?? 'UNIDAD-GENERICA';
+                        
+                        // Obtenemos la parada (ahora tiene fallback)
+                        final studentStop = ref.read(studentStopProvider).value ?? const LatLng(-0.180653, -78.467834);
+                        
+                        // Mover bus a exactamente 500m del objetivo
+                        final testLat = studentStop.latitude + 0.0035; // Aproximadamente 400-500m
+                        final testLng = studentStop.longitude + 0.0035;
+                        
+                        await ref.read(trackingRepositoryProvider).updateDriverLocation(
+                          unitCode, testLat, testLng
+                        );
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('PRUEBA ACTIVADA: Bus enviado a rango de 600m. ¡Bloquea tu pantalla ahora!'),
+                            backgroundColor: Colors.blueAccent,
+                          ),
+                        );
+                      },
+                      child: _navItem(context, icon: Icons.map, label: 'Mapa', isActive: true, target: const ParentMapScreen()),
+                    ),
+                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: false, target: const ParentNotificationsScreen()),
                   ],
                 ),
               ),
@@ -266,65 +364,68 @@ class ParentMapScreen extends ConsumerWidget {
                 decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
               ),
               const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              Consumer(
+                builder: (context, ref, _) {
+                  final busLoc = ref.watch(liveBusLocationProvider).value;
+                  final studentStop = ref.watch(studentStopProvider).value;
+                  String arrivalText = 'Calculando...';
+                  
+                  if (busLoc != null && studentStop != null) {
+                    final dist = Geolocator.distanceBetween(
+                      busLoc.latitude, busLoc.longitude,
+                      studentStop.latitude, studentStop.longitude,
+                    );
+                    final mins = (dist / 300).ceil();
+                    arrivalText = dist < 50 ? 'En la puerta' : 'Llega en $mins min';
+                  }
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'ESTADO DEL BUS',
-                        style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: const Color(0xFF556068)),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ESTADO DEL BUS',
+                            style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: const Color(0xFF556068)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            arrivalText,
+                            style: GoogleFonts.manrope(fontSize: 28, fontWeight: FontWeight.w900, color: _primary, letterSpacing: -0.5),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Llega en 5 min',
-                        style: GoogleFonts.publicSans(fontSize: 28, fontWeight: FontWeight.w900, color: _primary, letterSpacing: -0.5),
-                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(color: const Color(0xFFd9e4ee), borderRadius: BorderRadius.circular(16)),
+                        child: Column(
+                          children: [
+                            Text('PLACA', style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold)),
+                            Text('ABC-1234', style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                      )
                     ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(color: const Color(0xFFd9e4ee), borderRadius: BorderRadius.circular(16)),
-                    child: Column(
-                      children: [
-                        Text('PLACA', style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold)),
-                        Text('ABC-1234', style: GoogleFonts.publicSans(fontSize: 16, fontWeight: FontWeight.w900)),
-                      ],
-                    ),
-                  )
-                ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
+              const SizedBox(height: 24),
+              // Detalles Adicionales
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(color: const Color(0xFFf3f4f5), borderRadius: BorderRadius.circular(24)),
                 child: Row(
                   children: [
-                    Container(
-                      width: 64, height: 64,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        image: const DecorationImage(
-                          image: NetworkImage('https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=250&auto=format&fit=crop'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
+                    const Icon(Icons.info_outline, color: Colors.blueGrey),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Roberto Mendez', style: GoogleFonts.publicSans(fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text('Conductor Certificado', style: GoogleFonts.publicSans(fontSize: 14, color: const Color(0xFF424751))),
-                        ],
+                      child: Text(
+                        'Ruta en curso. El conductor sigue la trayectoria planificada para garantizar la seguridad.',
+                        style: GoogleFonts.publicSans(fontSize: 14, color: const Color(0xFF424751)),
                       ),
                     ),
-                    Container(
-                      width: 48, height: 48,
-                      decoration: BoxDecoration(color: _primary, shape: BoxShape.circle),
-                      child: const Icon(Icons.call, color: Colors.white),
-                    )
                   ],
                 ),
               ),
