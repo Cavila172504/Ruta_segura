@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/app_providers.dart';
+import '../../../core/screens/login_screen.dart';
 import 'parent_dashboard_screen.dart';
 import 'parent_map_screen.dart';
-import 'parent_history_screen.dart';
 
-class ParentNotificationsScreen extends StatelessWidget {
+class ParentNotificationsScreen extends ConsumerWidget {
   const ParentNotificationsScreen({super.key});
 
   final Color _primary = const Color(0xFF004782);
@@ -12,7 +14,7 @@ class ParentNotificationsScreen extends StatelessWidget {
   final Color _surface = const Color(0xFFF8F9FA);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: _surface,
       body: Stack(
@@ -158,7 +160,18 @@ class ParentNotificationsScreen extends StatelessWidget {
                         Text('BusGuardian', style: GoogleFonts.publicSans(fontSize: 18, fontWeight: FontWeight.w800, color: _primary, letterSpacing: -0.5))
                       ],
                     ),
-                    Icon(Icons.notifications, color: Colors.grey.shade500),
+                    IconButton(
+                      icon: Icon(Icons.logout, color: Colors.grey.shade500),
+                      onPressed: () async {
+                        await ref.read(authRepositoryProvider).signOut();
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -181,8 +194,7 @@ class ParentNotificationsScreen extends StatelessWidget {
                   children: [
                     _navItem(context, icon: Icons.home, label: 'Inicio', isActive: false, target: const ParentDashboardScreen()),
                     _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
-                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: true, target: const ParentNotificationsScreen()),
-                    _navItem(context, icon: Icons.history, label: 'Historial', isActive: false, target: const ParentHistoryScreen()),
+                    _navItem(context, icon: Icons.notifications, label: 'Alertas', isActive: true, target: const ParentNotificationsScreen()),
                   ],
                 ),
               ),

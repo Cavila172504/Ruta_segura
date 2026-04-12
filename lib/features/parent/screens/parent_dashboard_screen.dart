@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/screens/login_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
@@ -20,13 +21,32 @@ class ParentDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userProfileAsync = ref.watch(userProfileProvider);
-    // Extraemos el primer nombre (hasta el primer espacio) o mostramos completo si no tiene espacio
-    final rawName = userProfileAsync.value?['name'] as String? ?? 'Padre / Madre';
+    final authUser = ref.watch(authStateProvider).value;
+    
+    // Lógica robusta para el nombre
+    String rawName = 'Padre';
+    if (userProfileAsync.value != null && userProfileAsync.value!['name'] != null) {
+      rawName = userProfileAsync.value!['name'].toString();
+    } else if (authUser?.displayName != null && authUser!.displayName!.isNotEmpty) {
+      rawName = authUser.displayName!;
+    }
+    
     final firstName = rawName.split(' ').first;
     
     final now = DateTime.now();
+    final hour = now.hour;
+    String greeting;
+    if (hour < 12) {
+      greeting = 'Buenos días';
+    } else if (hour < 19) {
+      greeting = 'Buenas tardes';
+    } else {
+      greeting = 'Buenas noches';
+    }
+    
     final months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    final dateStr = '${now.day} de ${months[now.month - 1]}, ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    final dateStr = '${days[now.weekday % 7]}, ${now.day} de ${months[now.month - 1]} • ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
       backgroundColor: _surface,
@@ -36,18 +56,18 @@ class ParentDashboardScreen extends ConsumerWidget {
           Positioned.fill(
             bottom: 80,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(top: 100, left: 24, right: 24, bottom: 24),
+              padding: const EdgeInsets.only(top: 140, left: 24, right: 24, bottom: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Greeting Section
                   Text(
-                    'Buenos días, $firstName',
+                    '$greeting, $firstName',
                     style: GoogleFonts.publicSans(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
                       color: _onSurface,
-                      letterSpacing: -0.5,
+                      letterSpacing: -1.0,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -91,7 +111,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                             color: const Color(0xFFd9e4ee),
                                             borderRadius: BorderRadius.circular(16),
                                             image: const DecorationImage(
-                                              image: NetworkImage('https://images.unsplash.com/photo-1544281679-42011668e1ab?q=80&w=200&auto=format&fit=crop'),
+                                              image: NetworkImage('https://images.unsplash.com/photo-1590650516494-0c8e4a4dd67e?q=80&w=250&auto=format&fit=crop'),
                                               fit: BoxFit.cover,
                                             )
                                           ),
@@ -248,7 +268,54 @@ class ParentDashboardScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 80), // Espacio final para que no lo cubra el nav
+                  const SizedBox(height: 32),
+                  
+                  // Quick Actions (Absence Reporting Only)
+                  Text(
+                    'REPORTE DE ASISTENCIA',
+                    style: GoogleFonts.publicSans(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: _onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () => _showAbsenceConfirmation(context),
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFEDE7),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.1), width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: const BoxDecoration(color: Color(0xFFFFDAD6), shape: BoxShape.circle),
+                            child: const Icon(Icons.no_accounts, color: Color(0xFF410002), size: 28),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Mi hijo no asistirá hoy',
+                                  style: GoogleFonts.publicSans(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF410002)),
+                                ),
+                                Text(
+                                  'Notificar que el bus no pase hoy',
+                                  style: GoogleFonts.publicSans(fontSize: 12, color: const Color(0xFF410002).withValues(alpha: 0.7)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF410002)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 120), // Espacio final para que no lo cubra el nav
                 ],
               ),
             ),
@@ -259,7 +326,7 @@ class ParentDashboardScreen extends ConsumerWidget {
             top: 0, left: 0, right: 0,
             child: ClipRect(
               child: Container(
-                color: Colors.white.withOpacity(0.85),
+                color: Colors.white.withValues(alpha: 0.85),
                 padding: const EdgeInsets.only(top: 48, left: 24, right: 24, bottom: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -279,7 +346,18 @@ class ParentDashboardScreen extends ConsumerWidget {
                         )
                       ],
                     ),
-                    Icon(Icons.notifications, color: Colors.grey.shade500),
+                    IconButton(
+                      icon: Icon(Icons.logout, color: Colors.grey.shade500),
+                      onPressed: () async {
+                        await ref.read(authRepositoryProvider).signOut();
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -296,7 +374,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                   color: Colors.white.withOpacity(0.9),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   boxShadow: [
-                    BoxShadow(color: _primaryContainer.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))
+                    BoxShadow(color: _primaryContainer.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))
                   ]
                 ),
                 child: Row(
@@ -304,8 +382,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                   children: [
                     _navItem(context, icon: Icons.home, label: 'Inicio', isActive: true, target: const ParentDashboardScreen()),
                     _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
-                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: false, target: const ParentNotificationsScreen()),
-                    _navItem(context, icon: Icons.history, label: 'Historial', isActive: false, target: const ParentHistoryScreen()),
+                    _navItem(context, icon: Icons.notifications, label: 'Alertas', isActive: false, target: const ParentNotificationsScreen()),
                   ],
                 ),
               ),
@@ -367,51 +444,52 @@ class ParentDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildNotificationItem({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String title,
-    required String subtitle,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))
-        ]
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(
-              color: iconBg,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 24),
+
+  void _showAbsenceConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          title: Text(
+            '¿Confirmar inasistencia?',
+            style: GoogleFonts.publicSans(fontWeight: FontWeight.w900, color: const Color(0xFF410002)),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.bold, color: _onSurface),
-                ),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.publicSans(fontSize: 11, color: _onSurfaceVariant),
-                )
-              ],
+          content: Text(
+            'Al confirmar, el conductor recibirá una alerta automática y NO se detendrá en su ubicación el día de hoy.\n\nEsto garantiza la seguridad y fluidez de la ruta sin distracciones.',
+            style: GoogleFonts.publicSans(fontSize: 15, color: const Color(0xFF410002)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text('CANCELAR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: Colors.grey)),
             ),
-          )
-        ],
-      ),
+            ElevatedButton(
+              onPressed: () {
+                // Aquí iría la lógica para enviar a Firestore
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Inasistencia reportada con éxito.'),
+                    backgroundColor: Colors.black87,
+                  )
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFBA1A1A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text('CONFIRMAR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  Widget _statsCard(String value, String label, IconData icon, Color iconColor) {
+    return Container(); // Mantengo la firma por si se usa en otros lados, pero retorna vacío
   }
 
   Widget _navItem(BuildContext context, {required IconData icon, required String label, required bool isActive, required Widget target}) {

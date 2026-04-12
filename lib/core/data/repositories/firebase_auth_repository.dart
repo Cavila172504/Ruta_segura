@@ -43,6 +43,7 @@ class FirebaseAuthRepository implements AuthRepository {
       );
       
       if (creds.user != null) {
+        await creds.user!.updateDisplayName(fullName);
         await creds.user!.sendEmailVerification();
         final uid = creds.user!.uid;
 
