@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/services/notification_service.dart';
 import 'parent_map_picker_screen.dart';
 
 class AddStudentScreen extends ConsumerStatefulWidget {
@@ -82,6 +83,9 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         stopLat: _selectedLocation!.latitude,
         stopLng: _selectedLocation!.longitude,
       );
+      
+      // Suscribirse a los tópicos de notificación para este bus
+      await NotificationService().subscribeToBus(unitCode);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,12 +104,17 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
   void _onQRScanned(BarcodeCapture capture) {
     if (capture.barcodes.isNotEmpty) {
-      final String code = capture.barcodes.first.rawValue ?? '';
+      String code = capture.barcodes.first.rawValue ?? '';
       if (code.isNotEmpty) {
+        // Soporte para protocolo de vinculación segura
+        if (code.startsWith('RUTASEGURA:UNIT:')) {
+          code = code.replaceFirst('RUTASEGURA:UNIT:', '');
+        }
+        
         setState(() {
           _unitCodeController.text = code;
           _isScanning = false;
-          _errorMessage = 'Código escaneado correctamente.'; // Feedback positivo temporal
+          _errorMessage = 'Unidad $code vinculada correctamente.';
         });
       }
     }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -48,7 +49,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
-    final companyCode = _companyCodeController.text.trim(); // Nuevo
     final name = _nameController.text.trim(); // Nombre
 
     // Validaciones de Formato
@@ -88,102 +88,127 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _isLoading = true;
     });
 
+    debugPrint('Iniciando proceso de autenticación para: $email');
     try {
-      final authRepo = ref.read(authRepositoryProvider);
-      
-      if (_authMode == AuthMode.forgotPassword) {
-        await authRepo.sendPasswordReset(email);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Enlace de recuperación enviado. Revisa tu correo.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        setState(() => _authMode = AuthMode.login);
-        return;
-      }
-
-      UserCredential? creds;
-      
-      if (_authMode == AuthMode.login) {
-        creds = await authRepo.signIn(email, password);
-      } else {
-        creds = await authRepo.signUp(email, password, _selectedRole, name);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cuenta creada con éxito. Revisa tu correo para verificar la cuenta.'),
-            backgroundColor: AppColors.secondary,
-          ),
-        );
+      await _doAuth(email, password, confirmPassword, name)
+          .timeout(const Duration(seconds: 20));
+      debugPrint('Proceso de autenticación completado correctamente.');
+    } on TimeoutException {
+      if (mounted) {
         setState(() {
-          _authMode = AuthMode.login;
-          _passwordController.clear();
-          _confirmPasswordController.clear();
+          _errorMessage = 'La conexión tardó demasiado. Verifica tu internet e intenta de nuevo.';
         });
-        return;
-      }
-      
-      if (creds?.user != null) {
-        final role = await authRepo.getUserRole(creds!.user!.uid);
-        if (!mounted) return;
-        
-        if (role == 'driver') {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const DriverDashboardScreen()));
-        } else if (role == 'parent') {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ParentDashboardScreen()));
-        } else {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
-        }
       }
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        switch (e.code) {
-          case 'user-not-found':
-          case 'invalid-credential':
-            _errorMessage = 'Correo o contraseña incorrectos.';
-            break;
-          case 'wrong-password':
-            _errorMessage = 'La contraseña es incorrecta.';
-            break;
-          case 'email-already-in-use':
-            _errorMessage = 'Este correo ya está registrado en otra cuenta.';
-            break;
-          case 'invalid-email':
-            _errorMessage = 'El formato del correo electrónico no es válido.';
-            break;
-          case 'weak-password':
-            _errorMessage = 'La contraseña es muy débil (mínimo 6 caracteres).';
-            break;
-          case 'user-disabled':
-            _errorMessage = 'Esta cuenta ha sido deshabilitada por el administrador.';
-            break;
-          case 'network-request-failed':
-            _errorMessage = 'Error de conexión. Revisa tu internet.';
-            break;
-          case 'too-many-requests':
-            _errorMessage = 'Demasiados intentos. Por seguridad, intenta más tarde.';
-            break;
-          case 'operation-not-allowed':
-            _errorMessage = 'El inicio de sesión con correo no está habilitado en Firebase.';
-            break;
-          default:
-            _errorMessage = 'Ups, ocurrió un error inesperado al intentar ingresar.';
-        }
-      });
+      if (mounted) {
+        setState(() {
+          switch (e.code) {
+            case 'user-not-found':
+            case 'invalid-credential':
+              _errorMessage = 'Correo o contraseña incorrectos.';
+              break;
+            case 'wrong-password':
+              _errorMessage = 'La contraseña es incorrecta.';
+              break;
+            case 'email-already-in-use':
+              _errorMessage = 'Este correo ya está registrado en otra cuenta.';
+              break;
+            case 'invalid-email':
+              _errorMessage = 'El formato del correo electrónico no es válido.';
+              break;
+            case 'weak-password':
+              _errorMessage = 'La contraseña es muy débil (mínimo 6 caracteres).';
+              break;
+            case 'user-disabled':
+              _errorMessage = 'Esta cuenta ha sido deshabilitada por el administrador.';
+              break;
+            case 'network-request-failed':
+              _errorMessage = 'Error de conexión. Revisa tu internet.';
+              break;
+            case 'too-many-requests':
+              _errorMessage = 'Demasiados intentos. Por seguridad, intenta más tarde.';
+              break;
+            case 'operation-not-allowed':
+              _errorMessage = 'El inicio de sesión con correo no está habilitado en Firebase.';
+              break;
+            default:
+              _errorMessage = 'Ups, ocurrió un error inesperado (${e.code}).';
+          }
+        });
+      }
     } catch (e) {
-      setState(() {
-        final errorStr = e.toString();
-        if (errorStr.contains('verificado')) {
-           _errorMessage = 'Correo no verificado. Revisa tu bandeja o SPAM.';
-        } else {
-           _errorMessage = 'Ocurrió un error inesperado. Intente de nuevo.';
-        }
-      });
+      if (mounted) {
+        setState(() {
+          final errorStr = e.toString();
+          if (errorStr.contains('verificado')) {
+             _errorMessage = 'Correo no verificado. Revisa tu bandeja o SPAM.';
+          } else {
+             _errorMessage = 'Ocurrió un error inesperado. Intente de nuevo.';
+          }
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _doAuth(String email, String password, String confirmPassword, String name) async {
+    final authRepo = ref.read(authRepositoryProvider);
+    
+    if (_authMode == AuthMode.forgotPassword) {
+      await authRepo.sendPasswordReset(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enlace de recuperación enviado. Revisa tu correo.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      setState(() => _authMode = AuthMode.login);
+      return;
+    }
+
+    UserCredential? creds;
+    
+    if (_authMode == AuthMode.login) {
+      debugPrint('Realizando signInWithEmailAndPassword...');
+      creds = await authRepo.signIn(email, password);
+      debugPrint('SignIn exitoso para UID: ${creds?.user?.uid}');
+    } else {
+      debugPrint('Realizando signUp...');
+      creds = await authRepo.signUp(email, password, _selectedRole, name);
+      debugPrint('SignUp exitoso.');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cuenta creada con éxito. Revisa tu correo para verificar la cuenta.'),
+          backgroundColor: AppColors.secondary,
+        ),
+      );
+      setState(() {
+        _authMode = AuthMode.login;
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+      });
+      return;
+    }
+    
+    if (creds?.user != null) {
+      debugPrint('Obteniendo rol del usuario...');
+      final role = await authRepo.getUserRole(creds!.user!.uid);
+      debugPrint('Rol obtenido: $role');
+      if (!mounted) return;
+      
+      debugPrint('Navegando según el rol: $role');
+      if (role == 'driver') {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const DriverDashboardScreen()));
+      } else if (role == 'admin') {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+      } else {
+        // 'parent' o cualquier otro valor
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ParentDashboardScreen()));
       }
     }
   }

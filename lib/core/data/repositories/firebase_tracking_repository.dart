@@ -23,6 +23,23 @@ class FirebaseTrackingRepository implements TrackingRepository {
   }
 
   @override
+  Future<void> updateRouteStatus(String unitCode, String status) async {
+    try {
+      await _firestore
+          .collection('companies')
+          .doc(unitCode)
+          .collection('live_tracking')
+          .doc('current')
+          .set({
+            'status': status,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+    } catch (e) {
+      print('Error al actualizar estado de ruta: $e');
+    }
+  }
+
+  @override
   Stream<DocumentSnapshot> listenToDriverLocation(String unitCode) {
     return _firestore
         .collection('companies')

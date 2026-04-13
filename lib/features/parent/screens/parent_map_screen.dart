@@ -13,15 +13,45 @@ import '../../../core/screens/login_screen.dart';
 import '../../../core/services/notification_service.dart';
 import 'package:geolocator/geolocator.dart';
 
-class ParentMapScreen extends ConsumerWidget {
+class ParentMapScreen extends ConsumerStatefulWidget {
   const ParentMapScreen({super.key});
 
+  @override
+  ConsumerState<ParentMapScreen> createState() => _ParentMapScreenState();
+}
+
+class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
   final Color _primary = const Color(0xFF004782);
   final Color _primaryContainer = const Color(0xFF185fa5);
   final Color _surface = const Color(0xFFF8F9FA);
+  
+  BitmapDescriptor? _busIcon;
+  BitmapDescriptor? _houseIcon;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    _loadIcons();
+  }
+
+  Future<void> _loadIcons() async {
+    try {
+      _busIcon = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(size: Size(48, 48)),
+        'assets/images/autobus-escolar.png',
+      );
+      _houseIcon = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(size: Size(40, 40)),
+        'assets/images/casa.png',
+      );
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Error cargando iconos: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _surface,
       body: Stack(
@@ -43,107 +73,59 @@ class ParentMapScreen extends ConsumerWidget {
 
                     if (distance < 600) {
                       final etaMin = (distance / 300).ceil();
-                      
-                      // Notificación local (Sistema) - Se ve con pantalla apagada
                       NotificationService().showLocalNotification(
                         id: 1,
                         title: '¡La unidad esta proxima en llegar!',
-                        body: 'Distancia: ${distance.toInt()}m • Tiempo estimado: $etaMin min. Conductor: Roberto Mendez',
-                      );
-
-                      // Notificación en app (UI)
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('¡La unidad esta proxima en llegar!', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, fontSize: 16)),
-                              Text('Distancia: ${distance.toInt()}m • Tiempo estimado: $etaMin min'),
-                              Text('Conductor: Roberto Mendez', style: GoogleFonts.publicSans(fontSize: 12)),
-                            ],
-                          ),
-                          backgroundColor: _primary,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          duration: const Duration(seconds: 10),
-                        ),
+                        body: 'Distancia: ${distance.toInt()}m • Tiempo estimado: $etaMin min.',
                       );
                     }
                   }
                 });
 
                 final locationAsync = ref.watch(currentLocationStreamProvider);
-                final routePoints = ref.watch(busRouteProvider);
                 final polylines = ref.watch(activePolylinesProvider);
                 final liveBusLocation = ref.watch(liveBusLocationProvider).value;
                 final studentStop = ref.watch(studentStopProvider).value;
 
                 LatLng initialPos = defaultInitialLocation;
-                if (liveBusLocation != null) {
-                  initialPos = liveBusLocation;
-                } else if (studentStop != null) {
-                  initialPos = studentStop;
-                } else if (routePoints.isNotEmpty) {
-                  initialPos = routePoints.first;
-                }
+                if (liveBusLocation != null) initialPos = liveBusLocation;
 
-                return Stack(
-                  children: [
-                    GoogleMap(
-                      initialCameraPosition: CameraPosition(target: initialPos, zoom: 14),
-                      myLocationEnabled: locationAsync.hasValue,
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      polylines: polylines,
-                      markers: {
-                        if (studentStop != null)
-                          Marker(
-                            markerId: const MarkerId('home'),
-                            position: studentStop,
-                            infoWindow: const InfoWindow(title: 'Mi Parada (Hogar)'),
-                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange), // Representación de casita
-                          ),
-                        if (liveBusLocation != null)
-                          Marker(
-                            markerId: const MarkerId('bus'),
-                            position: liveBusLocation,
-                            infoWindow: const InfoWindow(title: 'Ruta Escolar en tiempo real'),
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => const ParentProximityAlertScreen(),
-                              );
-                            },
-                          ),
-                      },
-                      onMapCreated: (controller) {
-                        try {
-                          ref.read(mapControllerProvider.notifier).setController(controller);
-                        } catch (e) {}
-                      },
-                    ),
-                    if (locationAsync.hasError)
-                      Positioned(
-                        top: 140,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'GPS deshabilitado - Usando ubicación de bus',
-                              style: GoogleFonts.publicSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
-                            ),
-                          ),
-                        ),
+                return GoogleMap(
+                  initialCameraPosition: CameraPosition(target: initialPos, zoom: 14),
+                  myLocationEnabled: false,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
+                  polylines: polylines,
+                  markers: {
+                    if (studentStop != null)
+                      Marker(
+                        markerId: const MarkerId('home'),
+                        position: studentStop,
+                        infoWindow: const InfoWindow(title: 'Mi Parada (Hogar)'),
+                        icon: _houseIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                        anchor: const Offset(0.5, 0.5),
                       ),
-                  ],
+                    if (liveBusLocation != null)
+                      Marker(
+                        markerId: const MarkerId('bus'),
+                        position: liveBusLocation,
+                        infoWindow: const InfoWindow(title: 'Ruta Escolar en tiempo real'),
+                        icon: _busIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
+                        anchor: const Offset(0.5, 0.5),
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => const ParentProximityAlertScreen(),
+                          );
+                        },
+                      ),
+                  },
+                  onMapCreated: (controller) {
+                    try {
+                      ref.read(mapControllerProvider.notifier).setController(controller);
+                    } catch (e) {}
+                  },
                 );
               },
             ),

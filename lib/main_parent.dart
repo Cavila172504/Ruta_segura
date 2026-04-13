@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -7,13 +8,23 @@ import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  // Inicializar notificaciones locales
-  await NotificationService().init();
-  
+  print('--- ARRANCANDO APLICACIÓN ---');
+
+  try {
+    print('Iniciando Firebase...');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).timeout(const Duration(seconds: 10));
+    print('Firebase listo.');
+
+    // Inicializar notificaciones locales
+    print('Iniciando NotificationService...');
+    await NotificationService().init().timeout(const Duration(seconds: 5));
+    print('NotificationService listo.');
+  } catch (e) {
+    print('Error o Timeout durante la inicialización: $e');
+  }
+
   runApp(const ProviderScope(child: ParentApp()));
 }
 
@@ -24,10 +35,7 @@ class ParentApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'RutaSegura - Padre',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.green,
-      ),
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.green),
       home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );

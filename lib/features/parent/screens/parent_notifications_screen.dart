@@ -1,7 +1,9 @@
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/providers/notification_list_provider.dart';
 import '../../../core/screens/login_screen.dart';
 import 'parent_dashboard_screen.dart';
 import 'parent_map_screen.dart';
@@ -10,16 +12,16 @@ class ParentNotificationsScreen extends ConsumerWidget {
   const ParentNotificationsScreen({super.key});
 
   final Color _primary = const Color(0xFF004782);
-  final Color _primaryContainer = const Color(0xFF185fa5);
   final Color _surface = const Color(0xFFF8F9FA);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final notifications = ref.watch(notificationListProvider);
+
     return Scaffold(
       backgroundColor: _surface,
       body: Stack(
         children: [
-          // Scrollable Content
           Positioned.fill(
             bottom: 80,
             child: SingleChildScrollView(
@@ -27,7 +29,6 @@ class ParentNotificationsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title
                   Text(
                     'Notificaciones',
                     style: GoogleFonts.publicSans(
@@ -44,77 +45,20 @@ class ParentNotificationsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // Critical Alert
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: const Color(0xFFffdad6), borderRadius: BorderRadius.circular(16)),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(color: Color(0xFFba1a1a), shape: BoxShape.circle),
-                          child: const Icon(Icons.warning, color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'ALERTA: novedad en la vía',
-                                    style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF93000a)),
-                                  ),
-                                  Text('AHORA', style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF93000a).withOpacity(0.6))),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Se reporta tráfico pesado en la Av. Principal. El tiempo de llegada podría verse afectado.',
-                                style: GoogleFonts.publicSans(fontSize: 14, color: const Color(0xFF93000a)),
-                              )
-                            ],
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Normal Notifications
-                  _buildNotification(
-                    icon: Icons.directions_bus,
-                    iconColor: _primary,
-                    iconBg: const Color(0xFFd4e3ff),
-                    title: 'Bus iniciando recorrido',
-                    time: '07:15 AM',
-                    subtitle: 'La unidad 24 ha comenzado su ruta hacia el colegio.',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildNotification(
-                    icon: Icons.near_me,
-                    iconColor: _primary,
-                    iconBg: const Color(0xFFd9e4ee),
-                    title: 'Bus a 600m de tu parada',
-                    time: '07:32 AM',
-                    subtitle: 'Prepárate, el bus está llegando a tu punto de encuentro.',
-                    isHighlighted: true,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildNotification(
-                    icon: Icons.check_circle,
-                    iconColor: const Color(0xFFc1d9ff),
-                    iconBg: _primaryContainer,
-                    title: 'Tu hijo abordó el bus',
-                    time: '07:35 AM',
-                    subtitle: 'Ingreso confirmado mediante escaneo de credencial.',
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      final n = notifications[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildNotificationItem(n),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 24),
-                  // Separator
                   Row(
                     children: [
                       Expanded(child: Divider(color: Colors.grey.shade300)),
@@ -127,15 +71,13 @@ class ParentNotificationsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  _buildNotification(
-                    icon: Icons.school,
-                    iconColor: const Color(0xFF121d24),
-                    iconBg: const Color(0xFFbdc8d1),
+                  _buildNotificationItem(AppNotification(
+                    id: 'old',
                     title: 'Llegada al colegio',
-                    time: '16:45 PM',
                     subtitle: 'El bus ha finalizado su recorrido de retorno exitosamente.',
-                    dimmed: true,
-                  ),
+                    timestamp: DateTime.now().subtract(const Duration(days: 1)),
+                    type: NotificationType.arrival,
+                  ), dimmed: true),
 
                   const SizedBox(height: 64),
                 ],
@@ -146,34 +88,32 @@ class ParentNotificationsScreen extends ConsumerWidget {
           // Top App Bar
           Positioned(
             top: 0, left: 0, right: 0,
-            child: ClipRect(
-              child: Container(
-                color: Colors.white.withOpacity(0.85),
-                padding: const EdgeInsets.only(top: 48, left: 24, right: 24, bottom: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.directions_bus, color: _primary, size: 24),
-                        const SizedBox(width: 8),
-                        Text('BusGuardian', style: GoogleFonts.publicSans(fontSize: 18, fontWeight: FontWeight.w800, color: _primary, letterSpacing: -0.5))
-                      ],
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.logout, color: Colors.grey.shade500),
-                      onPressed: () async {
-                        await ref.read(authRepositoryProvider).signOut();
-                        if (context.mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
-                            (route) => false,
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
+            child: Container(
+              color: Colors.white.withOpacity(0.85),
+              padding: const EdgeInsets.only(top: 48, left: 24, right: 24, bottom: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.directions_bus, color: _primary, size: 24),
+                      const SizedBox(width: 8),
+                      Text('BusGuardian', style: GoogleFonts.publicSans(fontSize: 18, fontWeight: FontWeight.w800, color: _primary, letterSpacing: -0.5))
+                    ],
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.logout, color: Colors.grey.shade500),
+                    onPressed: () async {
+                      await ref.read(authRepositoryProvider).signOut();
+                      if (context.mounted) {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          (route) => false,
+                        );
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -205,26 +145,60 @@ class ParentNotificationsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildNotification({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String title,
-    required String time,
-    required String subtitle,
-    bool isHighlighted = false,
-    bool dimmed = false,
-  }) {
+  Widget _buildNotificationItem(AppNotification notification, {bool dimmed = false}) {
+    IconData icon;
+    Color iconColor;
+    Color iconBg;
+    Color bgColor = Colors.white;
+    Border? border;
+    Color titleColor = const Color(0xFF191c1d);
+    Color subtitleColor = const Color(0xFF424751);
+
+    switch (notification.type) {
+      case NotificationType.alert:
+        icon = Icons.warning;
+        iconColor = Colors.white;
+        iconBg = const Color(0xFFba1a1a);
+        bgColor = const Color(0xFFffdad6);
+        titleColor = const Color(0xFF93000a);
+        subtitleColor = const Color(0xFF93000a);
+        break;
+      case NotificationType.busStart:
+        icon = Icons.directions_bus;
+        iconBg = const Color(0xFFd4e3ff);
+        iconColor = _primary;
+        break;
+      case NotificationType.proximity:
+        icon = Icons.near_me;
+        iconBg = const Color(0xFFd9e4ee);
+        iconColor = _primary;
+        border = Border(left: BorderSide(color: _primary, width: 4));
+        break;
+      case NotificationType.boarded:
+        icon = Icons.check_circle;
+        iconColor = Colors.white;
+        iconBg = _primary;
+        break;
+      case NotificationType.arrival:
+        icon = Icons.school;
+        iconColor = const Color(0xFF121d24);
+        iconBg = const Color(0xFFbdc8d1);
+        if (dimmed) bgColor = const Color(0xFFedeeef);
+        break;
+    }
+
+    final timeStr = DateFormat('hh:mm a').format(notification.timestamp);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: dimmed ? const Color(0xFFedeeef) : Colors.white,
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
-        border: isHighlighted ? Border(left: BorderSide(color: _primary, width: 4)) : null,
-        boxShadow: dimmed ? null : [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        border: border,
+        boxShadow: bgColor == Colors.white ? [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))] : null,
       ),
       child: Opacity(
-        opacity: dimmed ? 0.8 : 1.0,
+        opacity: dimmed ? 0.6 : 1.0,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -243,17 +217,23 @@ class ParentNotificationsScreen extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          title, 
-                          style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF191c1d)),
+                          notification.title,
+                          style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.bold, color: titleColor),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(time, style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF424751))),
+                      Text(
+                        notification.type == NotificationType.alert ? 'AHORA' : timeStr,
+                        style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: subtitleColor.withOpacity(0.6)),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: GoogleFonts.publicSans(fontSize: 14, color: const Color(0xFF424751)))
+                  Text(
+                    notification.subtitle,
+                    style: GoogleFonts.publicSans(fontSize: 14, color: subtitleColor),
+                  ),
                 ],
               ),
             )
@@ -266,9 +246,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
   Widget _navItem(BuildContext context, {required IconData icon, required String label, required bool isActive, required Widget target}) {
     return GestureDetector(
       onTap: () {
-        if (!isActive) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => target));
-        }
+        if (!isActive) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => target));
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -277,9 +255,9 @@ class ParentNotificationsScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isActive ? _primaryContainer : Colors.grey.shade400),
+            Icon(icon, color: isActive ? _primary : Colors.grey.shade400),
             const SizedBox(height: 4),
-            Text(label.toUpperCase(), style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.w800, color: isActive ? _primaryContainer : Colors.grey.shade400)),
+            Text(label.toUpperCase(), style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.w800, color: isActive ? _primary : Colors.grey.shade400)),
           ],
         ),
       ),

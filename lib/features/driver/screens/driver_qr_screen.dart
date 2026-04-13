@@ -71,7 +71,7 @@ class DriverQrScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     QrImageView(
-                      data: unitCode,
+                      data: 'RUTASEGURA:UNIT:$unitCode',
                       version: QrVersions.auto,
                       size: 240.0,
                       backgroundColor: Colors.white,

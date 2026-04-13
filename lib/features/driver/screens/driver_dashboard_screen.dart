@@ -7,6 +7,8 @@ import '../../../core/providers/route_provider.dart';
 import 'driver_map_screen.dart';
 import 'driver_attendance_screen.dart';
 import 'driver_qr_screen.dart';
+import 'driver_profile_screen.dart';
+import '../../../core/screens/login_screen.dart';
 
 class DriverDashboardScreen extends ConsumerWidget {
   const DriverDashboardScreen({super.key});
@@ -114,22 +116,39 @@ class DriverDashboardScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  profileAsync.maybeWhen(
-                    data: (profile) => IconButton(
-                      icon: const Icon(Icons.qr_code_2,
-                          color: AppColors.primaryContainer, size: 28),
-                      onPressed: () {
-                        final unitCode = profile?['unitCode'] as String? ?? 'UNIDAD-00';
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => DriverQrScreen(unitCode: unitCode),
-                          ),
-                        );
-                      },
-                      tooltip: 'Mostrar QR',
-                    ),
-                    orElse: () => const SizedBox(width: 48),
+                  Row(
+                    children: [
+                      profileAsync.maybeWhen(
+                        data: (profile) => IconButton(
+                          icon: const Icon(Icons.qr_code_2,
+                              color: AppColors.primaryContainer, size: 28),
+                          onPressed: () {
+                            final unitCode = profile?['unitCode'] as String? ?? 'UNIDAD-00';
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DriverQrScreen(unitCode: unitCode),
+                              ),
+                            );
+                          },
+                          tooltip: 'Mostrar QR',
+                        ),
+                        orElse: () => const SizedBox.shrink(),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.logout, color: AppColors.primaryContainer, size: 24),
+                        onPressed: () async {
+                          await ref.read(authRepositoryProvider).signOut();
+                          if (context.mounted) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          }
+                        },
+                        tooltip: 'Cerrar sesión',
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -183,10 +202,19 @@ class DriverDashboardScreen extends ConsumerWidget {
                       Consumer(
                         builder: (context, ref, _) {
                           final routeAsync = ref.watch(activeRouteProvider(unitCode));
+                          final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
+                          
                           return routeAsync.when(
                             loading: () => _routeCardSkeleton(),
                             error: (_, __) => _routeCardStatic(),
-                            data: (route) => _routeCard(route),
+                            data: (route) {
+                              final students = studentsAsync.value?.length ?? 0;
+                              final routeName = route?['name'] as String? ?? 'Ruta $unitCode';
+                              final duration = route?['durationMin'] as int? ?? 0;
+                              final stops = route?['stopCount'] as int? ?? students;
+                              
+                              return _routeCardContent(routeName, students, duration, stops);
+                            },
                           );
                         },
                       ),
@@ -197,9 +225,19 @@ class DriverDashboardScreen extends ConsumerWidget {
                       Consumer(
                         builder: (context, ref, _) {
                           final routeAsync = ref.watch(activeRouteProvider(unitCode));
-                          final firstStop = routeAsync.value?['firstStop'] as String? 
-                              ?? 'Sin paradas configuradas';
-                          final firstTime = routeAsync.value?['firstStopTime'] as String? ?? '--:--';
+                          final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
+                          
+                          String firstStop = 'Sin paradas configuradas';
+                          String firstTime = '--:--';
+                          
+                          if (routeAsync.value != null && routeAsync.value!['firstStop'] != null) {
+                            firstStop = routeAsync.value!['firstStop'] as String;
+                            firstTime = routeAsync.value!['firstStopTime'] as String? ?? '--:--';
+                          } else if (studentsAsync.value != null && studentsAsync.value!.isNotEmpty) {
+                            final firstStudent = studentsAsync.value!.first;
+                            firstStop = 'Recoger a ${firstStudent['studentName']}';
+                            firstTime = 'Pendiente';
+                          }
 
                           return Container(
                             padding: const EdgeInsets.all(20),
@@ -269,13 +307,18 @@ class DriverDashboardScreen extends ConsumerWidget {
               data: (profile) {
                 final unitCode = profile?['unitCode'] as String? ?? 'UNIDAD-00';
                 return InkWell(
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const DriverMapScreen(),
-                      ),
-                    );
+                  onTap: () async {
+                    // Notificar a los padres que el recorrido ha iniciado
+                    await ref.read(trackingRepositoryProvider).updateRouteStatus(unitCode, 'active');
+                    
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DriverMapScreen(),
+                        ),
+                      );
+                    }
                   },
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
@@ -354,7 +397,15 @@ class DriverDashboardScreen extends ConsumerWidget {
                           builder: (_) => const DriverAttendanceScreen()),
                     ),
                   ),
-                  _navItem(icon: Icons.person, label: 'Perfil', isActive: false, onTap: () {}),
+                  _navItem(
+                    icon: Icons.person, 
+                    label: 'Perfil', 
+                    isActive: false, 
+                    onTap: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DriverProfileScreen()),
+                    ),
+                  ),
                 ],
               ),
             ),

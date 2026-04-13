@@ -89,7 +89,6 @@ final driverStudentsProvider = StreamProvider.family<List<Map<String, dynamic>>,
       .collection('companies')
       .doc(unitCode)
       .collection('students')
-      .where('status', isEqualTo: 'active')
       .snapshots()
       .map((snap) => snap.docs.map((d) => d.data()).toList());
 });

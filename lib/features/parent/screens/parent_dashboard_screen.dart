@@ -6,6 +6,8 @@ import '../../../core/providers/app_providers.dart';
 import 'parent_map_screen.dart';
 import 'parent_notifications_screen.dart';
 import 'add_student_screen.dart';
+import '../../../core/providers/notification_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ParentDashboardScreen extends ConsumerWidget {
   const ParentDashboardScreen({super.key});
@@ -19,6 +21,9 @@ class ParentDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Iniciar el monitoreo de cercanía y eventos del bus
+    ref.watch(proximityMonitoringProvider);
+    
     final userProfileAsync = ref.watch(userProfileProvider);
     final authUser = ref.watch(authStateProvider).value;
     
@@ -318,7 +323,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   InkWell(
-                    onTap: () => _showAbsenceConfirmation(context),
+                    onTap: () => _showAbsenceConfirmation(context, ref),
                     borderRadius: BorderRadius.circular(24),
                     child: Container(
                       padding: const EdgeInsets.all(24),
@@ -486,7 +491,7 @@ class ParentDashboardScreen extends ConsumerWidget {
   }
 
 
-  void _showAbsenceConfirmation(BuildContext context) {
+  void _showAbsenceConfirmation(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -506,15 +511,64 @@ class ParentDashboardScreen extends ConsumerWidget {
               child: Text('CANCELAR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: Colors.grey)),
             ),
             ElevatedButton(
-              onPressed: () {
-                // Aquí iría la lógica para enviar a Firestore
-                Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Inasistencia reportada con éxito.'),
-                    backgroundColor: Colors.black87,
-                  )
-                );
+              onPressed: () async {
+                // Lógica real para enviar inasistencia a Firestore
+                final authRepo = ref.read(authRepositoryProvider);
+                final uid = await authRepo.getCurrentUserId();
+                final studentsAsync = ref.read(parentStudentsProvider);
+                
+                if (uid != null && studentsAsync.hasValue) {
+                  final students = studentsAsync.value!;
+                  final batch = FirebaseFirestore.instance.batch();
+                  
+                  for (final student in students) {
+                    final studentId = student['studentId'] ?? student['id'];
+                    final unitCode = student['unitCode'];
+                    
+                    if (studentId != null && unitCode != null) {
+                      // 1. Actualizar en la colección de la compañía
+                      final compStudentRef = FirebaseFirestore.instance
+                          .collection('companies')
+                          .doc(unitCode)
+                          .collection('students')
+                          .doc(studentId);
+                      batch.update(compStudentRef, {'status': 'absent'});
+                      
+                      // 2. Actualizar en el perfil del padre
+                      final parentRef = FirebaseFirestore.instance
+                          .collection('users')
+                          .doc('parents')
+                          .collection('members')
+                          .doc(uid); // Asumiendo que el doc ID es el UID o buscándolo
+                      
+                      // En esta versión se busca el doc del padre por UID primero como hacían los providers
+                      final parentQuery = await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc('parents')
+                          .collection('members')
+                          .where('uid', isEqualTo: uid)
+                          .limit(1)
+                          .get();
+                          
+                      if (parentQuery.docs.isNotEmpty) {
+                        final parentDocRef = parentQuery.docs.first.reference;
+                        batch.update(parentDocRef.collection('students').doc(studentId), {'status': 'absent'});
+                      }
+                    }
+                  }
+                  
+                  await batch.commit();
+                }
+
+                if (context.mounted) {
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Inasistencia reportada con éxito. El conductor ha sido notificado.'),
+                      backgroundColor: Colors.black87,
+                    )
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFBA1A1A),

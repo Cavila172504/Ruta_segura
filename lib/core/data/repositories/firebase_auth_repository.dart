@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -96,7 +97,7 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<String?> getUserRole(String uid) async {
     try {
-      // Buscamos el rol en cada subcoleccion de roles
+      // Buscamos el rol en cada subcoleccion de roles con timeout de 10s
       for (final roleCollection in ['admins', 'parents', 'drivers']) {
         final query = await _firestore
             .collection('users')
@@ -104,14 +105,18 @@ class FirebaseAuthRepository implements AuthRepository {
             .collection('members')
             .where('uid', isEqualTo: uid)
             .limit(1)
-            .get();
+            .get()
+            .timeout(const Duration(seconds: 10));
         if (query.docs.isNotEmpty) {
-          return query.docs.first.data()['role'] as String?;
+          final role = query.docs.first.data()['role'] as String?;
+          return role;
         }
       }
-      return null;
+      // Si no se encontró en ninguna colección, asumir 'parent' como default
+      return 'parent';
     } catch (e) {
-      return null;
+      // En caso de timeout u otro error, default a 'parent'
+      return 'parent';
     }
   }
 
