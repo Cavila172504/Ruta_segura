@@ -15,11 +15,17 @@ class FirebaseStudentRepository implements StudentRepository {
   }) async {
     try {
       final docId = unitCode.trim().toUpperCase();
-      final companyDoc = await _firestore.collection('companies').doc(docId).get();
+      if (docId.isEmpty) throw Exception("El código de unidad no puede estar vacío.");
+
+      final companyDocRef = _firestore.collection('companies').doc(docId);
       
-      if (!companyDoc.exists) {
-        throw Exception("El código de unidad '$docId' no existe. Pida al conductor que genere uno válido.");
-      }
+      // Aseguramos que el documento de la unidad exista (lo creamos si no existe)
+      await companyDocRef.set({
+        'unitCode': docId,
+        'lastUpdate': FieldValue.serverTimestamp(),
+        'status': 'active',
+      }, SetOptions(merge: true));
+
 
       final newStudentRef = _firestore.collection('companies').doc(docId).collection('students').doc();
       
