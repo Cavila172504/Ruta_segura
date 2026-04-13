@@ -11,17 +11,16 @@ class NotificationService {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const InitializationSettings initializationSettings = InitializationSettings(
+    const InitializationSettings settings = InitializationSettings(
       android: initializationSettingsAndroid,
     );
 
-    // Pedir permisos en Android 13+
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
-
+    // Inicializar notificaciones con el parámetro correcto descubierto en el análisis
     await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
+      settings: settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Manejar toque en notificación
+      },
     );
   }
 
@@ -30,25 +29,23 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
-    const AndroidNotificationDetails androidNotificationDetails =
-        AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'proximity_channel',
       'Alertas de Proximidad',
       channelDescription: 'Notificaciones cuando el bus está cerca',
       importance: Importance.max,
       priority: Priority.high,
-      ticker: 'ticker',
     );
 
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidNotificationDetails,
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
     );
 
     await flutterLocalNotificationsPlugin.show(
       id: id,
       title: title,
       body: body,
-      notificationDetails: notificationDetails,
+      notificationDetails: platformDetails,
     );
   }
 }

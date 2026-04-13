@@ -80,194 +80,236 @@ class ParentDashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // Child Tracking Card (Bento Style)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(color: _primaryContainer.withOpacity(0.06), blurRadius: 24, offset: const Offset(0, 8))
-                      ]
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        Padding(
+                  // Sección Mis Estudiantes (dinámica desde Firestore)
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final studentsAsync = ref.watch(parentStudentsProvider);
+
+                      return studentsAsync.when(
+                        loading: () => Container(
                           padding: const EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-                              // Header del estudiante
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: const Center(child: CircularProgressIndicator()),
+                        ),
+                        error: (e, _) => const SizedBox.shrink(),
+                        data: (students) {
+                          if (students.isEmpty) {
+                            // Estado vacío: invitar a agregar estudiante
+                            return Container(
+                              padding: const EdgeInsets.all(28),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(28),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _primaryContainer.withValues(alpha: 0.06),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
                                 children: [
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 64, height: 64,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFd9e4ee),
-                                            borderRadius: BorderRadius.circular(16),
-                                            image: const DecorationImage(
-                                              image: NetworkImage('https://images.unsplash.com/photo-1590650516494-0c8e4a4dd67e?q=80&w=250&auto=format&fit=crop'),
-                                              fit: BoxFit.cover,
-                                            )
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
+                                  Container(
+                                    width: 64, height: 64,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFd9e4ee),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Icon(Icons.child_care, color: _primary, size: 32),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Sin estudiantes registrados',
+                                    style: GoogleFonts.publicSans(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: _onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Agrega a tu hijo para comenzar el seguimiento en tiempo real',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.publicSans(
+                                      fontSize: 13,
+                                      color: _onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  ElevatedButton.icon(
+                                    onPressed: () => Navigator.push(context,
+                                        MaterialPageRoute(builder: (_) => const AddStudentScreen())),
+                                    icon: const Icon(Icons.add),
+                                    label: Text(
+                                      'AÑADIR ESTUDIANTE',
+                                      style: GoogleFonts.publicSans(fontWeight: FontWeight.w800),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _primaryContainer,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          // Listar cada estudiante
+                          return Column(
+                            children: students.map((student) {
+                              final name = student['studentName'] as String? ?? 'Estudiante';
+                              final unitCode = student['unitCode'] as String? ?? '--';
+                              final initial = name[0].toUpperCase();
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(28),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _primaryContainer.withValues(alpha: 0.07),
+                                      blurRadius: 24,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: Column(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(20),
+                                      child: Column(
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                'Mateo',
-                                                style: GoogleFonts.publicSans(
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: _onSurface,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    width: 56, height: 56,
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFd9e4ee),
+                                                      borderRadius: BorderRadius.circular(14),
+                                                    ),
+                                                    child: Center(
+                                                      child: Text(
+                                                        initial,
+                                                        style: GoogleFonts.publicSans(
+                                                          fontSize: 24,
+                                                          fontWeight: FontWeight.w900,
+                                                          color: _primary,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        name,
+                                                        style: GoogleFonts.publicSans(
+                                                          fontSize: 18,
+                                                          fontWeight: FontWeight.w800,
+                                                          color: _onSurface,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        'Unidad: $unitCode',
+                                                        style: GoogleFonts.publicSans(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: _onSurfaceVariant,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
                                               ),
-                                              Text(
-                                                'Colegio San Agustín',
-                                                style: GoogleFonts.publicSans(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: _onSurfaceVariant,
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF1a6b3a),
+                                                  borderRadius: BorderRadius.circular(20),
                                                 ),
-                                                overflow: TextOverflow.ellipsis,
-                                              )
+                                                child: Text(
+                                                  'ACTIVO',
+                                                  style: GoogleFonts.publicSans(
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: Colors.white,
+                                                    letterSpacing: 1,
+                                                  ),
+                                                ),
+                                              ),
                                             ],
                                           ),
-                                        )
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: _primaryContainer,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      'BUS EN CAMINO',
-                                      style: GoogleFonts.publicSans(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.white,
-                                        letterSpacing: 1,
+                                          const SizedBox(height: 16),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                width: 36, height: 36,
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFe7e8e9),
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                                child: Icon(Icons.route, color: _primary, size: 18),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text('UNIDAD ESCOLAR',
+                                                        style: GoogleFonts.publicSans(fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: _onSurfaceVariant)),
+                                                    Text(unitCode,
+                                                        style: GoogleFonts.publicSans(fontSize: 13, fontWeight: FontWeight.bold, color: _onSurface),
+                                                        overflow: TextOverflow.ellipsis),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              // Ruta Asignada
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 40, height: 40,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFe7e8e9),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(Icons.route, color: _primary, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'RUTA ASIGNADA',
-                                        style: GoogleFonts.publicSans(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1.5,
-                                          color: _onSurfaceVariant,
+                                    Container(
+                                      color: const Color(0xFFd4e3ff),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () => Navigator.pushReplacement(context,
+                                            MaterialPageRoute(builder: (_) => const ParentMapScreen())),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: _primaryContainer,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                          elevation: 2,
                                         ),
+                                        icon: const Icon(Icons.map, size: 18),
+                                        label: Text('VER EN MAPA',
+                                            style: GoogleFonts.publicSans(fontSize: 13, fontWeight: FontWeight.w800)),
                                       ),
-                                      Text(
-                                        'Expreso Norte - B42',
-                                        style: GoogleFonts.publicSans(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: _onSurface,
-                                        ),
-                                      )
-                                    ],
-                                  )
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              // Llegada estimada
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 40, height: 40,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFe7e8e9),
-                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: Icon(Icons.schedule, color: _primary, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'LLEGADA ESTIMADA',
-                                        style: GoogleFonts.publicSans(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1.5,
-                                          color: _onSurfaceVariant,
-                                        ),
-                                      ),
-                                      Text(
-                                        '07:45 AM (en 12 min)',
-                                        style: GoogleFonts.publicSans(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: _onSurface,
-                                        ),
-                                      )
-                                    ],
-                                  )
-                                ],
-                              )
-                            ],
-                          ),
-                        ),
-                        // Action Button
-                        Container(
-                          color: const Color(0xFFd4e3ff), // primary-fixed
-                          padding: const EdgeInsets.all(24),
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ParentMapScreen()));
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _primaryContainer, // We use container as close to gradient
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 4,
-                            ),
-                            icon: const Icon(Icons.map, size: 20),
-                            label: Text(
-                              'VER EN MAPA',
-                              style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      );
+                    },
                   ),
 
-                  const SizedBox(height: 32),
                   
                   // Quick Actions (Absence Reporting Only)
                   Text(

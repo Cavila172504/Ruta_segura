@@ -9,6 +9,7 @@ import '../../../core/providers/map_provider.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DriverMapScreen extends ConsumerWidget {
   const DriverMapScreen({super.key});
@@ -267,76 +268,156 @@ class DriverMapScreen extends ConsumerWidget {
 
           // Bottom Sheet Detail
           Positioned(
-            bottom: 64, // Space for Bottom Nav
+            bottom: 64,
             left: 0, right: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 30,
-                    offset: const Offset(0, -10),
-                    spreadRadius: -5,
-                  )
-                ]
-              ),
-              child: Column(
-                children: [
-                  // Handle
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Container(
-                      width: 48, height: 6,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final profileAsync = ref.watch(userProfileProvider);
+                final unitCode = profileAsync.value?['unitCode'] as String? ?? '';
+                final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
+                final driverLocation = ref.watch(currentLocationStreamProvider).value;
+
+                final students = studentsAsync.value ?? [];
+                // Tomamos el primer estudiante como "siguiente parada"
+                final nextStudent = students.isNotEmpty ? students.first : null;
+
+                final studentName = nextStudent?['studentName'] as String? ?? 'Sin paradas';
+                final stopLat = nextStudent?['stopLat'] as double?;
+                final stopLng = nextStudent?['stopLng'] as double?;
+
+                // Calcular distancia real
+                double? distanceKm;
+                int? etaMin;
+                if (driverLocation != null && stopLat != null && stopLng != null) {
+                  final distM = Geolocator.distanceBetween(
+                    driverLocation.latitude, driverLocation.longitude,
+                    stopLat, stopLng,
+                  );
+                  distanceKm = distM / 1000;
+                  etaMin = (distM / 300).ceil();
+                }
+
+                // Coordenadas formateadas como referencia
+                final stopRef = (stopLat != null && stopLng != null)
+                    ? '${stopLat.toStringAsFixed(4)}, ${stopLng.toStringAsFixed(4)}'
+                    : 'Sin ubicación';
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerLowest,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 30,
+                        offset: const Offset(0, -10),
+                        spreadRadius: -5,
+                      )
+                    ]
                   ),
-                  
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Container(
+                          width: 48, height: 6,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Column(
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'SIGUIENTE PARADA',
-                                  style: GoogleFonts.publicSans(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1,
-                                    color: AppColors.primary,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        studentsAsync.isLoading
+                                            ? 'CARGANDO...'
+                                            : 'SIGUIENTE PARADA',
+                                        style: GoogleFonts.publicSans(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        studentName,
+                                        style: GoogleFonts.publicSans(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.onSurface,
+                                          letterSpacing: -0.5,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.location_on, size: 16, color: AppColors.onSurfaceVariant),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              stopRef,
+                                              style: GoogleFonts.publicSans(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.onSurfaceVariant,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Mateo Pérez',
-                                  style: GoogleFonts.publicSans(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppColors.onSurface,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    const Icon(Icons.location_on, size: 16, color: AppColors.onSurfaceVariant),
-                                    const SizedBox(width: 4),
+                                    RichText(
+                                      text: TextSpan(
+                                        text: distanceKm != null
+                                            ? '${distanceKm.toStringAsFixed(1)} '
+                                            : '-- ',
+                                        style: GoogleFonts.publicSans(
+                                          fontSize: 30,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.secondary,
+                                          letterSpacing: -1,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: 'KM',
+                                            style: GoogleFonts.publicSans(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.secondary,
+                                            ),
+                                          ),
+                                        ]
+                                      ),
+                                    ),
                                     Text(
-                                      'Calle 127 #45 - 22, Bog',
+                                      etaMin != null
+                                          ? 'ESTIMADO: $etaMin MIN'
+                                          : 'CALCULANDO...',
                                       style: GoogleFonts.publicSans(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1,
                                         color: AppColors.onSurfaceVariant,
                                       ),
                                     ),
@@ -344,138 +425,95 @@ class DriverMapScreen extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                RichText(
-                                  text: TextSpan(
-                                    text: '1.2 ',
-                                    style: GoogleFonts.publicSans(
-                                      fontSize: 30,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppColors.secondary,
-                                      letterSpacing: -1,
-                                    ),
-                                    children: [
-                                      TextSpan(
-                                        text: 'KM',
-                                        style: GoogleFonts.publicSans(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+
+                            const SizedBox(height: 24),
+
+                            // Barra de progreso (total estudiantes)
+                            if (students.isNotEmpty)
+                              SizedBox(
+                                height: 24,
+                                child: Stack(
+                                  alignment: Alignment.centerLeft,
+                                  children: [
+                                    Container(
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFA0F3D4),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
-                                    ]
-                                  ),
+                                    ),
+                                    LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        const done = 1; // Futuro: paradas completadas
+                                        final total = students.length;
+                                        final fraction = done / total;
+                                        return Container(
+                                          width: constraints.maxWidth * fraction,
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  'ESTIMADO: 4 MIN',
-                                  style: GoogleFonts.publicSans(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1,
-                                    color: AppColors.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
+                              ),
+
+                            const SizedBox(height: 24),
+
+                            // Confirmar llegada
+                            ElevatedButton.icon(
+                              onPressed: nextStudent != null
+                                  ? () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (_) => const DriverStopDetailScreen()),
+                                      )
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryContainer,
+                                foregroundColor: const Color(0xFF221B00),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                elevation: 4,
+                              ),
+                              icon: const Icon(Icons.check_circle, size: 24),
+                              label: Text(
+                                'CONFIRMAR LLEGADA',
+                                style: GoogleFonts.publicSans(
+                                    fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () => Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const DriverDashboardScreen()),
+                              ),
+                              style: TextButton.styleFrom(
+                                backgroundColor: AppColors.surfaceContainerLow,
+                                foregroundColor: AppColors.error,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: Text(
+                                'DETENER RECORRIDO',
+                                style: GoogleFonts.publicSans(
+                                    fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1),
+                              ),
                             ),
                           ],
                         ),
-                        
-                        const SizedBox(height: 24),
-
-                        // Progress Bar
-                        SizedBox(
-                          height: 24,
-                          child: Stack(
-                            alignment: Alignment.centerLeft,
-                            children: [
-                              Container(
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFA0F3D4), // secondary-container
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ),
-                              Container(
-                                width: MediaQuery.of(context).size.width * 0.6, // roughly 2/3
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(6),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primaryContainer.withOpacity(0.4),
-                                      blurRadius: 12,
-                                      spreadRadius: 0,
-                                    )
-                                  ]
-                                ),
-                              ),
-                              Positioned(
-                                left: MediaQuery.of(context).size.width * 0.6 - 12,
-                                child: Container(
-                                  width: 24, height: 24,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: AppColors.primary, width: 4),
-                                    boxShadow: [
-                                      BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)
-                                    ]
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Actions
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const DriverStopDetailScreen()));
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryContainer,
-                            foregroundColor: const Color(0xFF221B00),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 4,
-                          ),
-                          icon: const Icon(Icons.check_circle, size: 24),
-                          label: Text(
-                            'CONFIRMAR LLEGADA',
-                            style: GoogleFonts.publicSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () {},
-                          style: TextButton.styleFrom(
-                            backgroundColor: AppColors.surfaceContainerLow,
-                            foregroundColor: AppColors.error,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: Text(
-                            'DETENER RECORRIDO',
-                            style: GoogleFonts.publicSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
 

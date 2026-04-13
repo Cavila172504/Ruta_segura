@@ -82,3 +82,27 @@ final activePolylinesProvider = Provider<Set<Polyline>>((ref) {
     ),
   };
 });
+
+// Lista de estudiantes de la unidad del conductor (en tiempo real)
+final driverStudentsProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, unitCode) {
+  return FirebaseFirestore.instance
+      .collection('companies')
+      .doc(unitCode)
+      .collection('students')
+      .where('status', isEqualTo: 'active')
+      .snapshots()
+      .map((snap) => snap.docs.map((d) => d.data()).toList());
+});
+
+final activeRouteProvider = FutureProvider.family<Map<String, dynamic>?, String>((ref, unitCode) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('companies')
+      .doc(unitCode)
+      .collection('routes')
+      .where('isActive', isEqualTo: true)
+      .limit(1)
+      .get();
+
+  if (doc.docs.isEmpty) return null;
+  return doc.docs.first.data();
+});

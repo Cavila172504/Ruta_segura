@@ -48,3 +48,28 @@ final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   }
   return null;
 });
+
+// Stream de todos los estudiantes registrados por este padre
+final parentStudentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final authRepo = ref.read(authRepositoryProvider);
+  
+  return Stream.fromFuture(authRepo.getCurrentUserId()).asyncExpand((uid) {
+    if (uid == null) return Stream.value([]);
+
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc('parents')
+        .collection('members')
+        .where('uid', isEqualTo: uid)
+        .limit(1)
+        .snapshots()
+        .asyncExpand((parentSnap) {
+          if (parentSnap.docs.isEmpty) return Stream.value([]);
+          return parentSnap.docs.first.reference
+              .collection('students')
+              .where('status', isEqualTo: 'active')
+              .snapshots()
+              .map((s) => s.docs.map((d) => d.data()).toList());
+        });
+  });
+});

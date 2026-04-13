@@ -31,8 +31,34 @@ class FirebaseStudentRepository implements StudentRepository {
         'stopLat': stopLat,
         'stopLng': stopLng,
         'status': 'active',
+        'unitCode': docId,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // Actualizar perfil del padre: guardar activeUnitCode para el mapa
+      final parentDocQuery = await _firestore
+          .collection('users')
+          .doc('parents')
+          .collection('members')
+          .where('uid', isEqualTo: parentId)
+          .limit(1)
+          .get();
+
+      if (parentDocQuery.docs.isNotEmpty) {
+        final parentDocRef = parentDocQuery.docs.first.reference;
+        // Guardar unitCode activo y referencia al estudiante
+        await parentDocRef.update({'activeUnitCode': docId});
+        // Sub-colección de estudiantes bajo el perfil del padre
+        await parentDocRef.collection('students').doc(newStudentRef.id).set({
+          'studentId': newStudentRef.id,
+          'studentName': studentName,
+          'stopLat': stopLat,
+          'stopLng': stopLng,
+          'unitCode': docId,
+          'status': 'active',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       await _firestore
           .collection('companies')
