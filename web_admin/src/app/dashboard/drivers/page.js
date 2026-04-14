@@ -14,6 +14,8 @@ const DriversPage = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [driverToDelete, setDriverToDelete] = useState(null);
 
   const SCHOOL_CODE = 'CAD31';
 
@@ -99,26 +101,32 @@ const DriversPage = () => {
     }
   };
 
-  const handleDeleteDriver = async (driverId) => {
-    if (!confirm("¿Está seguro de eliminar a este conductor?")) return;
+  const handleDeleteDriver = async () => {
+    if (!driverToDelete) return;
     
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/drivers?id=${driverId}&unitCode=${SCHOOL_CODE}`, {
+      const response = await fetch(`/api/drivers?id=${driverToDelete.id}&unitCode=${SCHOOL_CODE}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        alert("Conductor eliminado.");
+        setShowDeleteModal(false);
+        setDriverToDelete(null);
       } else {
         const err = await response.json();
-        throw new Error(err.error || "Error al eliminar");
+        alert("Error del servidor: " + (err.error || "Desconocido"));
       }
     } catch (error) {
-      alert(error.message);
+      alert("Error de conexión: " + error.message);
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const openDeleteModal = (driver) => {
+    setDriverToDelete(driver);
+    setShowDeleteModal(true);
   };
 
   const filteredDrivers = drivers.filter(d => 
@@ -196,9 +204,26 @@ const DriversPage = () => {
                         Activo
                       </span>
                     </td>
-                    <td className="px-6 py-5 text-right space-x-1">
-                       <button onClick={() => handleOpenEditModal(driver)} className="p-2 text-slate-400 hover:text-primary transition-all"><span className="material-symbols-outlined text-xl">edit_square</span></button>
-                       <button onClick={() => handleDeleteDriver(driver.id)} disabled={isDeleting} className="p-2 text-slate-400 hover:text-error transition-all"><span className="material-symbols-outlined text-xl">delete</span></button>
+                    <td className="px-6 py-5 text-right">
+                      <div className="flex justify-end gap-3">
+                         <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleOpenEditModal(driver); }}
+                          className="flex items-center gap-1 bg-slate-50 hover:bg-primary/10 text-slate-400 hover:text-primary px-3 py-2 rounded-xl transition-all border border-slate-100"
+                        >
+                          <span className="material-symbols-outlined text-sm">edit</span>
+                          <span className="text-[10px] font-bold tracking-widest uppercase">Editar</span>
+                        </button>
+                        
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openDeleteModal(driver); }}
+                          className="flex items-center gap-1 bg-slate-50 hover:bg-error/10 text-slate-400 hover:text-error px-3 py-2 rounded-xl transition-all border border-slate-100"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                          <span className="text-[10px] font-bold tracking-widest uppercase">Eliminar</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -286,6 +311,39 @@ const DriversPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal de Eliminación Personalizado */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-surface rounded-[32px] shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-200">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="material-symbols-outlined text-4xl">delete_forever</span>
+              </div>
+              <h3 className="text-xl font-black text-on-surface uppercase tracking-tight">¿Eliminar Conductor?</h3>
+              <p className="text-sm text-slate-500 mt-4 leading-relaxed">
+                Estás a punto de eliminar a <span className="font-bold text-on-surface">{driverToDelete?.names} {driverToDelete?.lastNames}</span>. 
+                Esta acción borrará su cuenta permanentemente y no podrá acceder a la App.
+              </p>
+            </div>
+            
+            <div className="flex flex-col gap-3 mt-8">
+              <button 
+                onClick={handleDeleteDriver}
+                disabled={isDeleting}
+                className="w-full bg-error text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-error/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {isDeleting ? 'Eliminando...' : 'Sí, Eliminar Permanentemente'}
+              </button>
+              <button 
+                onClick={() => setShowDeleteModal(false)}
+                className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+              >
+                No, Mantener
+              </button>
+            </div>
           </div>
         </div>
       )}

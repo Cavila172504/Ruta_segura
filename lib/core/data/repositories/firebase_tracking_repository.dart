@@ -5,14 +5,17 @@ class FirebaseTrackingRepository implements TrackingRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
-  Future<void> updateDriverLocation(String unitCode, double lat, double lng) async {
+  Future<void> updateDriverLocation(String unitCode, String driverId, String driverName, double lat, double lng) async {
     try {
       await _firestore
           .collection('companies')
           .doc(unitCode)
           .collection('live_tracking')
-          .doc('current')
+          .doc(driverId) // Cada chofer tiene su propio documento
           .set({
+            'driverId': driverId,
+            'driverName': driverName,
+            'unitCode': unitCode,
             'lat': lat,
             'lng': lng,
             'lastUpdated': FieldValue.serverTimestamp(),
@@ -23,13 +26,13 @@ class FirebaseTrackingRepository implements TrackingRepository {
   }
 
   @override
-  Future<void> updateRouteStatus(String unitCode, String status) async {
+  Future<void> updateRouteStatus(String unitCode, String driverId, String status) async {
     try {
       await _firestore
           .collection('companies')
           .doc(unitCode)
           .collection('live_tracking')
-          .doc('current')
+          .doc(driverId)
           .set({
             'status': status,
             'lastUpdated': FieldValue.serverTimestamp(),
@@ -40,12 +43,12 @@ class FirebaseTrackingRepository implements TrackingRepository {
   }
 
   @override
-  Stream<DocumentSnapshot> listenToDriverLocation(String unitCode) {
+  Stream<DocumentSnapshot> listenToDriverLocation(String unitCode, String driverId) {
     return _firestore
         .collection('companies')
         .doc(unitCode)
         .collection('live_tracking')
-        .doc('current')
+        .doc(driverId)
         .snapshots();
   }
 }

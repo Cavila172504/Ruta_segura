@@ -4,13 +4,21 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { collection, query, onSnapshot, doc, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+import dynamic from 'next/dynamic';
+
+const LiveMap = dynamic(() => import('@/components/dashboard/LiveMap'), { 
+  ssr: false,
+  loading: () => <div className="w-full h-[500px] bg-slate-100 animate-pulse rounded-2xl flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest">Cargando Mapa Satelital...</div>
+});
+
 const DashboardPage = () => {
   const [buses, setBuses] = useState([]);
+  const [students, setStudents] = useState([]);
   const [metrics, setMetrics] = useState({
     activeRoutes: 12,
     liveBuses: 8,
-    studentsToday: 432,
-    incidents: 2
+    studentsToday: 0,
+    incidents: 0
   });
 
   const SCHOOL_CODE = 'CAD31';
@@ -18,17 +26,29 @@ const DashboardPage = () => {
   // Suscripción a Buses en Tiempo Real
   useEffect(() => {
     const busesRef = collection(db, 'companies', SCHOOL_CODE, 'live_tracking');
-    
-    const unsubscribe = onSnapshot(busesRef, (snapshot) => {
+    const unsubscribeBuses = onSnapshot(busesRef, (snapshot) => {
       const liveBuses = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setBuses(liveBuses);
-      setMetrics(prev => ({ ...prev, liveBuses: liveBuses.length }));
     });
 
-    return () => unsubscribe();
+    // Suscripción a Estudiantes (para el mapa)
+    const studentsRef = collection(db, 'companies', SCHOOL_CODE, 'students');
+    const unsubscribeStudents = onSnapshot(studentsRef, (snapshot) => {
+      const list = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setStudents(list);
+      setMetrics(prev => ({ ...prev, studentsToday: list.length }));
+    });
+
+    return () => {
+      unsubscribeBuses();
+      unsubscribeStudents();
+    };
   }, []);
 
   return (
@@ -101,9 +121,26 @@ const DashboardPage = () => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mt-10">
         <div className="xl:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-headline text-xl font-bold text-on-surface">Monitoreo Satelital ({SCHOOL_CODE})</h3>
+            <h3 className="font-headline text-xl font-bold text-on-surface uppercase tracking-tight">Monitoreo Satelital en Tiempo Real ({SCHOOL_CODE})</h3>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-primary rounded-full"></div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Buses</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-secondary rounded-full"></div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Paradas</span>
+              </div>
+            </div>
           </div>
-          <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-outline-variant/5">
+
+          {/* Mapa Interactivo */}
+          <LiveMap buses={buses} students={students} />
+
+          <div className="bg-surface-container-lowest rounded-3xl overflow-hidden shadow-sm border border-outline-variant/5 mt-10">
+            <div className="p-6 border-b border-outline-variant/5 bg-slate-50/50">
+               <h4 className="text-sm font-black text-on-surface uppercase tracking-widest">Estado de Flota</h4>
+            </div>
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container-low border-b border-outline-variant/10">

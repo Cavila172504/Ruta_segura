@@ -50,6 +50,7 @@ export async function POST(request) {
       email: email,
       password: accessKey || idNumber, 
       displayName: `${names} ${lastNames}`,
+      emailVerified: true, // Evita la validación de correo en la App
     });
 
     const uid = userRecord.uid;
@@ -112,15 +113,21 @@ export async function PATCH(request) {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
   
-      // Si se envió una nueva clave, actualizar en Auth
-      if (accessKey) {
-        await admin.auth().updateUser(id, {
-          password: accessKey
-        });
-      }
+      // Forzar verificación de correo para evitar bloqueos en la App
+      await admin.auth().updateUser(id, {
+        emailVerified: true,
+        ...(accessKey && { password: accessKey })
+      });
   
       const db = admin.firestore();
       await db.collection('companies').doc(unitCode).collection('drivers').doc(id).update(updateData);
+      
+      // Sincronizar también a nivel global
+      await db.collection('users').doc('drivers').collection('members').doc(id).update({
+        name: updateData.name,
+        email: email,
+        unitCode: unitCode
+      });
   
       return NextResponse.json({ success: true });
     } catch (error) {
@@ -130,12 +137,16 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
+  console.log("Iniciando proceso de eliminación...");
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const unitCode = searchParams.get('unitCode');
 
+    console.log("Parámetros recibidos:", { id, unitCode });
+
     if (!id || !unitCode) {
+        console.error("Error: Faltan parámetros en DELETE");
         return NextResponse.json({ error: "Faltan parámetros (id, unitCode)" }, { status: 400 });
     }
 

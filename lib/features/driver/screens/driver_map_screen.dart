@@ -15,8 +15,6 @@ import '../../../core/providers/route_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 
-import 'driver_stop_detail_screen.dart';
-
 class DriverMapScreen extends ConsumerStatefulWidget {
   const DriverMapScreen({super.key});
 
@@ -62,6 +60,8 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     }
 
     final unitCode = profileAsync.value?['unitCode'] as String? ?? 'UNIDAD-GENERICA';
+    final driverId = profileAsync.value?['uid'] as String? ?? 'UID-GENERICO';
+    final driverName = profileAsync.value?['name'] as String? ?? 'CONDUCTOR DESCONOCIDO';
     
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -77,6 +77,8 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
                   if (position != null) {
                     ref.read(trackingRepositoryProvider).updateDriverLocation(
                       unitCode, 
+                      driverId,
+                      driverName,
                       position.latitude, 
                       position.longitude,
                     );
@@ -208,7 +210,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
                       left: 24,
                       right: 24,
                       child: StreamBuilder<DocumentSnapshot>(
-                        stream: ref.watch(trackingRepositoryProvider).listenToDriverLocation(unitCode),
+                        stream: ref.watch(trackingRepositoryProvider).listenToDriverLocation(unitCode, driverId),
                         builder: (context, snapshot) {
                           final data = snapshot.data?.data() as Map<String, dynamic>?;
                           final bool isOnRoute = data?['status'] == 'on_route';
@@ -216,7 +218,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
                           return ElevatedButton(
                             onPressed: () async {
                               final newStatus = isOnRoute ? 'idle' : 'on_route';
-                              await ref.read(trackingRepositoryProvider).updateRouteStatus(unitCode, newStatus);
+                              await ref.read(trackingRepositoryProvider).updateRouteStatus(unitCode, driverId, newStatus);
                               
                               if (context.mounted && !isOnRoute) {
                                 ScaffoldMessenger.of(context).showSnackBar(

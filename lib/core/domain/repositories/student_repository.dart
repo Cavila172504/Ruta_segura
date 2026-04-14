@@ -6,5 +6,8 @@ abstract class StudentRepository {
     required double stopLat,
     required double stopLng,
     required String cedulaPadre,
+    String? grade,
+    String? photoUrl,
+    String? serviceType,
   });
 }

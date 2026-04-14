@@ -111,7 +111,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(28),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: _primaryContainer.withValues(alpha: 0.06),
+                                    color: _primaryContainer.withOpacity(0.06),
                                     blurRadius: 24,
                                     offset: const Offset(0, 8),
                                   ),
@@ -180,7 +180,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                   borderRadius: BorderRadius.circular(28),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: _primaryContainer.withValues(alpha: 0.07),
+                                      color: _primaryContainer.withOpacity(0.07),
                                       blurRadius: 24,
                                       offset: const Offset(0, 8),
                                     ),
@@ -217,26 +217,32 @@ class ParentDashboardScreen extends ConsumerWidget {
                                                     ),
                                                   ),
                                                   const SizedBox(width: 12),
-                                                  Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                        name,
-                                                        style: GoogleFonts.publicSans(
-                                                          fontSize: 18,
-                                                          fontWeight: FontWeight.w800,
-                                                          color: _onSurface,
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          name,
+                                                          style: GoogleFonts.publicSans(
+                                                            fontSize: 18,
+                                                            fontWeight: FontWeight.w800,
+                                                            color: _onSurface,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
                                                         ),
-                                                      ),
-                                                      Text(
-                                                        'Unidad: $unitCode',
-                                                        style: GoogleFonts.publicSans(
-                                                          fontSize: 12,
-                                                          fontWeight: FontWeight.w600,
-                                                          color: _onSurfaceVariant,
+                                                        Text(
+                                                          'Unidad: $unitCode',
+                                                          style: GoogleFonts.publicSans(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: _onSurfaceVariant,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
                                                         ),
-                                                      ),
-                                                    ],
+                                                      ],
+                                                    ),
                                                   ),
                                                 ],
                                               ),
@@ -331,7 +337,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFEDE7),
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.1), width: 1),
+                        border: Border.all(color: Colors.red.withOpacity(0.1), width: 1),
                       ),
                       child: Row(
                         children: [
@@ -351,7 +357,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                 ),
                                 Text(
                                   'Notificar que el bus no pase hoy',
-                                  style: GoogleFonts.publicSans(fontSize: 12, color: const Color(0xFF410002).withValues(alpha: 0.7)),
+                                  style: GoogleFonts.publicSans(fontSize: 12, color: const Color(0xFF410002).withOpacity(0.7)),
                                 ),
                               ],
                             ),
@@ -373,7 +379,7 @@ class ParentDashboardScreen extends ConsumerWidget {
             top: 0, left: 0, right: 0,
             child: ClipRect(
               child: Container(
-                color: Colors.white.withValues(alpha: 0.85),
+                color: Colors.white.withOpacity(0.85),
                 padding: const EdgeInsets.only(top: 48, left: 24, right: 24, bottom: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -421,7 +427,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                   color: Colors.white.withOpacity(0.9),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   boxShadow: [
-                    BoxShadow(color: _primaryContainer.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))
+                    BoxShadow(color: _primaryContainer.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))
                   ]
                 ),
                 child: Row(

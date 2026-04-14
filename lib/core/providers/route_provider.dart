@@ -37,11 +37,11 @@ final liveBusLocationProvider = StreamProvider<LatLng?>((ref) {
       .collection('companies')
       .doc(unitCode)
       .collection('live_tracking')
-      .doc('current')
+      .limit(1)
       .snapshots()
-      .map((doc) {
-        if (!doc.exists) return null;
-        final data = doc.data()!;
+      .map((snap) {
+        if (snap.docs.isEmpty) return null;
+        final data = snap.docs.first.data();
         if (data['lat'] == null || data['lng'] == null) return null;
         return LatLng(data['lat'] as double, data['lng'] as double);
       });
@@ -56,9 +56,9 @@ final busStatusProvider = StreamProvider<String>((ref) {
       .collection('companies')
       .doc(unitCode)
       .collection('live_tracking')
-      .doc('current')
+      .limit(1)
       .snapshots()
-      .map((doc) => (doc.data()?['status'] as String?) ?? 'idle');
+      .map((snap) => snap.docs.isEmpty ? 'idle' : (snap.docs.first.data()['status'] as String?) ?? 'idle');
 });
 
 // Stream de las paradas de los estudiantes del padre (Hogar)

@@ -12,6 +12,9 @@ class FirebaseStudentRepository implements StudentRepository {
     required double stopLat,
     required double stopLng,
     required String cedulaPadre,
+    String? grade,
+    String? photoUrl,
+    String? serviceType,
   }) async {
     try {
       final docId = unitCode.trim().toUpperCase();
@@ -38,6 +41,9 @@ class FirebaseStudentRepository implements StudentRepository {
         'stopLng': stopLng,
         'status': 'active',
         'unitCode': docId,
+        'grade': grade,
+        'photoUrl': photoUrl,
+        'serviceType': serviceType,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -61,6 +67,9 @@ class FirebaseStudentRepository implements StudentRepository {
           'stopLat': stopLat,
           'stopLng': stopLng,
           'unitCode': docId,
+          'grade': grade,
+          'photoUrl': photoUrl,
+          'serviceType': serviceType,
           'status': 'active',
           'createdAt': FieldValue.serverTimestamp(),
         });

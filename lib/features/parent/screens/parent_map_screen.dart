@@ -234,7 +234,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                 decoration: BoxDecoration(
                   color: _primary,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: _primary.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 4))],
+                  boxShadow: [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 4))],
                 ),
                 child: Row(
                   children: [
@@ -289,7 +289,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                         final testLng = sLng + 0.0035;
                         
                         await ref.read(trackingRepositoryProvider).updateDriverLocation(
-                          unitCode, testLat, testLng
+                          unitCode, 'TEST_DRIVER_ID', 'Chofer de Prueba', testLat, testLng
                         );
                         
                         ScaffoldMessenger.of(context).showSnackBar(

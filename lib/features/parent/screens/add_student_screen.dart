@@ -28,6 +28,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   LatLng? _selectedLocation; // Ubicación en el mapa
   XFile? _studentImage; // Foto del estudiante
   String? _selectedGrade; // Grado/Curso
+  String? _selectedServiceType; // Tipo de Recorrido
   String? _schoolName; // Nombre del colegio detectado
 
   bool _isScanning = false;
@@ -41,6 +42,13 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     'Quinto de Básica', 'Sexto de Básica', 'Séptimo de Básica',
     'Octavo de Básica', 'Noveno de Básica', 'Décimo de Básica',
     'Primero de Bachillerato', 'Segundo de Bachillerato', 'Tercero de Bachillerato'
+  ];
+
+  final List<String> _serviceTypes = [
+    'Completo (Ida y Retorno)',
+    'Solo Entrada (Mañana)',
+    'Solo Salida (Tarde)',
+    'Combinado / Especial'
   ];
 
   @override
@@ -116,6 +124,10 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       setState(() => _errorMessage = 'Debes seleccionar el grado/curso');
       return;
     }
+    if (_selectedServiceType == null) {
+      setState(() => _errorMessage = 'Debes seleccionar el tipo de recorrido');
+      return;
+    }
     if (cedula.isEmpty) {
       setState(() => _errorMessage = 'Debes ingresar la cédula del padre de familia');
       return;
@@ -141,22 +153,17 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       final parentUid = await authRepo.getCurrentUserId();
       if (parentUid == null) throw Exception("Sesión no válida");
 
-      setState(() => _errorMessage = 'Registrando estudiante...');
+      setState(() => _errorMessage = 'Subiendo fotografía y datos...');
       
       final docId = unitCode.trim().toUpperCase();
-      final newStudentRef = FirebaseFirestore.instance.collection('companies').doc(docId).collection('students').doc();
       
       // Subir foto si existe
       String? photoUrl;
       if (_studentImage != null) {
-        setState(() => _errorMessage = 'Subiendo fotografía...');
-        photoUrl = await _uploadStudentImage(newStudentRef.id);
+        photoUrl = await _uploadStudentImage(DateTime.now().millisecondsSinceEpoch.toString());
       }
 
-      setState(() => _errorMessage = 'Guardando datos en el servidor...');
-
-      // Implementación directa en el Repo o aquí (según estructura)
-      // Para mantener la lógica del repo, actualizamos el llamado
+      // Implementación directa en el Repo 
       final studentRepo = ref.read(studentRepositoryProvider);
       
       await studentRepo.registerStudent(
@@ -166,29 +173,10 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         cedulaPadre: cedula,
         stopLat: _selectedLocation!.latitude,
         stopLng: _selectedLocation!.longitude,
+        grade: _selectedGrade,
+        photoUrl: photoUrl,
+        serviceType: _selectedServiceType,
       );
-
-      // Actualizar campos extra que no están en el método original (Grado, Foto)
-      await newStudentRef.update({
-        'grade': _selectedGrade,
-        'photoUrl': photoUrl,
-      });
-
-      // También en la subcolección del padre
-      final parentDocQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .doc('parents')
-          .collection('members')
-          .where('uid', isEqualTo: parentUid)
-          .limit(1)
-          .get();
-
-      if (parentDocQuery.docs.isNotEmpty) {
-        await parentDocQuery.docs.first.reference.collection('students').doc(newStudentRef.id).update({
-          'grade': _selectedGrade,
-          'photoUrl': photoUrl,
-        });
-      }
       
       // Suscribirse a los tópicos de notificación para este bus
       await NotificationService().subscribeToBus(unitCode);
@@ -378,6 +366,31 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 ),
                 items: _grades.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                 onChanged: (val) => setState(() => _selectedGrade = val),
+              ),
+              const SizedBox(height: 24),
+
+              // Tipo de Recorrido
+              Text(
+                'TIPO DE RECORRIDO / SERVICIO',
+                style: GoogleFonts.publicSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedServiceType,
+                decoration: InputDecoration(
+                  hintText: 'Seleccione el servicio',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.sync_alt, color: Colors.grey),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+                ),
+                items: _serviceTypes.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                onChanged: (val) => setState(() => _selectedServiceType = val),
               ),
               const SizedBox(height: 24),
 

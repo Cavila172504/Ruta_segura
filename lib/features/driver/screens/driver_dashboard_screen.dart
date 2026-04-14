@@ -33,7 +33,7 @@ class DriverDashboardScreen extends ConsumerWidget {
             child: Image.network(
               'https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1000&auto=format&fit=crop',
               fit: BoxFit.cover,
-              color: Colors.white.withValues(alpha: 0.6),
+              color: Colors.white.withOpacity(0.6),
               colorBlendMode: BlendMode.dstATop,
               errorBuilder: (context, error, stackTrace) =>
                   Container(color: Colors.grey.shade300),
@@ -48,7 +48,7 @@ class DriverDashboardScreen extends ConsumerWidget {
                   end: Alignment.topCenter,
                   colors: [
                     AppColors.surface,
-                    AppColors.surface.withValues(alpha: 0.2),
+                    AppColors.surface.withOpacity(0.2),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.4, 1.0],
@@ -242,10 +242,10 @@ class DriverDashboardScreen extends ConsumerWidget {
                           return Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.9),
+                              color: Colors.white.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                  color: AppColors.outline.withValues(alpha: 0.1)),
+                                  color: AppColors.outline.withOpacity(0.1)),
                             ),
                             child: Row(
                               children: [
@@ -308,8 +308,9 @@ class DriverDashboardScreen extends ConsumerWidget {
                 final unitCode = profile?['unitCode'] as String? ?? 'UNIDAD-00';
                 return InkWell(
                   onTap: () async {
+                    final driverId = profile?['uid'] as String? ?? 'UNKNOWN';
                     // Notificar a los padres que el recorrido ha iniciado
-                    await ref.read(trackingRepositoryProvider).updateRouteStatus(unitCode, 'active');
+                    await ref.read(trackingRepositoryProvider).updateRouteStatus(unitCode, driverId, 'on_route');
                     
                     if (context.mounted) {
                       Navigator.pushReplacement(
@@ -327,7 +328,7 @@ class DriverDashboardScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.4),
+                          color: AppColors.primary.withOpacity(0.4),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -368,7 +369,7 @@ class DriverDashboardScreen extends ConsumerWidget {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.secondary.withValues(alpha: 0.1),
+                    color: AppColors.secondary.withOpacity(0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -4),
                   ),
@@ -449,10 +450,10 @@ class DriverDashboardScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
+        border: Border.all(color: AppColors.outline.withOpacity(0.15)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.secondary.withValues(alpha: 0.15),
+            color: AppColors.secondary.withOpacity(0.15),
             blurRadius: 40,
             offset: const Offset(0, 12),
             spreadRadius: -12,
@@ -622,7 +623,7 @@ class DriverDashboardScreen extends ConsumerWidget {
                   style: GoogleFonts.publicSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.onSurface.withValues(alpha: 0.55),
+                    color: AppColors.onSurface.withOpacity(0.55),
                   ),
                 ),
               ],
