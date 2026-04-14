@@ -60,24 +60,48 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
           Positioned.fill(
             child: Consumer(
               builder: (context, ref, _) {
-                // Lógica de Proximidad
+                // Lógica de Estado de Ruta (Notificar inicio)
+                ref.listen(busStatusProvider, (previous, next) {
+                  if (previous?.value == 'idle' && next.value == 'on_route') {
+                    NotificationService().showLocalNotification(
+                      id: 0,
+                      title: '🚩 ¡Ruta Iniciada!',
+                      body: 'El bus ha comenzado su recorrido habitual.',
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('🚀 ¡La ruta escolar ha iniciado!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                });
+
+                // Lógica de Proximidad para todos los hijos
                 ref.listen(liveBusLocationProvider, (previous, next) {
                   final busLoc = next.value;
-                  final studentStop = ref.read(studentStopProvider).value;
+                  final students = ref.read(parentStudentsProvider).value ?? [];
                   
-                  if (busLoc != null && studentStop != null) {
-                    final distance = Geolocator.distanceBetween(
-                      busLoc.latitude, busLoc.longitude,
-                      studentStop.latitude, studentStop.longitude,
-                    );
+                  if (busLoc != null) {
+                    for (var student in students) {
+                      final sLat = student['stopLat'] as double?;
+                      final sLng = student['stopLng'] as double?;
+                      
+                      if (sLat != null && sLng != null) {
+                        final distance = Geolocator.distanceBetween(
+                          busLoc.latitude, busLoc.longitude,
+                          sLat, sLng,
+                        );
 
-                    if (distance < 600) {
-                      final etaMin = (distance / 300).ceil();
-                      NotificationService().showLocalNotification(
-                        id: 1,
-                        title: '¡La unidad esta proxima en llegar!',
-                        body: 'Distancia: ${distance.toInt()}m • Tiempo estimado: $etaMin min.',
-                      );
+                        if (distance < 600) {
+                          final etaMin = (distance / 300).ceil();
+                          NotificationService().showLocalNotification(
+                            id: student.hashCode,
+                            title: '¡El bus está cerca de ${student['studentName']}!',
+                            body: 'Distancia: ${distance.toInt()}m • Tiempo estimado: $etaMin min.',
+                          );
+                        }
+                      }
                     }
                   }
                 });
@@ -85,10 +109,12 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                 final locationAsync = ref.watch(currentLocationStreamProvider);
                 final polylines = ref.watch(activePolylinesProvider);
                 final liveBusLocation = ref.watch(liveBusLocationProvider).value;
-                final studentStop = ref.watch(studentStopProvider).value;
+                final studentsAsync = ref.watch(parentStudentsProvider);
 
                 LatLng initialPos = defaultInitialLocation;
                 if (liveBusLocation != null) initialPos = liveBusLocation;
+
+                final students = studentsAsync.value ?? [];
 
                 return GoogleMap(
                   initialCameraPosition: CameraPosition(target: initialPos, zoom: 14),
@@ -98,14 +124,18 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                   mapToolbarEnabled: false,
                   polylines: polylines,
                   markers: {
-                    if (studentStop != null)
-                      Marker(
-                        markerId: const MarkerId('home'),
-                        position: studentStop,
-                        infoWindow: const InfoWindow(title: 'Mi Parada (Hogar)'),
-                        icon: _houseIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-                        anchor: const Offset(0.5, 0.5),
-                      ),
+                    // Marcadores de mis hijos
+                    for (var student in students)
+                      if (student['stopLat'] != null && student['stopLng'] != null)
+                        Marker(
+                          markerId: MarkerId('student_${student['id'] ?? student['studentName']}'),
+                          position: LatLng(student['stopLat'] as double, student['stopLng'] as double),
+                          infoWindow: InfoWindow(title: 'Parada: ${student['studentName']}'),
+                          icon: _houseIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                          anchor: const Offset(0.5, 0.5),
+                        ),
+                    
+                    // Marcador del Bus
                     if (liveBusLocation != null)
                       Marker(
                         markerId: const MarkerId('bus'),
@@ -246,12 +276,17 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                         final profile = ref.read(userProfileProvider).value;
                         final unitCode = profile?['activeUnitCode'] as String? ?? 'UNIDAD-GENERICA';
                         
-                        // Obtenemos la parada (ahora tiene fallback)
-                        final studentStop = ref.read(studentStopProvider).value ?? const LatLng(-0.180653, -78.467834);
+                        // Obtenemos el primer estudiante para la prueba
+                        final students = ref.read(parentStudentsProvider).value ?? [];
+                        if (students.isEmpty) return;
+                        
+                        final student = students.first;
+                        final sLat = student['stopLat'] as double;
+                        final sLng = student['stopLng'] as double;
                         
                         // Mover bus a exactamente 500m del objetivo
-                        final testLat = studentStop.latitude + 0.0035; // Aproximadamente 400-500m
-                        final testLng = studentStop.longitude + 0.0035;
+                        final testLat = sLat + 0.0035; 
+                        final testLng = sLng + 0.0035;
                         
                         await ref.read(trackingRepositoryProvider).updateDriverLocation(
                           unitCode, testLat, testLng
@@ -349,16 +384,22 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
               Consumer(
                 builder: (context, ref, _) {
                   final busLoc = ref.watch(liveBusLocationProvider).value;
-                  final studentStop = ref.watch(studentStopProvider).value;
+                  final students = ref.watch(parentStudentsProvider).value ?? [];
                   String arrivalText = 'Calculando...';
                   
-                  if (busLoc != null && studentStop != null) {
-                    final dist = Geolocator.distanceBetween(
-                      busLoc.latitude, busLoc.longitude,
-                      studentStop.latitude, studentStop.longitude,
-                    );
-                    final mins = (dist / 300).ceil();
-                    arrivalText = dist < 50 ? 'En la puerta' : 'Llega en $mins min';
+                  if (busLoc != null && students.isNotEmpty) {
+                    final firstStudent = students.first;
+                    final sLat = firstStudent['stopLat'] as double?;
+                    final sLng = firstStudent['stopLng'] as double?;
+
+                    if (sLat != null && sLng != null) {
+                      final dist = Geolocator.distanceBetween(
+                        busLoc.latitude, busLoc.longitude,
+                        sLat, sLng,
+                      );
+                      final mins = (dist / 300).ceil();
+                      arrivalText = dist < 50 ? 'En la puerta' : 'Llega en $mins min';
+                    }
                   }
 
                   return Row(

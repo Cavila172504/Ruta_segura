@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/notification_service.dart';
 import 'parent_map_picker_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
 
 class AddStudentScreen extends ConsumerStatefulWidget {
   const AddStudentScreen({super.key});
@@ -22,10 +26,22 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final MobileScannerController _scannerController = MobileScannerController();
 
   LatLng? _selectedLocation; // Ubicación en el mapa
+  XFile? _studentImage; // Foto del estudiante
+  String? _selectedGrade; // Grado/Curso
+  String? _schoolName; // Nombre del colegio detectado
 
   bool _isScanning = false;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isValidatingUnit = false;
+
+  final List<String> _grades = [
+    'Inicial 1', 'Inicial 2', 'Primero de Básica', 
+    'Segundo de Básica', 'Tercero de Básica', 'Cuarto de Básica',
+    'Quinto de Básica', 'Sexto de Básica', 'Séptimo de Básica',
+    'Octavo de Básica', 'Noveno de Básica', 'Décimo de Básica',
+    'Primero de Bachillerato', 'Segundo de Bachillerato', 'Tercero de Bachillerato'
+  ];
 
   @override
   void dispose() {
@@ -36,6 +52,57 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     super.dispose();
   }
 
+  Future<void> _validateUnit(String code) async {
+    if (code.isEmpty) {
+      setState(() {
+        _schoolName = null;
+        _errorMessage = null;
+      });
+      return;
+    }
+
+    setState(() => _isValidatingUnit = true);
+    try {
+      final doc = await FirebaseFirestore.instance.collection('companies').doc(code.toUpperCase().trim()).get();
+      if (doc.exists) {
+        setState(() {
+          // Asumimos 'name' o similar. Para CADE forzamos CADE si el código coincide con el patrón esperado
+          _schoolName = doc.data()?['name'] ?? 'Colegio CADE';
+          _errorMessage = null;
+        });
+      } else {
+        setState(() {
+          _schoolName = null;
+          _errorMessage = 'El código de unidad no existe en nuestros registros.';
+        });
+      }
+    } catch (_) {
+      setState(() => _schoolName = null);
+    } finally {
+      setState(() => _isValidatingUnit = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 50);
+    if (image != null) {
+      setState(() => _studentImage = image);
+    }
+  }
+
+  Future<String?> _uploadStudentImage(String studentId) async {
+    if (_studentImage == null) return null;
+    try {
+      final ref = FirebaseStorage.instance.ref().child('students_photos').child('$studentId.jpg');
+      await ref.putFile(File(_studentImage!.path));
+      return await ref.getDownloadURL();
+    } catch (e) {
+      debugPrint('Error subiendo imagen: $e');
+      return null;
+    }
+  }
+
   Future<void> _registerStudent() async {
     final name = _studentNameController.text.trim();
     final cedula = _cedulaController.text.trim();
@@ -43,6 +110,10 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
     if (name.isEmpty) {
       setState(() => _errorMessage = 'Debes ingresar el nombre del estudiante');
+      return;
+    }
+    if (_selectedGrade == null) {
+      setState(() => _errorMessage = 'Debes seleccionar el grado/curso');
       return;
     }
     if (cedula.isEmpty) {
@@ -65,24 +136,59 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final studentRepo = ref.read(studentRepositoryProvider);
-
+      
       // Extraer UID del padre (Usuario actual logueado)
       final parentUid = await authRepo.getCurrentUserId();
-      
       if (parentUid == null) throw Exception("Sesión no válida");
 
-      setState(() => _errorMessage = 'Guardando datos en el servidor...');
+      setState(() => _errorMessage = 'Registrando estudiante...');
       
-      // Guardar estudiante en base de datos
+      final docId = unitCode.trim().toUpperCase();
+      final newStudentRef = FirebaseFirestore.instance.collection('companies').doc(docId).collection('students').doc();
+      
+      // Subir foto si existe
+      String? photoUrl;
+      if (_studentImage != null) {
+        setState(() => _errorMessage = 'Subiendo fotografía...');
+        photoUrl = await _uploadStudentImage(newStudentRef.id);
+      }
+
+      setState(() => _errorMessage = 'Guardando datos en el servidor...');
+
+      // Implementación directa en el Repo o aquí (según estructura)
+      // Para mantener la lógica del repo, actualizamos el llamado
+      final studentRepo = ref.read(studentRepositoryProvider);
+      
       await studentRepo.registerStudent(
         parentId: parentUid,
         studentName: name,
-        unitCode: unitCode,
+        unitCode: docId,
         cedulaPadre: cedula,
         stopLat: _selectedLocation!.latitude,
         stopLng: _selectedLocation!.longitude,
       );
+
+      // Actualizar campos extra que no están en el método original (Grado, Foto)
+      await newStudentRef.update({
+        'grade': _selectedGrade,
+        'photoUrl': photoUrl,
+      });
+
+      // También en la subcolección del padre
+      final parentDocQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .doc('parents')
+          .collection('members')
+          .where('uid', isEqualTo: parentUid)
+          .limit(1)
+          .get();
+
+      if (parentDocQuery.docs.isNotEmpty) {
+        await parentDocQuery.docs.first.reference.collection('students').doc(newStudentRef.id).update({
+          'grade': _selectedGrade,
+          'photoUrl': photoUrl,
+        });
+      }
       
       // Suscribirse a los tópicos de notificación para este bus
       await NotificationService().subscribeToBus(unitCode);
@@ -114,8 +220,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         setState(() {
           _unitCodeController.text = code;
           _isScanning = false;
-          _errorMessage = 'Unidad $code vinculada correctamente.';
         });
+        _validateUnit(code);
       }
     }
   }
@@ -154,6 +260,33 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 style: GoogleFonts.publicSans(
                   fontSize: 14,
                   color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // FOTO DEL ESTUDIANTE
+              Center(
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: _studentImage != null ? FileImage(File(_studentImage!.path)) : null,
+                      child: _studentImage == null ? const Icon(Icons.person, size: 50, color: Colors.grey) : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: InkWell(
+                        onTap: _pickImage,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 32),
@@ -220,6 +353,31 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                     borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+
+              // Grado / Curso
+              Text(
+                'GRADO / CURSO',
+                style: GoogleFonts.publicSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedGrade,
+                decoration: InputDecoration(
+                  hintText: 'Seleccione un grado',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.school, color: Colors.grey),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+                ),
+                items: _grades.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                onChanged: (val) => setState(() => _selectedGrade = val),
               ),
               const SizedBox(height: 24),
 
@@ -290,12 +448,16 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                     child: TextField(
                       controller: _unitCodeController,
                       style: GoogleFonts.publicSans(),
-                      onChanged: (_) => setState(() => _errorMessage = null),
+                      onChanged: (val) {
+                        setState(() => _errorMessage = null);
+                        if (val.length >= 3) _validateUnit(val);
+                      },
                       decoration: InputDecoration(
                         hintText: 'Ej. UNIDAD-42',
                         filled: true,
                         fillColor: Colors.white,
                         prefixIcon: const Icon(Icons.directions_bus, color: Colors.grey),
+                        suffixIcon: _isValidatingUnit ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : null,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -338,6 +500,29 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                   ),
                 ],
               ),
+              
+              if (_schoolName != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified, color: AppColors.primary),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Vinculando a: $_schoolName',
+                          style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: AppColors.primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 24),
 
               // Visor del Escáner QR

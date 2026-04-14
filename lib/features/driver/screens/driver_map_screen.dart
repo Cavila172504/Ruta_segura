@@ -12,6 +12,7 @@ import '../../../core/providers/map_provider.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'driver_stop_detail_screen.dart';
@@ -200,6 +201,52 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
                           child: Text('⚠️ Esperando señal GPS o permisos...', textAlign: TextAlign.center, style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: Colors.red)),
                         ),
                       ),
+                    
+                    // Botón de Inicio de Ruta (Prominente)
+                    Positioned(
+                      top: 145,
+                      left: 24,
+                      right: 24,
+                      child: StreamBuilder<DocumentSnapshot>(
+                        stream: ref.watch(trackingRepositoryProvider).listenToDriverLocation(unitCode),
+                        builder: (context, snapshot) {
+                          final data = snapshot.data?.data() as Map<String, dynamic>?;
+                          final bool isOnRoute = data?['status'] == 'on_route';
+
+                          return ElevatedButton(
+                            onPressed: () async {
+                              final newStatus = isOnRoute ? 'idle' : 'on_route';
+                              await ref.read(trackingRepositoryProvider).updateRouteStatus(unitCode, newStatus);
+                              
+                              if (context.mounted && !isOnRoute) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('✅ Ruta Iniciada. Los padres han sido notificados.')),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isOnRoute ? Colors.red : const Color(0xFF044837),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 8,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(isOnRoute ? Icons.stop_circle : Icons.play_circle_fill),
+                                const SizedBox(width: 8),
+                                Text(
+                                  isOnRoute ? 'FINALIZAR RECORRIDO' : 'INICIAR RECORRIDO DEL DÍA',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      ),
+                    ),
+
                     // Badge de Unidad Activa
                     Positioned(
                       top: 110,

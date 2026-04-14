@@ -8,6 +8,7 @@ import 'parent_notifications_screen.dart';
 import 'add_student_screen.dart';
 import '../../../core/providers/notification_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/providers/route_provider.dart';
 
 class ParentDashboardScreen extends ConsumerWidget {
   const ParentDashboardScreen({super.key});

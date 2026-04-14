@@ -9,11 +9,23 @@ final activeUnitCodeProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(authStateProvider).value;
   if (user == null) return null;
 
-  // Buscamos en qué compañía está registrado este padre
-  // Nota: Esto es una simplificación, asumiendo que el padre está en la colección global 'parents' 
-  // o buscando en las compañías. Por ahora, buscaremos en el perfil del usuario.
   final profile = await ref.watch(userProfileProvider.future);
-  return profile?['activeUnitCode'] as String?;
+  final profileCode = profile?['activeUnitCode'] as String?;
+  
+  if (profileCode != null) return profileCode;
+
+  // Si no está en perfil, buscamos en sus estudiantes vinculados
+  final students = await FirebaseFirestore.instance
+      .collectionGroup('students')
+      .where('parentId', isEqualTo: user.uid)
+      .limit(1)
+      .get();
+
+  if (students.docs.isNotEmpty) {
+    return students.docs.first.data()['unitCode'] as String?;
+  }
+
+  return null;
 });
 
 // Stream de la ubicación real del bus desde Firestore
@@ -30,15 +42,30 @@ final liveBusLocationProvider = StreamProvider<LatLng?>((ref) {
       .map((doc) {
         if (!doc.exists) return null;
         final data = doc.data()!;
+        if (data['lat'] == null || data['lng'] == null) return null;
         return LatLng(data['lat'] as double, data['lng'] as double);
       });
 });
 
-// Stream de la parada del estudiante (Hogar)
-final studentStopProvider = StreamProvider<LatLng?>((ref) {
+// Stream del estado actual de la ruta (idle, on_route)
+final busStatusProvider = StreamProvider<String>((ref) {
+  final unitCode = ref.watch(activeUnitCodeProvider).value;
+  if (unitCode == null) return Stream.value('idle');
+
+  return FirebaseFirestore.instance
+      .collection('companies')
+      .doc(unitCode)
+      .collection('live_tracking')
+      .doc('current')
+      .snapshots()
+      .map((doc) => (doc.data()?['status'] as String?) ?? 'idle');
+});
+
+// Stream de las paradas de los estudiantes del padre (Hogar)
+final parentStudentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final user = ref.watch(authStateProvider).value;
   final unitCode = ref.watch(activeUnitCodeProvider).value;
-  if (user == null || unitCode == null) return Stream.value(null);
+  if (user == null || unitCode == null) return Stream.value([]);
 
   return FirebaseFirestore.instance
       .collection('companies')
@@ -48,11 +75,16 @@ final studentStopProvider = StreamProvider<LatLng?>((ref) {
       .snapshots()
       .map((snap) {
         if (snap.docs.isEmpty) {
-          // Fallback para pruebas: Centro de un sector residencial en Quito
-          return const LatLng(-0.180653, -78.467834); 
+          // Fallback para pruebas si no hay datos reales vinculados
+          return [
+            {
+              'studentName': 'ESTUDIANTE DE PRUEBA',
+              'stopLat': -0.180653,
+              'stopLng': -0.467834,
+            }
+          ];
         }
-        final data = snap.docs.first.data();
-        return LatLng(data['stopLat'] as double, data['stopLng'] as double);
+        return snap.docs.map((doc) => doc.data()).toList();
       });
 });
 

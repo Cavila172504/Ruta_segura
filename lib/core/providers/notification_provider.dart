@@ -4,6 +4,7 @@ import '../services/notification_service.dart';
 import '../services/proximity_service.dart';
 import 'app_providers.dart';
 import 'notification_list_provider.dart';
+import 'route_provider.dart';
 
 /// Provider que monitorea las cercanías de los buses en tiempo real para el padre.
 final proximityMonitoringProvider = Provider<void>((ref) {
