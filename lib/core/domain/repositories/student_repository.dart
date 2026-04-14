@@ -9,5 +9,7 @@ abstract class StudentRepository {
     String? grade,
     String? photoUrl,
     String? serviceType,
+    String? parentName,
+    String? parentEmail,
   });
 }

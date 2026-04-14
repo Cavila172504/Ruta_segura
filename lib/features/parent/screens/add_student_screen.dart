@@ -22,6 +22,8 @@ class AddStudentScreen extends ConsumerStatefulWidget {
 class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _studentNameController = TextEditingController();
   final _cedulaController = TextEditingController(); // Cédula del Padre
+  final _parentNameController = TextEditingController(); // Nombre del Representante
+  final _parentEmailController = TextEditingController(); // Email del Representante
   final _unitCodeController = TextEditingController(); // Código de la Unidad / Bus
   final MobileScannerController _scannerController = MobileScannerController();
 
@@ -55,6 +57,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   void dispose() {
     _studentNameController.dispose();
     _cedulaController.dispose();
+    _parentNameController.dispose();
+    _parentEmailController.dispose();
     _unitCodeController.dispose();
     _scannerController.dispose();
     super.dispose();
@@ -171,6 +175,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         studentName: name,
         unitCode: docId,
         cedulaPadre: cedula,
+        parentName: _parentNameController.text.trim(),
+        parentEmail: _parentEmailController.text.trim(),
         stopLat: _selectedLocation!.latitude,
         stopLng: _selectedLocation!.longitude,
         grade: _selectedGrade,
@@ -308,6 +314,58 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Nombre del Representante
+              Text(
+                'NOMBRES DEL REPRESENTANTE',
+                style: GoogleFonts.publicSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _parentNameController,
+                style: GoogleFonts.publicSans(),
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'Ej. Juan Pérez',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.supervisor_account, color: Colors.grey),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Correo Electrónico
+              Text(
+                'CORREO ELECTRÓNICO',
+                style: GoogleFonts.publicSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _parentEmailController,
+                style: GoogleFonts.publicSans(),
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  hintText: 'representante@ejemplo.com',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.email, color: Colors.grey),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
                 ),
               ),
               const SizedBox(height: 24),

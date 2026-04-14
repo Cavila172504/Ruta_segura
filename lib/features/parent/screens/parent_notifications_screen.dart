@@ -156,7 +156,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
 
     switch (notification.type) {
       case NotificationType.alert:
-        icon = Icons.warning;
+        icon = Icons.error_outline_rounded;
         iconColor = Colors.white;
         iconBg = const Color(0xFFba1a1a);
         bgColor = const Color(0xFFffdad6);
@@ -164,24 +164,29 @@ class ParentNotificationsScreen extends ConsumerWidget {
         subtitleColor = const Color(0xFF93000a);
         break;
       case NotificationType.busStart:
-        icon = Icons.directions_bus;
+        icon = Icons.directions_bus_filled_rounded;
         iconBg = const Color(0xFFd4e3ff);
         iconColor = _primary;
         break;
+      case NotificationType.support:
+        icon = Icons.headset_mic_rounded;
+        iconBg = Colors.green.shade100;
+        iconColor = Colors.green.shade800;
+        break;
       case NotificationType.proximity:
-        icon = Icons.near_me;
+        icon = Icons.near_me_rounded;
         iconBg = const Color(0xFFd9e4ee);
         iconColor = _primary;
         border = Border(left: BorderSide(color: _primary, width: 4));
         break;
       case NotificationType.boarded:
-        icon = Icons.check_circle;
+        icon = Icons.how_to_reg_rounded;
         iconColor = Colors.white;
         iconBg = _primary;
         break;
       case NotificationType.arrival:
-        icon = Icons.school;
-        iconColor = const Color(0xFF121d24);
+        icon = Icons.school_rounded;
+        iconColor = const Color(0xFF424751);
         iconBg = const Color(0xFFbdc8d1);
         if (dimmed) bgColor = const Color(0xFFedeeef);
         break;

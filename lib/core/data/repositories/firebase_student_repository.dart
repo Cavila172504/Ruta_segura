@@ -15,6 +15,8 @@ class FirebaseStudentRepository implements StudentRepository {
     String? grade,
     String? photoUrl,
     String? serviceType,
+    String? parentName,
+    String? parentEmail,
   }) async {
     try {
       final docId = unitCode.trim().toUpperCase();
@@ -36,6 +38,8 @@ class FirebaseStudentRepository implements StudentRepository {
         'id': newStudentRef.id,
         'parentId': parentId,
         'cedulaPadre': cedulaPadre,
+        'parentName': parentName,
+        'parentEmail': parentEmail,
         'studentName': studentName,
         'stopLat': stopLat,
         'stopLng': stopLng,

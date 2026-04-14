@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum NotificationType { alert, busStart, proximity, boarded, arrival }
+enum NotificationType { alert, busStart, proximity, boarded, arrival, support }
 
 class AppNotification {
   final String id;
@@ -59,8 +59,15 @@ class NotificationListNotifier extends Notifier<List<AppNotification>> {
         id: '2',
         title: 'Bus iniciando recorrido',
         subtitle: 'La unidad 24 ha comenzado su ruta hacia el colegio.',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
+        timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
         type: NotificationType.busStart,
+      ),
+      AppNotification(
+        id: '3',
+        title: 'Soporte enviado',
+        subtitle: 'Tu mensaje ha sido recibido por el administrador.',
+        timestamp: DateTime.now().subtract(const Duration(hours: 1)),
+        type: NotificationType.support,
       ),
     ];
   }

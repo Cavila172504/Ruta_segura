@@ -10,7 +10,8 @@ const Sidebar = ({ profile }) => {
     { icon: 'dashboard', label: 'Dashboard', href: '/dashboard' },
     { icon: 'person', label: 'Conductores', href: '/dashboard/drivers' },
     { icon: 'route', label: 'Rutas', href: '/dashboard/routes' },
-    { icon: 'school', label: 'Estudiantes', href: '/dashboard/students' },
+    { icon: 'supervisor_account', label: 'Representantes', href: '/dashboard/students' },
+    { icon: 'headset_mic', label: 'Soporte', href: '/dashboard/support' },
     { icon: 'analytics', label: 'Informes', href: '/dashboard/reports' },
   ];
 
