@@ -11,7 +11,7 @@
     <application
         android:label="ruta_segura"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -41,7 +41,7 @@
             android:value="2" />
         
         <!-- API Key de Google Maps -->
-        <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyBRXBhHluPGhrGNTC9cj03aGut7Q6jkd_U"/>
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyBRXBhHluPGhrGNTc9cj03aGut7Q6jkd_U"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

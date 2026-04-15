@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
 import 'driver_map_screen.dart';
@@ -10,14 +12,71 @@ import 'driver_qr_screen.dart';
 import '../../parent/screens/parent_dashboard_screen.dart';
 import 'driver_route_creator_screen.dart';
 import '../../../core/screens/login_screen.dart';
+import 'driver_main_shell.dart';
+import '../../../core/providers/navigation_provider.dart';
 
-class DriverDashboardScreen extends ConsumerWidget {
+class DriverDashboardScreen extends ConsumerStatefulWidget {
   const DriverDashboardScreen({super.key});
 
+  @override
+  ConsumerState<DriverDashboardScreen> createState() => _DriverDashboardScreenState();
+}
+
+class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   // Colores Premium para el Conductor (Identidad BusGuardian)
   final Color _primaryDriver = const Color(0xFF0D4D3A); // Esmeralda Profundo
   final Color _accentDriver = const Color(0xFFFFD600);  // Amarillo Bus
   final Color _surfaceDriver = const Color(0xFFF4F7F6);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLocationPermission();
+    });
+  }
+
+  Future<void> _checkLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) _showLocationDialog('GPS Desactivado', 'Por favor, activa el GPS para que el sistema de rastreo funcione correctamente.');
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted) _showLocationDialog('Permiso Denegado', 'Necesitamos tu ubicación para que los padres puedan ver el progreso del bus.');
+        return;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) _showLocationDialog('Permiso Bloqueado', 'Has denegado permanentemente el acceso a la ubicación. Por favor, actívalo en los ajustes del sistema.');
+      return;
+    }
+  }
+
+  void _showLocationDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(title, style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: _primaryDriver)),
+        content: Text(message, style: GoogleFonts.publicSans()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('ENTENDIDO', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: _primaryDriver)),
+          ),
+        ],
+      ),
+    );
+  }
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -27,7 +86,7 @@ class DriverDashboardScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
     final now = DateTime.now();
     final dateStr = '${now.day}/${now.month}/${now.year}';
@@ -200,15 +259,12 @@ class DriverDashboardScreen extends ConsumerWidget {
 
           // Botón Flotante de INICIO
           Positioned(
-            bottom: 100, left: 24, right: 24,
+            bottom: 24, left: 24, right: 24,
             child: profileAsync.maybeWhen(
               data: (profile) => _startBtn(context, ref, profile),
               orElse: () => const SizedBox.shrink(),
             ),
           ),
-
-          // Barra de Navegación Inferior
-          Positioned(bottom: 0, left: 0, right: 0, child: _navBar(context)),
         ],
       ),
     );
@@ -393,8 +449,42 @@ class DriverDashboardScreen extends ConsumerWidget {
       onTap: () async {
         final driverId = profile?['uid'] ?? 'UNKNOWN';
         final unitCode = profile?['unitCode'] ?? 'CAD31';
+        
+        // 1. Cambiar estado en Firebase
         await ref.read(trackingRepositoryProvider).updateRouteStatus(unitCode, driverId, 'on_route');
-        if (context.mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DriverMapScreen()));
+
+        // 2. Notificar a todos los padres de la ruta que el bus ha iniciado
+        try {
+          final studentsSnapshot = await FirebaseFirestore.instance
+              .collection('companies').doc(unitCode).collection('students').get();
+          
+          final batch = FirebaseFirestore.instance.batch();
+          final now = Timestamp.now();
+
+          for (var doc in studentsSnapshot.docs) {
+            final parentUid = doc.data()['parentUid'] as String?;
+            if (parentUid != null) {
+              final notificationRef = FirebaseFirestore.instance
+                  .collection('users').doc('parents').collection('members').doc(parentUid)
+                  .collection('notifications').doc();
+              
+              batch.set(notificationRef, {
+                'title': '🚌 Recorrido Iniciado',
+                'message': 'El transporte ha iniciado su recorrido hacia el colegio. ¡Ten un excelente día!',
+                'timestamp': now,
+                'type': 'trip_started',
+                'isRead': false,
+              });
+            }
+          }
+          await batch.commit();
+        } catch (e) {
+          debugPrint('Error enviando notificaciones de inicio: $e');
+        }
+
+        if (context.mounted) {
+           ref.read(driverNavigationProvider.notifier).state = 1; // Cambiar a la pestaña de MAPA
+        }
       },
       child: Container(
         height: 64,
@@ -412,42 +502,6 @@ class DriverDashboardScreen extends ConsumerWidget {
               Text('INICIAR RECORRIDO', style: GoogleFonts.publicSans(fontSize: 16, fontWeight: FontWeight.w900, color: _primaryDriver, letterSpacing: 1)),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(top: 12, bottom: 28, left: 16, right: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, -5))],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.grid_view_rounded, 'Dashboard', true, () {}),
-          _navItem(Icons.map_rounded, 'Mapa', false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DriverMapScreen()))),
-          _navItem(Icons.how_to_reg_rounded, 'Alumnos', false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DriverAttendanceScreen()))),
-          _navItem(Icons.person_rounded, 'Perfil', false, () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DriverProfileScreen()))),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(IconData icon, String label, bool active, VoidCallback onTap) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: active ? _primaryDriver : Colors.grey.shade300, size: 24),
-            const SizedBox(height: 4),
-            Text(label.toUpperCase(), style: GoogleFonts.publicSans(fontSize: 8, fontWeight: FontWeight.w900, color: active ? _primaryDriver : Colors.grey.shade400)),
-          ],
         ),
       ),
     );

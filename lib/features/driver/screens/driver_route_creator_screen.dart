@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,12 +18,42 @@ class DriverRouteCreatorScreen extends ConsumerStatefulWidget {
 }
 
 class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScreen> {
-  final List<Map<String, dynamic>> _routeSequence = [];
+  final List<dynamic> _routeSequence = [];
   final Color _primaryColor = const Color(0xFF0D4D3A);
   final Color _accentColor = const Color(0xFFFFD600);
   
   Set<Marker> _markers = {};
   bool _isSaving = false;
+  int _currentIndex = 0;
+
+  BitmapDescriptor? _busIcon;
+  BitmapDescriptor? _houseIcon;
+  BitmapDescriptor? _schoolIcon;
+  final LatLng _cadeLocation = const LatLng(-0.3485666414297856, -79.24772636139673);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomIcons();
+  }
+
+  Future<void> _loadCustomIcons() async {
+    try {
+      _busIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/autobus-escolar.png', 130));
+      _houseIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/casa.png', 100));
+      _schoolIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/colegio.png', 120));
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Error cargando iconos: $e');
+    }
+  }
+
+  Future<Uint8List> _getBytesFromAsset(String path, int width) async {
+    ByteData data = await rootBundle.load(path);
+    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: width);
+    ui.FrameInfo fi = await codec.getNextFrame();
+    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,13 +108,42 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
           ),
         ],
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        elevation: 15,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          if (index == _currentIndex) return;
+          Navigator.pop(context); // Salir del modo arquitecto antes de navegar
+          // La navegación real ocurre en las otras pantallas
+        },
+        selectedItemColor: const Color(0xFF0D4D3A),
+        unselectedItemColor: Colors.grey.shade400,
+        selectedLabelStyle: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+        unselectedLabelStyle: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'DASHBOARD'),
+          BottomNavigationBarItem(icon: Icon(Icons.map_rounded), label: 'MAPA'),
+          BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: 'ALUMNOS'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'PERFIL'),
+        ],
+      ),
     );
   }
 
   void _updateMarkers(List<dynamic> students, dynamic myPos) {
     final Set<Marker> newMarkers = {};
     
-    // Icono para estudiantes disponibles (Casitas grises)
+    // Icono Colegio
+    newMarkers.add(Marker(
+      markerId: const MarkerId('school_marker'),
+      position: _cadeLocation,
+      icon: _schoolIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      infoWindow: const InfoWindow(title: 'Unidad Educativa CADE'),
+    ));
+
+    // Icono para estudiantes disponibles (Casitas)
     for (var s in students) {
       if (s['stopLat'] != null) {
         final bool isAdded = _routeSequence.any((item) => item['id'] == s['id']);
@@ -89,9 +151,9 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
         newMarkers.add(Marker(
           markerId: MarkerId(s['id']),
           position: LatLng(s['stopLat'], s['stopLng']),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            isAdded ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueRed
-          ),
+          icon: isAdded 
+            ? (_houseIcon != null ? _houseIcon! : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure))
+            : (_houseIcon != null ? _houseIcon! : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)),
           onTap: () {
             if (!isAdded) _addStopToSequence(s);
           },
@@ -198,9 +260,9 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
         'unitId': unitCode,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': 'driver',
-        'stops': _routeSequence.map((s) => s['id']).toList(),
-        'stopDetails': _routeSequence,
-        'status': 'active'
+        'assigned_students': _routeSequence, // Usamosassigned_students para web_admin
+        'status': 'active',
+        'shift': 'MATUTINA'
       });
       
       if (mounted) {

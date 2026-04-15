@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import '../providers/app_providers.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
+import '../../features/driver/screens/driver_main_shell.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 
@@ -201,14 +202,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       debugPrint('Rol obtenido: $role');
       if (!mounted) return;
       
-      debugPrint('Navegando según el rol: $role');
       if (role == 'driver') {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const DriverDashboardScreen()));
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => DriverMainShell()));
       } else if (role == 'admin') {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AdminDashboardScreen()));
       } else {
         // 'parent' o cualquier otro valor
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ParentDashboardScreen()));
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ParentDashboardScreen()));
       }
     }
   }
@@ -242,23 +242,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Column(
                       children: [
                         Container(
-                          width: 120,
-                          height: 120,
+                          width: 200,
+                          height: 200,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 20,
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 30,
                                 offset: const Offset(0, 10),
                               )
                             ]
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(24),
                             child: Image.asset(
                               'assets/images/logo.png',
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),

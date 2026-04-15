@@ -12,6 +12,9 @@ import '../../../core/screens/login_screen.dart';
 
 import '../../../core/services/notification_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:ui' as ui;
+import 'dart:async';
+import 'package:flutter/services.dart';
 
 class ParentMapScreen extends ConsumerStatefulWidget {
   const ParentMapScreen({super.key});
@@ -23,9 +26,11 @@ class ParentMapScreen extends ConsumerStatefulWidget {
 class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
   final Color _primaryColor = const Color(0xFFFFD600); // Yellow from mockup
   final Color _statusGreen = const Color(0xFFC8E6C9); // Mint/Green from mockup
+  final LatLng _cadeLocation = const LatLng(-0.3485666414297856, -79.24772636139673);
   
   BitmapDescriptor? _busIcon;
   BitmapDescriptor? _houseIcon;
+  BitmapDescriptor? _schoolIcon;
   GoogleMapController? _mapController;
 
   @override
@@ -36,18 +41,20 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
 
   Future<void> _loadIcons() async {
     try {
-      _busIcon = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(120, 120)),
-        'assets/images/autobus-escolar.png',
-      );
-      _houseIcon = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(100, 100)),
-        'assets/images/casa.png',
-      );
+      _busIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/autobus-escolar.png', 130));
+      _houseIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/casa.png', 100));
+      _schoolIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/colegio.png', 120));
       if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Error cargando iconos: $e');
     }
+  }
+
+  Future<Uint8List> _getBytesFromAsset(String path, int width) async {
+    ByteData data = await rootBundle.load(path);
+    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: width);
+    ui.FrameInfo fi = await codec.getNextFrame();
+    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
   }
 
   void _centerOnLocation(LatLng location) {
@@ -187,6 +194,14 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                         anchor: const Offset(0.5, 0.5),
                         infoWindow: const InfoWindow(title: 'Unidad de Transporte'),
                       ),
+
+                    // Marcador Colegio CADE
+                    Marker(
+                      markerId: const MarkerId('cade_marker'),
+                      position: _cadeLocation,
+                      icon: _schoolIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                      infoWindow: const InfoWindow(title: 'Unidad Educativa CADE', snippet: 'Destino Final'),
+                    ),
                   },
                   onMapCreated: (controller) {
                     _mapController = controller;
