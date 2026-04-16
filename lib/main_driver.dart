@@ -18,7 +18,7 @@ class DriverApp extends StatelessWidget {
     return MaterialApp(
       title: 'RutaSegura - Chofer',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
-      home: const LoginScreen(),
+      home: const LoginScreen(isDriverApp: true),
       debugShowCheckedModeBanner: false,
     );
   }

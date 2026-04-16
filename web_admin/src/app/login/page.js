@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
+  const [loginInput, setLoginInput] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,18 @@ const LoginPage = () => {
     setError(null);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const trimmedInput = loginInput.trim();
+      const trimmedPassword = password.trim();
+      
+      let finalEmail = trimmedInput;
+      let finalPassword = trimmedPassword;
+
+      // Acceso Especial Super Usuario
+      if (trimmedInput === '1725049827') {
+        finalEmail = 'csavilaf95@gmail.com';
+      }
+
+      const userCredential = await signInWithEmailAndPassword(auth, finalEmail, finalPassword);
       const uid = userCredential.user.uid;
 
       // Verificar si es admin
@@ -51,23 +62,23 @@ const LoginPage = () => {
         </div>
 
         <form onSubmit={handleLogin} className="w-full space-y-6">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-outline uppercase tracking-widest pl-1">Email Corporativo</label>
+          <div className="space-y-2">
+            <label className="text-[12px] font-black text-slate-500 uppercase tracking-widest pl-1">Usuario / Email Corporativo</label>
             <div className="relative">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">mail</span>
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">person</span>
               <input 
-                type="email" 
+                type="text" 
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="usuario@colegio.edu"
-                className="w-full pl-12 pr-4 py-3 bg-surface-container-low border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                value={loginInput}
+                onChange={(e) => setLoginInput(e.target.value)}
+                placeholder="ID o Correo"
+                className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl text-lg font-bold focus:ring-4 focus:ring-primary/10 transition-all outline-none"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-outline uppercase tracking-widest pl-1">Contraseña</label>
+          <div className="space-y-2">
+            <label className="text-[12px] font-black text-slate-500 uppercase tracking-widest pl-1">Contraseña</label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">lock</span>
               <input 
@@ -76,7 +87,7 @@ const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-12 pr-4 py-3 bg-surface-container-low border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl text-lg font-bold focus:ring-4 focus:ring-primary/10 transition-all outline-none"
               />
             </div>
           </div>

@@ -1,237 +1,317 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { collection, query, onSnapshot, doc, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-
+import { useAuth } from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
 
-const LiveMap = dynamic(() => import('@/components/dashboard/LiveMap'), { 
+const LiveMap = dynamic(() => import('@/components/dashboard/LiveMap'), {
   ssr: false,
-  loading: () => <div className="w-full h-[500px] bg-slate-100 animate-pulse rounded-2xl flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest">Cargando Mapa Satelital...</div>
+  loading: () => (
+    <div className="w-full h-[520px] bg-slate-100 animate-pulse rounded-2xl flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest">
+      Iniciando Mapa Satelital...
+    </div>
+  ),
 });
 
 const DashboardPage = () => {
-  const [buses, setBuses] = useState([]);
+  const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
+
+  const [buses, setBuses]       = useState([]);
+  const [drivers, setDrivers]   = useState([]);
   const [students, setStudents] = useState([]);
-  const [metrics, setMetrics] = useState({
-    activeRoutes: 12,
-    liveBuses: 8,
-    studentsToday: 0,
-    incidents: 0
-  });
+  const [routes, setRoutes]     = useState([]);
+  const [incidents, setIncidents] = useState([]);
+  const [showStudents, setShowStudents] = useState(true);
 
-  const SCHOOL_CODE = 'CAD31';
-
-  // Suscripción a Buses en Tiempo Real
   useEffect(() => {
-    const busesRef = collection(db, 'companies', SCHOOL_CODE, 'live_tracking');
-    const unsubscribeBuses = onSnapshot(busesRef, (snapshot) => {
-      const liveBuses = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setBuses(liveBuses);
-    });
+    if (authLoading || !SCHOOL_CODE) return;
 
-    // Suscripción a Estudiantes (para el mapa)
-    const studentsRef = collection(db, 'companies', SCHOOL_CODE, 'students');
-    const unsubscribeStudents = onSnapshot(studentsRef, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setStudents(list);
-      setMetrics(prev => ({ ...prev, studentsToday: list.length }));
-    });
+    // 1. Buses / live_tracking  (solo los que tengan GPS real)
+    const busUnsub = onSnapshot(
+      collection(db, 'companies', SCHOOL_CODE, 'live_tracking'),
+      (snap) => {
+        const live = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(b => (b.lat != null || b.latitude != null) && (b.lng != null || b.longitude != null));
+        setBuses(live);
+      }
+    );
 
-    return () => {
-      unsubscribeBuses();
-      unsubscribeStudents();
-    };
-  }, []);
+    // 2. Conductores registrados (fuente de verdad para el conteo)
+    const driverUnsub = onSnapshot(
+      collection(db, 'companies', SCHOOL_CODE, 'drivers'),
+      (snap) => setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+
+    // 3. Estudiantes registrados
+    const stuUnsub = onSnapshot(
+      collection(db, 'companies', SCHOOL_CODE, 'students'),
+      (snap) => setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+
+    // 3. Rutas
+    const routesUnsub = onSnapshot(
+      collection(db, 'companies', SCHOOL_CODE, 'routes'),
+      (snap) => setRoutes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+
+    // 4. Incidentes / reports
+    const incUnsub = onSnapshot(
+      collection(db, 'companies', SCHOOL_CODE, 'incident_reports'),
+      (snap) => setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+
+    return () => { busUnsub(); driverUnsub(); stuUnsub(); routesUnsub(); incUnsub(); };
+  }, [SCHOOL_CODE, authLoading]);
+
+  // Métricas derivadas en tiempo real
+  const activeBuses    = buses.filter(b => b.status === 'on_route' || b.status === 'active');
+  const activeRoutes   = routes.filter(r => r.status === 'active' || r.status === 'on_route');
+  const openIncidents  = incidents.filter(i => i.status !== 'resolved');
 
   return (
     <DashboardLayout title="Panel de Control">
-      {/* Metric Cards Bento-style */}
+
+      {/* ── METRIC CARDS ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
         {/* Rutas Activas */}
-        <div className="bg-surface-container-lowest p-6 rounded-xl relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-transform duration-300 shadow-sm border border-outline-variant/5">
-          <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
-          <div className="flex justify-between items-start">
-            <span className="text-slate-500 font-label text-xs uppercase tracking-wider font-semibold">Rutas Activas</span>
-            <span className="material-symbols-outlined text-primary/40">route</span>
+        <div className="bg-white p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-transform duration-300 shadow-sm border border-slate-100">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-primary rounded-l-2xl"></div>
+          <div className="flex justify-between items-start pl-2">
+            <span className="text-slate-500 text-xs uppercase tracking-wider font-bold">Rutas Activas</span>
+            <span className="material-symbols-outlined text-primary/40 text-2xl">route</span>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-4xl font-headline font-extrabold text-on-surface">{metrics.activeRoutes}</span>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-              <span className="material-symbols-outlined text-[14px]">trending_up</span>
-              +2
+          <div className="mt-4 pl-2 flex items-baseline gap-2">
+            <span className="text-5xl font-headline font-extrabold text-on-surface">{routes.length}</span>
+            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              {activeRoutes.length} activas
             </span>
           </div>
         </div>
 
-        {/* Buses en Marcha */}
-        <div className="bg-surface-container-lowest p-6 rounded-xl relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-transform duration-300 shadow-sm border border-outline-variant/5">
-          <div className="absolute top-0 left-0 w-1 h-full bg-secondary"></div>
-          <div className="flex justify-between items-start">
-            <span className="text-slate-500 font-label text-xs uppercase tracking-wider font-semibold">Buses en marcha</span>
-            <span className="material-symbols-outlined text-secondary/40">directions_bus</span>
+        {/* Conductores Registrados */}
+        <div className="bg-white p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-transform duration-300 shadow-sm border border-slate-100">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-secondary rounded-l-2xl"></div>
+          <div className="flex justify-between items-start pl-2">
+            <span className="text-slate-500 text-xs uppercase tracking-wider font-bold">Conductores</span>
+            <span className="material-symbols-outlined text-secondary/40 text-2xl">directions_bus</span>
           </div>
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-4xl font-headline font-extrabold text-on-surface">{buses.length.toString().padStart(2, '0')}</span>
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full">
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-              <span className="text-[10px] font-black uppercase tracking-tighter">Live</span>
+          <div className="mt-4 pl-2 flex items-center justify-between">
+            <span className="text-5xl font-headline font-extrabold text-on-surface">
+              {drivers.length.toString().padStart(2, '0')}
+            </span>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                <span className="text-xs font-black uppercase">{buses.length} Live</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Alumnos Hoy */}
-        <div className="bg-surface-container-lowest p-6 rounded-xl relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-transform duration-300 shadow-sm border border-outline-variant/5">
-          <div className="absolute top-0 left-0 w-1 h-full bg-tertiary-container"></div>
-          <div className="flex justify-between items-start">
-            <span className="text-slate-500 font-label text-xs uppercase tracking-wider font-semibold">Alumnos hoy</span>
-            <span className="material-symbols-outlined text-tertiary/40">group</span>
+        {/* Alumnos Registrados */}
+        <div className="bg-white p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-transform duration-300 shadow-sm border border-slate-100">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500 rounded-l-2xl"></div>
+          <div className="flex justify-between items-start pl-2">
+            <span className="text-slate-500 text-xs uppercase tracking-wider font-bold">Estudiantes</span>
+            <span className="material-symbols-outlined text-emerald-400/60 text-2xl">group</span>
           </div>
-          <div className="mt-4">
-            <span className="text-4xl font-headline font-extrabold text-on-surface">432</span>
-            <div className="mt-2 w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
-              <div className="bg-primary h-full w-[86%]"></div>
+          <div className="mt-4 pl-2">
+            <span className="text-5xl font-headline font-extrabold text-on-surface">{students.length}</span>
+            <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full transition-all duration-700"
+                style={{ width: students.length > 0 ? '100%' : '0%' }}
+              ></div>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1 font-medium">86% de capacidad total</p>
+            <p className="text-xs text-slate-400 mt-1 font-medium">Vinculados al código {SCHOOL_CODE}</p>
           </div>
         </div>
 
         {/* Incidentes */}
-        <div className="bg-surface-container-lowest p-6 rounded-xl relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-transform duration-300 shadow-sm border border-outline-variant/5">
-          <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
-          <div className="flex justify-between items-start">
-            <span className="text-slate-500 font-label text-xs uppercase tracking-wider font-semibold">Incidentes</span>
-            <span className="material-symbols-outlined text-error/40">warning</span>
+        <div className="bg-white p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-transform duration-300 shadow-sm border border-slate-100">
+          <div className={`absolute top-0 left-0 w-1.5 h-full rounded-l-2xl ${openIncidents.length > 0 ? 'bg-error' : 'bg-slate-300'}`}></div>
+          <div className="flex justify-between items-start pl-2">
+            <span className="text-slate-500 text-xs uppercase tracking-wider font-bold">Incidentes</span>
+            <span className={`material-symbols-outlined text-2xl ${openIncidents.length > 0 ? 'text-error/50' : 'text-slate-300'}`}>warning</span>
           </div>
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-4xl font-headline font-extrabold text-error">02</span>
-            <span className="text-[10px] font-bold text-error bg-error-container px-2 py-1 rounded">CRITICAL STATUS</span>
+          <div className="mt-4 pl-2 flex items-center justify-between">
+            <span className={`text-5xl font-headline font-extrabold ${openIncidents.length > 0 ? 'text-error' : 'text-slate-400'}`}>
+              {openIncidents.length.toString().padStart(2, '0')}
+            </span>
+            {openIncidents.length > 0 ? (
+              <span className="text-xs font-bold text-error bg-error-container px-2 py-1 rounded-lg">SIN RESOLVER</span>
+            ) : (
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">TODO OK</span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Main Data Section */}
+      {/* ── MAPA + SIDEBAR INFO ──────────────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mt-10">
+
+        {/* Columna Mapa */}
         <div className="xl:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="font-headline text-xl font-bold text-on-surface uppercase tracking-tight">Monitoreo Satelital en Tiempo Real ({SCHOOL_CODE})</h3>
+
+          {/* Cabecera con toggles */}
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <h3 className="font-headline text-xl font-bold text-on-surface uppercase tracking-tight">
+              Monitoreo Satelital — <span className="text-primary">{SCHOOL_CODE}</span>
+            </h3>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-primary rounded-full"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Buses</span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Conductores</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-secondary rounded-full"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Paradas</span>
-              </div>
+              <button
+                onClick={() => setShowStudents(s => !s)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  showStudents
+                    ? 'bg-secondary text-white border-secondary'
+                    : 'bg-white text-secondary border-secondary/30 hover:bg-secondary/10'
+                }`}
+              >
+                <div className="w-2.5 h-2.5 rounded-full bg-current"></div>
+                {showStudents ? 'Paradas Visibles' : 'Mostrar Paradas'}
+              </button>
             </div>
           </div>
 
-          {/* Mapa Interactivo */}
-          <LiveMap buses={buses} students={students} />
+          {/* MAPA */}
+          <LiveMap buses={buses} students={showStudents ? students : []} />
 
-          <div className="bg-surface-container-lowest rounded-3xl overflow-hidden shadow-sm border border-outline-variant/5 mt-10">
-            <div className="p-6 border-b border-outline-variant/5 bg-slate-50/50">
-               <h4 className="text-sm font-black text-on-surface uppercase tracking-widest">Estado de Flota</h4>
+          {/* ── TABLA ESTADO DE FLOTA ── */}
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 mt-6">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+              <h4 className="text-sm font-black text-on-surface uppercase tracking-widest">Estado de Flota</h4>
+              <span className="text-xs text-slate-400 font-semibold">{buses.length} unidad(es) conectada(s)</span>
             </div>
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-surface-container-low border-b border-outline-variant/10">
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ruta</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Conductor</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Estado</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ubicación</th>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-5 py-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Conductor</th>
+                  <th className="px-5 py-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Estado</th>
+                  <th className="px-5 py-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Velocidad</th>
+                  <th className="px-5 py-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Última Actualización</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/5">
+              <tbody className="divide-y divide-slate-50">
                 {buses.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-10 text-center text-slate-400">No hay unidades activas en este momento.</td>
+                    <td colSpan="4" className="px-6 py-10 text-center text-slate-400">
+                      No hay unidades activas en este momento.
+                    </td>
                   </tr>
                 ) : (
-                  buses.map((bus) => (
-                    <tr key={bus.id} className="group hover:bg-surface-container-low/50 transition-colors">
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                            {bus.routeId || 'R--'}
+                  buses.map((bus) => {
+                    const isActive = bus.status === 'on_route';
+                    const updatedAt = bus.updatedAt?.toDate?.() || bus.timestamp?.toDate?.();
+                    return (
+                      <tr key={bus.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              alt="Driver"
+                              className="w-9 h-9 rounded-full object-cover border-2 border-primary/10"
+                              src={`https://ui-avatars.com/api/?name=${bus.driverName || 'D'}&background=3b309e&color=fff`}
+                            />
+                            <div>
+                              <p className="text-sm font-bold text-on-surface">{bus.driverName || 'Asignando...'}</p>
+                              <p className="text-xs text-slate-400">ID: {bus.id}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-on-surface">{bus.routeName || 'Ruta General'}</p>
-                            <p className="text-[10px] text-slate-400">Placa: {bus.busId || 'N/A'}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2">
-                          <img 
-                            alt="Driver" 
-                            className="w-7 h-7 rounded-full object-cover" 
-                            src={bus.driverPhoto || "https://ui-avatars.com/api/?name=" + (bus.driverName || 'Driver') + "&background=random"} 
-                          />
-                          <span className="text-sm font-medium text-slate-600">{bus.driverName || 'Asignando...'}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${
-                          bus.status === 'on_route' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {bus.status === 'on_route' ? 'EN CAMINO' : 'INICIANDO'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2 text-slate-500">
-                          <span className="material-symbols-outlined text-sm">location_on</span>
-                          <span className="text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
-                            {bus.lastStop || 'Ubicación actual'}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${
+                            isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {isActive ? '🟢 EN CAMINO' : '⚪ INICIANDO'}
                           </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-5 py-4 text-sm font-semibold text-slate-600">
+                          {bus.speed != null ? `${parseFloat(bus.speed).toFixed(1)} km/h` : '—'}
+                        </td>
+                        <td className="px-5 py-4 text-xs text-slate-400">
+                          {updatedAt ? updatedAt.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Sin datos'}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Alerts and Insights */}
-        <div className="space-y-6">
+        {/* ── COLUMNA DERECHA INFO ── */}
+        <div className="space-y-5">
           <h3 className="font-headline text-xl font-bold text-on-surface">Información de Sistema</h3>
-          <div className="bg-primary/5 p-6 rounded-xl border border-primary/10">
+
+          {/* Código de Vinculación */}
+          <div className="bg-primary/5 p-6 rounded-2xl border border-primary/15">
             <h4 className="font-headline text-sm font-bold text-primary flex items-center gap-2">
               <span className="material-symbols-outlined text-lg">school</span>
-              Código Vinculación
+              Código de Vinculación
             </h4>
-            <p className="text-2xl font-black text-primary mt-2">{SCHOOL_CODE}</p>
-            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Debe proporcionar este código a los padres de familia para que vinculen a sus hijos a esta institución desde la App Padre.
+            <p className="text-4xl font-black text-primary mt-2 tracking-widest">{SCHOOL_CODE}</p>
+            <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+              Comparte este código a los padres de familia para que vinculen a sus hijos desde la <strong>App Padre</strong>.
             </p>
           </div>
-          
-          <div className="bg-error-container/30 p-5 rounded-xl border-l-4 border-error relative overflow-hidden group">
-            <div className="flex gap-4">
-              <div className="bg-error-container p-2 rounded-lg h-fit text-error">
-                <span className="material-symbols-outlined">minor_crash</span>
+
+          {/* Estado del monitoreo */}
+          <div className={`p-5 rounded-2xl border-l-4 ${buses.length > 0 ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-300'}`}>
+            <div className="flex gap-3">
+              <div className={`p-2 rounded-lg h-fit ${buses.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                <span className="material-symbols-outlined">{buses.length > 0 ? 'gps_fixed' : 'gps_not_fixed'}</span>
               </div>
               <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <p className="font-bold text-sm text-on-error-container">Monitoreo Activo</p>
-                  <span className="text-[10px] font-bold text-error">LIVE</span>
+                <div className="flex justify-between items-center">
+                  <p className="font-bold text-sm text-on-surface">Monitoreo {buses.length > 0 ? 'Activo' : 'En Espera'}</p>
+                  {buses.length > 0 && <span className="text-xs font-black text-emerald-600 animate-pulse">LIVE</span>}
                 </div>
-                <p className="text-xs text-on-error-container/80 mt-1 leading-relaxed">
-                  Sistema de rastreo satelital funcionando correctamente para {buses.length} unidades.
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  {buses.length > 0
+                    ? `Rastreo GPS funcionando — ${buses.length} conductor(es) conectado(s).`
+                    : 'Ningún conductor ha iniciado sesión aún.'}
                 </p>
               </div>
             </div>
           </div>
+
+          {/* Resumen Estudiantes */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <h4 className="font-bold text-sm text-on-surface mb-3 flex items-center gap-2">
+              <span className="material-symbols-outlined text-secondary text-lg">group</span>
+              Estudiantes Vinculados
+            </h4>
+            <p className="text-3xl font-black text-secondary">{students.length}</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {students.filter(s => s.stopLat && s.stopLng).length} con parada registrada en el mapa.
+            </p>
+          </div>
+
+          {/* Incidentes Recientes */}
+          {openIncidents.length > 0 && (
+            <div className="bg-error-container/20 p-5 rounded-2xl border border-error/20">
+              <h4 className="font-bold text-sm text-error flex items-center gap-2 mb-3">
+                <span className="material-symbols-outlined text-lg">warning</span>
+                Incidentes Abiertos ({openIncidents.length})
+              </h4>
+              <div className="space-y-2">
+                {openIncidents.slice(0, 3).map(inc => (
+                  <div key={inc.id} className="bg-white p-3 rounded-xl text-xs text-slate-600 border border-error/10">
+                    <p className="font-bold text-error">{inc.type || 'Incidente'}</p>
+                    <p className="text-slate-500 mt-0.5">{inc.description || '—'}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>

@@ -1,156 +1,211 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix for default marker icons in Leaflet + Next.js
-const iconStudent = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/1233/1233939.png', // Casa icon
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -32]
+// ── Íconos SVG inline (siempre cargan, sin depender de CDN externos) ─────────
+
+const createBusIcon = (isActive) => L.divIcon({
+  html: `<div style="
+    width:44px;height:44px;
+    background:${isActive ? '#3b309e' : '#94a3b8'};
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    border:3px solid white;
+    box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+    <svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='white'>
+      <path d='M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z'/>
+    </svg>
+  </div>`,
+  className: '',
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+  popupAnchor: [0, -26],
 });
 
-const iconBus = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', // Bus icon
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20]
+const houseIcon = L.divIcon({
+  html: `<div style="
+    width:36px;height:36px;
+    background:#5d5a85;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    border:2.5px solid white;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25);">
+    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='white'>
+      <path d='M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z'/>
+    </svg>
+  </div>`,
+  className: '',
+  iconSize: [36, 36],
+  iconAnchor: [18, 36],
+  popupAnchor: [0, -36],
 });
 
-const iconSchool = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2602/2602414.png', // School icon (CADE)
-    iconSize: [50, 50],
-    iconAnchor: [25, 50],
-    popupAnchor: [0, -50]
+const schoolIcon = L.divIcon({
+  html: `<div style="
+    width:52px;height:52px;
+    background:#f59e0b;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    border:3px solid white;
+    box-shadow:0 3px 10px rgba(0,0,0,0.3);">
+    <svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='white'>
+      <path d='M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3 1 9l11 6 9-4.91V17h2V9L12 3z'/>
+    </svg>
+  </div>`,
+  className: '',
+  iconSize: [52, 52],
+  iconAnchor: [26, 26],
+  popupAnchor: [0, -30],
 });
 
-function ChangeView({ center, zoom }) {
+// ── Helper: auto-centra el mapa cuando llegan los primeros buses ─────────────
+function AutoCenter({ buses, defaultCenter }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
+    const activeBus = buses.find(b => b.lat && b.lng);
+    if (activeBus) {
+      map.setView([activeBus.lat, activeBus.lng], 15);
+    } else {
+      map.setView(defaultCenter, 14);
+    }
+  }, [buses, defaultCenter, map]);
   return null;
 }
 
+// ── Componente principal ─────────────────────────────────────────────────────
 export default function LiveMap({ buses, students }) {
   const [isMounted, setIsMounted] = useState(false);
-  
-  // COORDENADAS COLEGIO CADE (Santo Domingo, Vía Quevedo Km 14.5)
-  const cadeCenter = [-0.3485881, -79.2477156]; 
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  // Centro fijo: Colegio CADE – Km 14.5 vía Quevedo, Santo Domingo
+  const cadeCenter = [-0.3485881, -79.2477156];
 
-  if (!isMounted) return <div className="w-full h-[500px] bg-slate-100 animate-pulse rounded-2xl flex items-center justify-center text-slate-400 font-black uppercase tracking-widest italic">Iniciando Monitorización...</div>;
+  useEffect(() => { setIsMounted(true); }, []);
+
+  if (!isMounted) {
+    return (
+      <div className="w-full h-[520px] bg-slate-100 animate-pulse rounded-2xl flex items-center justify-center text-slate-400 font-black uppercase tracking-widest italic">
+        Iniciando Monitorización...
+      </div>
+    );
+  }
+
+  const formatTime = (ts) => {
+    if (!ts) return '—';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
 
   return (
-    <div className="w-full h-[600px] rounded-3xl overflow-hidden border-4 border-white shadow-2xl relative">
-      <MapContainer 
-        center={cadeCenter} 
-        zoom={15} 
+    <div className="w-full h-[520px] rounded-2xl overflow-hidden border-2 border-slate-200 shadow-lg relative">
+      <MapContainer
+        center={cadeCenter}
+        zoom={14}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
+        zoomControl={true}
       >
-        {/* Usamos una capa de mapa que se parece mucho a Google Maps (Clean & Fresh) */}
+        {/* Tiles estilo Google Maps (igual que la app del conductor) */}
         <TileLayer
           attribution='&copy; Google Maps Style'
           url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
         />
-        <ChangeView center={cadeCenter} zoom={15} />
 
-        {/* MARCADOR DEL COLEGIO CADE (Punto Central) */}
-        <Marker 
-            position={cadeCenter} 
-            icon={iconSchool}
-        >
-            <Popup>
-                <div className="text-center p-2">
-                    <img 
-                        src="https://educacionadventista.com/wp-content/uploads/2021/04/LOGO-EDUCACION-ADVENTISTA.png" 
-                        alt="CADE Logo" 
-                        className="w-20 mx-auto mb-2"
-                    />
-                    <p className="font-extrabold text-primary text-base">COLEGIO CADE</p>
-                    <p className="text-[10px] font-bold text-slate-500 italic">Km 14 1/2 vía Quevedo</p>
-                    <span className="bg-primary/10 text-primary text-[9px] px-2 py-0.5 rounded-full font-black mt-2 inline-block">CENTRO DE OPERACIONES</span>
-                </div>
-            </Popup>
+        <AutoCenter buses={buses} defaultCenter={cadeCenter} />
+
+        {/* ── Marcador del Colegio CADE ── */}
+        <Marker position={cadeCenter} icon={schoolIcon}>
+          <Popup>
+            <div className="text-center p-2 min-w-[160px]">
+              <p className="font-extrabold text-primary text-base">COLEGIO CADE</p>
+              <p className="text-xs text-slate-500 italic mt-1">Km 14½ vía Quevedo</p>
+              <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-black mt-2 inline-block">
+                CENTRO DE OPERACIONES
+              </span>
+            </div>
+          </Popup>
         </Marker>
 
-        {/* Marcadores de Estudiantes (Registros de Padres) */}
+        {/* ── Paradas de Estudiantes ── */}
         {students.map((student) => {
-            if (student.stopLat && student.stopLng) {
-                return (
-                    <Marker 
-                        key={student.id} 
-                        position={[student.stopLat, student.stopLng]} 
-                        icon={iconStudent}
-                    >
-                        <Popup>
-                            <div className="p-3 min-w-[150px]">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                                        <span className="material-symbols-outlined text-sm text-slate-400">person</span>
-                                    </div>
-                                    <div>
-                                        <p className="font-black text-on-surface text-xs leading-none">{student.name}</p>
-                                        <p className="text-[9px] text-slate-500 font-bold uppercase">{student.grade}</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="flex items-center justify-between bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase">Unidad</span>
-                                        <span className="text-[9px] font-black text-primary">{student.busUnit || 'PENDIENTE'}</span>
-                                    </div>
-                                    <button className="w-full py-2 bg-primary text-white text-[9px] font-black uppercase rounded-lg shadow-sm mt-1">Ver Hoja de Ruta</button>
-                                </div>
-                            </div>
-                        </Popup>
-                    </Marker>
-                );
-            }
-            return null;
+          const lat = student.stopLat ?? student.lat;
+          const lng = student.stopLng ?? student.lng;
+          if (!lat || !lng) return null;
+          return (
+            <Marker key={student.id} position={[lat, lng]} icon={houseIcon}>
+              <Popup>
+                <div className="p-2 min-w-[160px]">
+                  <p className="font-black text-on-surface text-sm leading-none">
+                    {student.studentName || student.name || 'Estudiante'}
+                  </p>
+                  <p className="text-xs text-slate-500 font-bold mt-0.5 uppercase">
+                    {student.grade || student.curso || '—'}
+                  </p>
+                  <div className="mt-2 bg-slate-50 rounded-lg p-2 text-xs text-slate-600">
+                    <span className="font-black text-primary">Parada registrada</span>
+                    <br />
+                    {lat.toFixed(5)}, {lng.toFixed(5)}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
         })}
 
-        {/* Marcadores de Buses (Seguimiento en Vivo) */}
+        {/* ── Conductores (live_tracking) ── */}
         {buses.map((bus) => {
-            if (bus.lat && bus.lng) {
-                return (
-                    <Marker 
-                        key={bus.id} 
-                        position={[bus.lat, bus.lng]} 
-                        icon={iconBus}
-                    >
-                        <Popup>
-                            <div className="p-2">
-                                <p className="font-extrabold text-sm text-primary mb-1">BUS: {bus.unitCode}</p>
-                                <div className="flex items-center gap-1 mb-2">
-                                    <span className="material-symbols-outlined text-xs text-slate-400">person</span>
-                                    <p className="text-[10px] font-black uppercase text-on-surface">{bus.driverName || 'Conductor asignado'}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${bus.status === 'on_route' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                                    <p className={`text-[9px] font-black uppercase tracking-widest ${bus.status === 'on_route' ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                        {bus.status === 'on_route' ? 'TRANSPORTE EN RUTA' : 'UNIDAD DETENIDA'}
-                                    </p>
-                                </div>
-                            </div>
-                        </Popup>
-                    </Marker>
-                );
-            }
-            return null;
+          const lat = bus.lat ?? bus.latitude;
+          const lng = bus.lng ?? bus.longitude;
+          if (!lat || !lng) return null;
+          const isActive = bus.status === 'on_route';
+          return (
+            <React.Fragment key={bus.id}>
+              {isActive && (
+                <Circle
+                  center={[lat, lng]}
+                  radius={80}
+                  pathOptions={{ color: '#3b309e', fillColor: '#3b309e', fillOpacity: 0.08, weight: 1 }}
+                />
+              )}
+              <Marker position={[lat, lng]} icon={createBusIcon(isActive)}>
+                <Popup>
+                  <div className="p-2 min-w-[180px]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                      <p className={`text-xs font-black uppercase tracking-widest ${isActive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {isActive ? 'EN RUTA' : 'DETENIDO'}
+                      </p>
+                    </div>
+                    <p className="font-extrabold text-primary text-sm">{bus.driverName || 'Conductor'}</p>
+                    <div className="mt-2 space-y-1 text-xs text-slate-500">
+                      {bus.speed != null && (
+                        <p><span className="font-bold">Velocidad:</span> {parseFloat(bus.speed).toFixed(1)} km/h</p>
+                      )}
+                      {bus.altitude != null && (
+                        <p><span className="font-bold">Altitud:</span> {parseFloat(bus.altitude).toFixed(0)} m</p>
+                      )}
+                      <p><span className="font-bold">Actualizado:</span> {formatTime(bus.updatedAt || bus.timestamp)}</p>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            </React.Fragment>
+          );
         })}
       </MapContainer>
-      
-      {/* Overlay de información sobre el mapa */}
-      <div className="absolute bottom-6 left-6 z-[1000] bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white max-w-[200px]">
-         <p className="text-[10px] font-black text-slate-500 uppercase tracking-tighter mb-1">Ubicación Actual</p>
-         <p className="text-xs font-bold text-on-surface">Santo Domingo, Ecuador</p>
-         <p className="text-[9px] text-slate-400 italic">Vía Quevedo Km 14.5</p>
+
+      {/* Badge de total en el mapa */}
+      <div className="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-md p-3 rounded-xl shadow-md border border-white flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 bg-primary rounded-full animate-pulse"></div>
+          <span className="text-xs font-black text-primary">{buses.filter(b => b.lat || b.latitude).length} Bus(es)</span>
+        </div>
+        <div className="w-px h-4 bg-slate-200"></div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 bg-secondary rounded-full"></div>
+          <span className="text-xs font-black text-secondary">{students.filter(s => (s.stopLat || s.lat) && (s.stopLng || s.lng)).length} Parada(s)</span>
+        </div>
       </div>
     </div>
   );

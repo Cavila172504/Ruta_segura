@@ -483,7 +483,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         }
 
         if (context.mounted) {
-           ref.read(driverNavigationProvider.notifier).state = 1; // Cambiar a la pestaña de MAPA
+           ref.read(driverNavigationProvider.notifier).setIndex(1); // Cambiar a la pestaña de MAPA
         }
       },
       child: Container(

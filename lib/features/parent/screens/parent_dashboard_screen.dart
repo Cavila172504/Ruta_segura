@@ -29,12 +29,12 @@ class ParentDashboardScreen extends ConsumerWidget {
     final userProfileAsync = ref.watch(userProfileProvider);
     final authUser = ref.watch(authStateProvider).value;
     
-    // Lógica robusta para el nombre
+    // Lógica mejorada para el nombre: Priorizar nombre real del usuario autenticado
     String rawName = 'Padre';
-    if (userProfileAsync.value != null && userProfileAsync.value!['name'] != null) {
-      rawName = userProfileAsync.value!['name'].toString();
-    } else if (authUser?.displayName != null && authUser!.displayName!.isNotEmpty) {
+    if (authUser?.displayName != null && authUser!.displayName!.isNotEmpty) {
       rawName = authUser.displayName!;
+    } else if (userProfileAsync.value != null && userProfileAsync.value!['name'] != null) {
+      rawName = userProfileAsync.value!['name'].toString();
     }
     
     final firstName = rawName.split(' ').first;

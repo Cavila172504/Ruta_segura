@@ -137,3 +137,13 @@ final activeRouteProvider = FutureProvider.family<Map<String, dynamic>?, String>
   if (doc.docs.isEmpty) return null;
   return doc.docs.first.data();
 });
+// Estado de la ruta específica del conductor (en tiempo real)
+final driverRouteStatusProvider = StreamProvider.family<Map<String, dynamic>?, ({String unitCode, String driverId})>((ref, arg) {
+  return FirebaseFirestore.instance
+      .collection('companies')
+      .doc(arg.unitCode)
+      .collection('live_tracking')
+      .doc(arg.driverId)
+      .snapshots()
+      .map((doc) => doc.exists ? doc.data() : null);
+});

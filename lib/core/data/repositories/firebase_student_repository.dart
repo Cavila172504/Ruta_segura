@@ -43,7 +43,7 @@ class FirebaseStudentRepository implements StudentRepository {
         'studentName': studentName,
         'stopLat': stopLat,
         'stopLng': stopLng,
-        'status': 'active',
+        'status': 'pending',
         'unitCode': docId,
         'grade': grade,
         'photoUrl': photoUrl,
@@ -74,7 +74,7 @@ class FirebaseStudentRepository implements StudentRepository {
           'grade': grade,
           'photoUrl': photoUrl,
           'serviceType': serviceType,
-          'status': 'active',
+          'status': 'pending',
           'createdAt': FieldValue.serverTimestamp(),
         });
       }

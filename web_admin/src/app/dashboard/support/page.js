@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/context/AuthContext';
 
 const SupportPage = () => {
   const [tickets, setTickets] = useState([]);
@@ -10,8 +11,16 @@ const SupportPage = () => {
   const [activeTab, setActiveTab] = useState('Abiertos');
   const [searchTerm, setSearchTerm] = useState('');
 
+  const { profile, loading: authLoading } = useAuth();
+  const SCHOOL_CODE = profile?.unitCode || 'CAD31';
+
   useEffect(() => {
+    if (authLoading || !SCHOOL_CODE) return;
+
     const ticketsRef = collection(db, 'support_tickets');
+    // En el futuro, los tickets de soporte deberían tener unitCode. 
+    // Por ahora, si no tienen, los mostramos todos o filtramos si el esquema lo permite.
+    // Asumiré que quieres filtrar por los que pertenecen a esta escuela.
     const q = query(ticketsRef, orderBy('timestamp', 'desc'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -24,7 +33,7 @@ const SupportPage = () => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [SCHOOL_CODE, authLoading]);
 
   const updateTicketStatus = async (id, newStatus) => {
     try {
@@ -53,7 +62,9 @@ const SupportPage = () => {
     const matchesSearch = ticket.parentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          ticket.message?.toLowerCase().includes(searchTerm.toLowerCase());
                          
-    return matchesTab && matchesSearch;
+    const matchesUnit = !ticket.unitCode || ticket.unitCode === SCHOOL_CODE;
+                         
+    return matchesTab && matchesSearch && matchesUnit;
   });
 
   const formatDate = (timestamp) => {

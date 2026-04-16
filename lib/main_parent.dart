@@ -36,7 +36,7 @@ class ParentApp extends StatelessWidget {
     return MaterialApp(
       title: 'RutaSegura - Padre',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.green),
-      home: const LoginScreen(),
+      home: const LoginScreen(isDriverApp: false),
       debugShowCheckedModeBanner: false,
     );
   }

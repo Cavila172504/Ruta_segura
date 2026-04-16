@@ -88,7 +88,9 @@ class _DriverMainShellState extends ConsumerState<DriverMainShell> {
               type: BottomNavigationBarType.fixed,
               backgroundColor: Colors.white,
               currentIndex: selectedIndex,
-              onTap: (index) => ref.read(driverNavigationProvider.notifier).state = index,
+              onTap: (index) {
+                ref.read(driverNavigationProvider.notifier).setIndex(index);
+              },
               selectedItemColor: const Color(0xFF0D4D3A),
               unselectedItemColor: Colors.grey.shade400,
               selectedLabelStyle: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),

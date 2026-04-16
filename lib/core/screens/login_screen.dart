@@ -13,7 +13,8 @@ import '../../features/admin/screens/admin_dashboard_screen.dart';
 enum AuthMode { login, register, forgotPassword }
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  final bool isDriverApp;
+  const LoginScreen({super.key, this.isDriverApp = false});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -201,6 +202,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final role = await authRepo.getUserRole(creds!.user!.uid);
       debugPrint('Rol obtenido: $role');
       if (!mounted) return;
+      
+      // Validar acceso exclusivo
+      if (widget.isDriverApp && role != 'driver' && role != 'admin') {
+        await authRepo.signOut();
+        setState(() => _errorMessage = 'Acceso denegado: Esta aplicación es exclusiva para Conductores.');
+        return;
+      }
+
+      if (!widget.isDriverApp && role == 'driver') {
+        await authRepo.signOut();
+        setState(() => _errorMessage = 'Acceso denegado: Usa la aplicación "RutaSegura Chofer".');
+        return;
+      }
+
+      // Validar verificación de correo SOLO para NO-conductores
+      if (role != 'driver' && role != 'admin' && !creds!.user!.emailVerified) {
+        await creds.user!.sendEmailVerification();
+        await authRepo.signOut();
+        setState(() => _errorMessage = 'Correo no verificado. Hemos re-enviado el enlace, revisa tu SPAM o bandeja de entrada.');
+        return;
+      }
       
       if (role == 'driver') {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => DriverMainShell()));
@@ -406,7 +428,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SizedBox(height: 24),
                             ],
 
-                            // Confirmar Contraseña (Solo Registro)
+                             // Confirmar Contraseña (Solo Registro)
                             if (_authMode == AuthMode.register) ...[
                               Text(
                                 'CONFIRMAR CONTRASEÑA',
@@ -477,44 +499,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              
-                            ], // Fin de sección registro adicional
-
-
-                            // Optional Role Selector
-                            if (_authMode == AuthMode.register) ...[
-                              Text(
-                                'ROL DEL USUARIO',
-                                style: GoogleFonts.publicSans(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.5,
-                                  color: AppColors.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainerLowest,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _selectedRole,
-                                    isExpanded: true,
-                                    dropdownColor: AppColors.surfaceContainerLowest,
-                                    items: const [
-                                      DropdownMenuItem(value: 'admin', child: Text('Administrador')),
-                                      DropdownMenuItem(value: 'parent', child: Text('Padre de familia')),
-                                      DropdownMenuItem(value: 'driver', child: Text('Conductor')),
-                                    ],
-                                    onChanged: (val) {
-                                      if (val != null) setState(() => _selectedRole = val);
-                                    },
-                                  ),
-                                ),
-                              ),
                             ] else if (_authMode == AuthMode.login) ...[
                               Align(
                                 alignment: Alignment.centerRight,

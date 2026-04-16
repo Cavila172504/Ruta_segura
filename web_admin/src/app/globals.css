@@ -7,10 +7,16 @@
   --foreground: #1a1c1f;
 }
 
+html {
+  font-size: 19px; /* Escala Global: aumenta todos los rem proporcionalmente */
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: 'Inter', sans-serif;
+  font-size: 1rem; /* 17px efectivos */
+  line-height: 1.6;
 }
 
 .font-headline {

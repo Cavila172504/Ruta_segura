@@ -10,24 +10,33 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeUnitCode, _setActiveUnitCode] = useState(null);
+
+  const setActiveUnitCode = (code) => {
+    _setActiveUnitCode(code);
+    localStorage.setItem('activeUnitCode', code);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
         // Buscar perfil en Firestore (admins, drivers, parents)
-        // Nota: Para el admin central, buscamos en /users/admins/members/{uid}
         const adminRef = doc(db, "users", "admins", "members", user.uid);
         const adminSnap = await getDoc(adminRef);
 
         if (adminSnap.exists()) {
-          setProfile({ ...adminSnap.data(), role: "admin" });
+          const data = adminSnap.data();
+          setProfile({ ...data, role: "admin" });
+          _setActiveUnitCode(data.unitCode);
         } else {
           // Si no es admin, quizás es un super_admin
           const superAdminRef = doc(db, "users", "super_admins", "members", user.uid);
           const superSnap = await getDoc(superAdminRef);
           if (superSnap.exists()) {
             setProfile({ ...superSnap.data(), role: "super_admin" });
+            const saved = localStorage.getItem('activeUnitCode');
+            _setActiveUnitCode(saved || 'CAD31'); // Default al primer colegio o global
           } else {
             setProfile(null);
           }
@@ -35,6 +44,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         setUser(null);
         setProfile(null);
+        _setActiveUnitCode(null);
       }
       setLoading(false);
     });
@@ -42,8 +52,10 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  const SCHOOL_CODE = profile?.role === 'super_admin' ? activeUnitCode : profile?.unitCode;
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading }}>
+    <AuthContext.Provider value={{ user, profile, loading, activeUnitCode, setActiveUnitCode, SCHOOL_CODE }}>
       {children}
     </AuthContext.Provider>
   );

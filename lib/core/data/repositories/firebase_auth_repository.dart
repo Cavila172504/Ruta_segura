@@ -18,11 +18,6 @@ class FirebaseAuthRepository implements AuthRepository {
         password: password
       );
       
-      if (creds.user != null && !creds.user!.emailVerified) {
-        await creds.user!.sendEmailVerification();
-        await _auth.signOut();
-        throw Exception('El correo no ha sido verificado. Hemos re-enviado el enlace, revisa tu SPAM o bandeja de entrada e intenta ingresar de nuevo.');
-      }
       return creds;
     } catch (e) {
       rethrow;

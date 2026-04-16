@@ -122,12 +122,13 @@ export async function PATCH(request) {
       const db = admin.firestore();
       await db.collection('companies').doc(unitCode).collection('drivers').doc(id).update(updateData);
       
-      // Sincronizar también a nivel global
-      await db.collection('users').doc('drivers').collection('members').doc(id).update({
+      // Sincronizar también a nivel global (usar set+merge para evitar error si no existe el doc)
+      await db.collection('users').doc('drivers').collection('members').doc(id).set({
         name: updateData.name,
         email: email,
-        unitCode: unitCode
-      });
+        unitCode: unitCode,
+        role: 'driver'
+      }, { merge: true });
   
       return NextResponse.json({ success: true });
     } catch (error) {

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/context/AuthContext';
 
 const DriversPage = () => {
   const [drivers, setDrivers] = useState([]);
@@ -17,7 +18,7 @@ const DriversPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [driverToDelete, setDriverToDelete] = useState(null);
 
-  const SCHOOL_CODE = 'CAD31';
+  const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
 
   // Form states refined
   const [formData, setFormData] = useState({
@@ -26,12 +27,13 @@ const DriversPage = () => {
     names: '',
     lastNames: '',
     email: '',
-    phoneCell: '',
     address: '',
-    cooperative: 'Colorado Express S.A',
+    cooperative: 'Colorado Express S.A'
   });
 
   useEffect(() => {
+    if (authLoading || !SCHOOL_CODE) return;
+
     const driversRef = collection(db, 'companies', SCHOOL_CODE, 'drivers');
     const q = query(driversRef, orderBy('createdAt', 'desc'));
     
@@ -45,7 +47,7 @@ const DriversPage = () => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [SCHOOL_CODE, authLoading]);
 
   const handleOpenCreateModal = () => {
     setFormData({ docType: 'Cédula', idNumber: '', names: '', lastNames: '', email: '', phoneCell: '', address: '', cooperative: 'Colorado Express S.A' });
@@ -62,7 +64,7 @@ const DriversPage = () => {
       email: driver.email || '',
       phoneCell: driver.phoneCell || '',
       address: driver.address || '',
-      cooperative: 'Colorado Express S.A',
+      cooperative: driver.cooperative || 'Colorado Express S.A'
     });
     setSelectedDriverId(driver.id);
     setIsEditMode(true);
@@ -84,12 +86,13 @@ const DriversPage = () => {
           ...formData,
           name: `${formData.names} ${formData.lastNames}`,
           unitCode: SCHOOL_CODE,
-          accessKey: formData.idNumber // La clave SIEMPRE es el número de identificación
+          accessKey: formData.idNumber
         })
       });
 
       if (response.ok) {
         setShowModal(false);
+        alert('Chofer Guardado Exitosamente');
       } else {
         const errData = await response.json();
         alert("Error: " + (errData.error || "No se pudo procesar la solicitud"));
@@ -285,7 +288,16 @@ const DriversPage = () => {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Email Corporativo</label>
-                  <input required type="email" className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 outline-none" value={formData.email} disabled={isEditMode} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                  <input 
+                    required 
+                    type="email" 
+                    pattern="^\S+@\S+\.\S+$"
+                    title="Por favor ingresa un correo válido con dominio (ej: chofer@rutasegura.com)"
+                    className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 outline-none" 
+                    value={formData.email} 
+                    disabled={isEditMode} 
+                    onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                  />
                 </div>
 
                 <div className="space-y-2">

@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/context/AuthContext';
 
 const RepresentativesPage = () => {
   const [representatives, setRepresentatives] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('Activos');
+  const [activeTab, setActiveTab] = useState('Aprobados');
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -23,12 +24,21 @@ const RepresentativesPage = () => {
     studentName: '',
     grade: 'Inicial 1',
     serviceType: 'Completo (Ida y Retorno)',
-    unitCode: 'CAD31'
+    unitCode: ''
   });
 
-  const SCHOOL_CODE = 'CAD31';
+  const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
+
+  // Sincronizar unitCode del formulario con el perfil
+  useEffect(() => {
+    if (SCHOOL_CODE) {
+      setFormData(prev => ({ ...prev, unitCode: SCHOOL_CODE }));
+    }
+  }, [SCHOOL_CODE]);
 
   useEffect(() => {
+    if (authLoading || !SCHOOL_CODE) return;
+
     // Usamos la colección de representantes/padres
     const repsRef = collection(db, 'companies', SCHOOL_CODE, 'students');
     const q = query(repsRef, orderBy('createdAt', 'desc'));
@@ -43,7 +53,7 @@ const RepresentativesPage = () => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [SCHOOL_CODE, authLoading]);
 
   const updateRepStatus = async (id, newStatus) => {
     try {
@@ -104,20 +114,14 @@ const RepresentativesPage = () => {
       
       const newDoc = {
         ...formData,
-        status: 'active',
+        status: 'pending',
         createdAt: serverTimestamp(),
       };
       
       await addDoc(repsRef, newDoc);
       setShowAddModal(false);
       setFormData({
-        cedulaPadre: '',
-        parentName: '',
-        parentEmail: '',
-        studentName: '',
-        grade: 'Inicial 1',
-        serviceType: 'Completo (Ida y Retorno)',
-        unitCode: 'CAD31'
+        unitCode: SCHOOL_CODE
       });
       alert('Registro creado exitosamente.');
     } catch (error) {
@@ -133,8 +137,8 @@ const RepresentativesPage = () => {
       rep.idNumber?.includes(searchTerm) ||
       rep.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (activeTab === 'Activos') return matchesSearch && (rep.status === 'active' || !rep.status);
-    if (activeTab === 'No Activos') return matchesSearch && rep.status === 'pending';
+    if (activeTab === 'Alumnos aprobados') return matchesSearch && rep.status === 'active';
+    if (activeTab === 'Alumnos Inscritos') return matchesSearch && (rep.status === 'pending' || !rep.status);
     return matchesSearch;
   });
 
@@ -142,8 +146,8 @@ const RepresentativesPage = () => {
 
   return (
     <DashboardLayout title="Gestión de Representantes">
-      <div className="mb-8 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-slate-400 uppercase tracking-tight">REPRESENTANTES</h1>
+      <div className="mb-8 flex justify-between items-center bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+        <h1 className="text-4xl font-black text-slate-800 uppercase tracking-tighter italic">REPRESENTANTES</h1>
         <button 
           onClick={() => setShowAddModal(true)}
           className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95"
@@ -153,90 +157,103 @@ const RepresentativesPage = () => {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 mb-6">
-        {['Activos', 'No Activos', 'Todos'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-10 py-4 text-sm font-bold transition-all border-b-2 ${
-              activeTab === tab 
-                ? 'border-primary text-primary bg-primary/5' 
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="flex border-b border-slate-200 mb-8">
+        {['Alumnos aprobados', 'Alumnos Inscritos', 'Todos'].map((tab) => {
+          const statusKey = tab === 'Alumnos aprobados' ? 'active' : (tab === 'Alumnos Inscritos' ? 'pending' : null);
+          const count = tab === 'Alumnos Inscritos' 
+            ? representatives.filter(r => r.status === 'pending').length 
+            : null;
+            
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-12 py-5 text-xl font-black transition-all border-b-4 flex items-center gap-3 ${
+                activeTab === tab 
+                  ? 'border-primary text-primary bg-primary/5' 
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {tab}
+              {count > 0 && (
+                <span className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded-lg shadow-lg">
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search Bar */}
-      <div className="relative mb-6 max-w-md">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined">search</span>
+      <div className="relative mb-8 max-w-xl">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-2xl">search</span>
         <input 
           type="text"
-          placeholder="Buscar"
-          className="w-full pl-10 pr-4 py-2 bg-slate-50 border-b border-slate-200 outline-none focus:border-primary transition-all text-sm"
+          placeholder="Buscar estudiante o padre..."
+          className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-lg font-bold"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-sm shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
         <table className="w-full text-left">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">ID</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Identificación</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Representante</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estudiante</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Servicio</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estado</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Acciones</th>
+            <tr className="bg-slate-50/50 border-b border-slate-100">
+              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">N°</th>
+              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Identificación</th>
+              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Representante</th>
+              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Estudiante</th>
+              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Servicio</th>
+              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Estado</th>
+              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Opciones</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-50">
             {loading ? (
               <tr><td colSpan="7" className="py-10 text-center text-slate-400">Cargando datos...</td></tr>
             ) : filteredReps.length === 0 ? (
               <tr><td colSpan="7" className="py-10 text-center text-slate-400">No hay registros con los criterios seleccionados.</td></tr>
             ) : filteredReps.map((rep, idx) => (
-              <tr key={rep.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4 text-center text-xs text-slate-500">{idx + 1}</td>
-                <td className="px-6 py-4 text-center text-xs text-slate-700 font-medium">{rep.cedulaPadre || rep.idNumber || 'S/N'}</td>
-                <td className="px-6 py-4 text-center text-xs text-slate-700 font-bold uppercase">{rep.parentName || rep.name || '---'}</td>
-                <td className="px-6 py-4 text-center text-xs text-slate-700 uppercase">{rep.studentName || '---'}</td>
-                <td className="px-6 py-4 text-center text-xs text-slate-500">{rep.serviceType || '---'}</td>
-                <td className="px-6 py-4 text-center">
+              <tr key={rep.id} className="hover:bg-slate-50/80 transition-all border-b border-slate-50 group">
+                <td className="px-8 py-8 text-center text-lg font-bold text-slate-400">{idx + 1}</td>
+                <td className="px-8 py-8 text-center text-lg text-slate-700 font-bold tracking-tight">{rep.cedulaPadre || rep.idNumber || 'S/N'}</td>
+                <td className="px-8 py-8 text-center">
+                   <p className="text-xl font-black text-slate-800 uppercase leading-none mb-1">{rep.parentName || rep.name || '---'}</p>
+                   <p className="text-xs font-bold text-slate-400 italic">{rep.email || 'SIN EMAIL'}</p>
+                </td>
+                <td className="px-8 py-8 text-center text-xl font-black text-primary uppercase">{rep.studentName || '---'}</td>
+                <td className="px-8 py-8 text-center text-base font-bold text-slate-500 italic uppercase">{rep.serviceType || '---'}</td>
+                <td className="px-8 py-8 text-center">
                   {rep.status === 'active' ? (
-                    <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">ACEPTADO</span>
+                    <span className="bg-emerald-500 text-white px-5 py-2 rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-100">APROBADO</span>
                   ) : (
                     <button 
                       onClick={() => updateRepStatus(rep.id, 'active')}
-                      className="bg-[#FFF4D1] text-[#B78B01] hover:bg-[#FFE8A3] px-4 py-1.5 rounded-full text-[11px] font-black uppercase transition-all shadow-sm border border-[#F5E1A4] tracking-tight"
+                      className="bg-primary text-white hover:brightness-110 px-6 py-3 rounded-2xl text-xs font-black uppercase transition-all shadow-xl shadow-primary/20 flex items-center gap-2 mx-auto active:scale-95"
                     >
+                      <span className="material-symbols-outlined text-lg">verified</span>
                       ACEPTAR
                     </button>
                   )}
                 </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="flex justify-center gap-2">
-                    <button onClick={() => openEditModal(rep)} className="text-slate-400 hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-lg">edit_note</span>
+                <td className="px-8 py-8 text-center">
+                  <div className="flex justify-center gap-4">
+                    <button onClick={() => openEditModal(rep)} className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-primary hover:text-white rounded-xl transition-all shadow-sm">
+                      <span className="material-symbols-outlined text-2xl">edit_note</span>
                     </button>
                     <button 
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log("Solicitando borrado de:", rep.id);
                         handleDelete(rep.id, rep.studentName);
                       }} 
-                      className="text-slate-400 hover:text-red-500 transition-all p-2 cursor-pointer relative z-10"
-                      title="Eliminar Estudiante"
+                      className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-red-500 hover:text-white rounded-xl transition-all shadow-sm"
                     >
-                      <span className="material-symbols-outlined text-lg pointer-events-none">delete</span>
+                      <span className="material-symbols-outlined text-2xl">delete</span>
                     </button>
                   </div>
                 </td>
