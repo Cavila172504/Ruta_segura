@@ -115,12 +115,17 @@ final activePolylinesProvider = Provider<Set<Polyline>>((ref) {
   };
 });
 
-// Lista de estudiantes de la unidad del conductor (en tiempo real)
+// Lista de estudiantes de la unidad del conductor (solo aprobados y asignados a este conductor)
 final driverStudentsProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, unitCode) {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('companies')
       .doc(unitCode)
       .collection('students')
+      .where('status', isEqualTo: 'approved')
+      .where('driverId', isEqualTo: user.uid)
       .snapshots()
       .map((snap) => snap.docs.map((d) => d.data()).toList());
 });

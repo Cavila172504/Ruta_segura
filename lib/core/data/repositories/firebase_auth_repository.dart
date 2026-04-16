@@ -92,8 +92,8 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<String?> getUserRole(String uid) async {
     try {
-      // Buscamos el rol en cada subcoleccion de roles con timeout de 10s
-      for (final roleCollection in ['admins', 'parents', 'drivers']) {
+      // Buscamos el perfil en la nueva estructura organizada por roles
+      for (final roleCollection in ['super_admins', 'admins', 'parents', 'drivers']) {
         final query = await _firestore
             .collection('users')
             .doc(roleCollection)

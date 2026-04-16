@@ -117,10 +117,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
       appBar: AppBar(
         backgroundColor: _primaryColor,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: Text(
           'MONITOREO',
           style: GoogleFonts.merriweather( // O un font sans-serif fuerte

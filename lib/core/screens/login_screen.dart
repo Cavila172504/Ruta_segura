@@ -203,32 +203,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       debugPrint('Rol obtenido: $role');
       if (!mounted) return;
       
-      // Validar acceso exclusivo
-      if (widget.isDriverApp && role != 'driver' && role != 'admin') {
-        await authRepo.signOut();
-        setState(() => _errorMessage = 'Acceso denegado: Esta aplicación es exclusiva para Conductores.');
-        return;
-      }
-
-      if (!widget.isDriverApp && role == 'driver') {
-        await authRepo.signOut();
-        setState(() => _errorMessage = 'Acceso denegado: Usa la aplicación "RutaSegura Chofer".');
-        return;
-      }
-
-      // Validar verificación de correo SOLO para NO-conductores
-      if (role != 'driver' && role != 'admin' && !creds!.user!.emailVerified) {
-        await creds.user!.sendEmailVerification();
-        await authRepo.signOut();
-        setState(() => _errorMessage = 'Correo no verificado. Hemos re-enviado el enlace, revisa tu SPAM o bandeja de entrada.');
-        return;
-      }
-      
+      // Redirección dinámica según el rol
       if (role == 'driver') {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => DriverMainShell()));
-      } else if (role == 'admin') {
+      } else if (role == 'admin' || role == 'super_admin') {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AdminDashboardScreen()));
       } else {
+        // Validar verificación de correo SOLO para padres (no-conductores/no-admins)
+        if (!creds!.user!.emailVerified) {
+          await creds.user!.sendEmailVerification();
+          await authRepo.signOut();
+          setState(() => _errorMessage = 'Correo no verificado. Hemos re-enviado el enlace, revisa tu SPAM o bandeja de entrada.');
+          return;
+        }
         // 'parent' o cualquier otro valor
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ParentDashboardScreen()));
       }

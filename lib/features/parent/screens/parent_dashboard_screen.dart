@@ -198,7 +198,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                 final grade = student['grade'] as String? ?? '--';
                                 final serviceType = student['serviceType'] as String? ?? '--';
                                 final studentId = student['studentId'] ?? student['id'];
-                                final isActive = status == 'active';
+                                final isActive = status == 'approved';
                                 final initial = name[0].toUpperCase();
 
                                 return Container(

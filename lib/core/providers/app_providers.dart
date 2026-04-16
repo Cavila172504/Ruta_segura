@@ -34,7 +34,7 @@ final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   if (uid == null) return null;
   
   // Buscamos el perfil en la nueva estructura organizada por roles
-  for (final roleCol in ['admins', 'parents', 'drivers']) {
+  for (final roleCol in ['super_admins', 'admins', 'parents', 'drivers']) {
     final query = await FirebaseFirestore.instance
         .collection('users')
         .doc(roleCol)

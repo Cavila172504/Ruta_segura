@@ -58,7 +58,10 @@ const RepresentativesPage = () => {
   const updateRepStatus = async (id, newStatus) => {
     try {
       const repRef = doc(db, 'companies', SCHOOL_CODE, 'students', id);
-      await updateDoc(repRef, { status: newStatus });
+      await updateDoc(repRef, { 
+        status: newStatus,
+        approvedAt: serverTimestamp()
+      });
     } catch (error) {
       console.error("Error updating status:", error);
       alert("Hubo un error al actualizar el estado.");
@@ -85,14 +88,22 @@ const RepresentativesPage = () => {
   };
 
   const [editFormData, setEditFormData] = useState(null);
+  const [drivers, setDrivers] = useState([]);
+
+  useEffect(() => {
+    if (!SCHOOL_CODE) return;
+    const driversRef = collection(db, 'companies', SCHOOL_CODE, 'drivers');
+    const unsubscribe = onSnapshot(driversRef, (snap) => {
+      setDrivers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [SCHOOL_CODE]);
 
   const openEditModal = (rep) => {
     setSelectedRep(rep);
-    setEditFormData({ ...rep }); // Copiamos los datos para editarlos
+    setEditFormData({ ...rep }); 
     setShowEditModal(true);
   };
-
-
 
   const handleEditSave = async () => {
     if (!editFormData) return;
@@ -137,7 +148,7 @@ const RepresentativesPage = () => {
       rep.idNumber?.includes(searchTerm) ||
       rep.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (activeTab === 'Alumnos aprobados') return matchesSearch && rep.status === 'active';
+    if (activeTab === 'Alumnos aprobados') return matchesSearch && rep.status === 'approved';
     if (activeTab === 'Alumnos Inscritos') return matchesSearch && (rep.status === 'pending' || !rep.status);
     return matchesSearch;
   });
@@ -161,7 +172,7 @@ const RepresentativesPage = () => {
         {['Alumnos aprobados', 'Alumnos Inscritos', 'Todos'].map((tab) => {
           const statusKey = tab === 'Alumnos aprobados' ? 'active' : (tab === 'Alumnos Inscritos' ? 'pending' : null);
           const count = tab === 'Alumnos Inscritos' 
-            ? representatives.filter(r => r.status === 'pending').length 
+            ? representatives.filter(r => !r.status || r.status === 'pending').length 
             : null;
             
           return (
@@ -227,11 +238,11 @@ const RepresentativesPage = () => {
                 <td className="px-8 py-8 text-center text-xl font-black text-primary uppercase">{rep.studentName || '---'}</td>
                 <td className="px-8 py-8 text-center text-base font-bold text-slate-500 italic uppercase">{rep.serviceType || '---'}</td>
                 <td className="px-8 py-8 text-center">
-                  {rep.status === 'active' ? (
+                  {rep.status === 'approved' ? (
                     <span className="bg-emerald-500 text-white px-5 py-2 rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-100">APROBADO</span>
                   ) : (
                     <button 
-                      onClick={() => updateRepStatus(rep.id, 'active')}
+                      onClick={() => updateRepStatus(rep.id, 'approved')}
                       className="bg-primary text-white hover:brightness-110 px-6 py-3 rounded-2xl text-xs font-black uppercase transition-all shadow-xl shadow-primary/20 flex items-center gap-2 mx-auto active:scale-95"
                     >
                       <span className="material-symbols-outlined text-lg">verified</span>
@@ -331,6 +342,19 @@ const RepresentativesPage = () => {
                           onChange={(e) => setEditFormData({...editFormData, studentName: e.target.value})}
                           className="w-full text-xs p-2 border-b outline-none focus:border-primary" 
                         />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 font-bold text-primary">Conductor Asignado:</label>
+                        <select 
+                          value={editFormData?.driverId || ''} 
+                          onChange={(e) => setEditFormData({...editFormData, driverId: e.target.value})}
+                          className="w-full text-xs p-2 border-b outline-none bg-primary/5 font-bold"
+                        >
+                          <option value="">-- No Asignado --</option>
+                          {drivers.map(d => (
+                            <option key={d.id} value={d.uid || d.id}>{d.name || d.names}</option>
+                          ))}
+                        </select>
                     </div>
                   </div>
                   <div className="pt-4 flex justify-between items-center">
