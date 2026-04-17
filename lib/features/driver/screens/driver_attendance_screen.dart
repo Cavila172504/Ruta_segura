@@ -285,7 +285,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
               value: isPresent, 
               activeColor: _primaryDriver,
               activeTrackColor: _primaryDriver.withOpacity(0.2),
-              onChanged: (val) {
+              onChanged: (val) async {
                 if (!isNear && val) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -299,6 +299,27 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                   if (val) _presentIds.add(s['id'] as String);
                   else _presentIds.remove(s['id'] as String);
                 });
+
+                if (val) {
+                  final parentUid = s['parentUid'] as String?;
+                  if (parentUid != null) {
+                    try {
+                      final notificationRef = FirebaseFirestore.instance
+                          .collection('users').doc('parents').collection('members').doc(parentUid)
+                          .collection('notifications').doc();
+                      
+                      await notificationRef.set({
+                        'title': '✅ Estudiante a bordo',
+                        'message': '${s['studentName']} ha subido al transporte seguro.',
+                        'timestamp': Timestamp.now(),
+                        'type': 'boarded',
+                        'isRead': false,
+                      });
+                    } catch (e) {
+                      debugPrint('Error enviando notificación: $e');
+                    }
+                  }
+                }
               }
             ),
         ],

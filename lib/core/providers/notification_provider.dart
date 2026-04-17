@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/notification_service.dart';
 import '../services/proximity_service.dart';
 import 'app_providers.dart';
@@ -37,15 +38,26 @@ final proximityMonitoringProvider = Provider<void>((ref) {
         // 1. Lógica de "Bus a 600m"
         if (distanceMeters <= ProximityService.alertThresholdMeters && prevDist > ProximityService.alertThresholdMeters) {
           final etaMin = (distanceMeters / 300).ceil();
-          final notification = AppNotification(
-            id: DateTime.now().toString(),
-            title: 'Bus cerca de ${student['studentName']}',
-            subtitle: 'Está a ${distanceMeters.toInt()}m. Llega en aprox. $etaMin min.',
-            timestamp: DateTime.now(),
-            type: NotificationType.proximity,
-          );
-          ref.read(notificationListProvider.notifier).addNotification(notification);
-          NotificationService().showLocalNotification(id: 102, title: notification.title, body: notification.subtitle);
+          final title = 'Bus cerca de ${student['studentName']}';
+          final body = 'Está a ${distanceMeters.toInt()}m. Llega en aprox. $etaMin min.';
+
+          final user = ref.read(authStateProvider).value;
+          if (user != null) {
+            FirebaseFirestore.instance
+                .collection('users')
+                .doc('parents')
+                .collection('members')
+                .doc(user.uid)
+                .collection('notifications')
+                .add({
+              'title': title,
+              'message': body,
+              'timestamp': Timestamp.now(),
+              'type': 'proximity',
+              'isRead': false,
+            });
+          }
+          NotificationService().showLocalNotification(id: 102, title: title, body: body);
         }
       });
     }

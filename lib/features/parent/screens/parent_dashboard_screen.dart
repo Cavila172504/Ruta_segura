@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import '../../../core/screens/login_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -54,9 +55,41 @@ class ParentDashboardScreen extends ConsumerWidget {
     final days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     final dateStr = '${days[now.weekday % 7]}, ${now.day} de ${months[now.month - 1]} • ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
-    return Scaffold(
-      backgroundColor: _surface,
-      body: LayoutBuilder(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text('Salir de la App', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+            content: Text('¿Deseas cerrar la aplicación RutaSegura?', style: GoogleFonts.publicSans()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('CANCELAR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: Text('SALIR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldExit == true) {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: _surface,
+        body: LayoutBuilder(
         builder: (context, constraints) {
           return Stack(
             children: [
@@ -484,7 +517,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                         Icon(Icons.directions_bus, color: _primary, size: 24),
                         const SizedBox(width: 8),
                         Text(
-                          'BusGuardian',
+                          'RutaSegura',
                           style: GoogleFonts.publicSans(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -552,7 +585,7 @@ class ParentDashboardScreen extends ConsumerWidget {
           elevation: 4,
         ),
       ),
-    );
+    ));
   }
 
   void _showAddStudentWarning(BuildContext context) {
@@ -565,7 +598,7 @@ class ParentDashboardScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.info_outline, color: Colors.blue, size: 28),
               const SizedBox(width: 12),
-              Text('Atención', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+              Expanded(child: Text('Atención', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold))),
             ],
           ),
           content: Text(
@@ -763,7 +796,7 @@ class ParentDashboardScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
               const SizedBox(width: 12),
-              Text('Eliminar Estudiante', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+              Expanded(child: Text('Eliminar Estudiante', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold))),
             ],
           ),
           content: Text(
@@ -920,7 +953,7 @@ class ParentDashboardScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.chat, color: Colors.green, size: 28),
               const SizedBox(width: 12),
-              Text('Contactar Soporte', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+              Expanded(child: Text('Contactar Soporte', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold))),
             ],
           ),
           content: Column(

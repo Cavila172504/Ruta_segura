@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'app_providers.dart';
 
-enum NotificationType { alert, busStart, proximity, boarded, arrival, support }
+enum NotificationType { alert, busStart, proximity, boarded, arrival, support, trip_started }
 
 class AppNotification {
   final String id;
@@ -19,60 +20,57 @@ class AppNotification {
     required this.type,
     this.isRead = false,
   });
-}
 
-class NotificationListNotifier extends Notifier<List<AppNotification>> {
-  @override
-  List<AppNotification> build() => _getInitialDemos();
+  factory AppNotification.fromMap(String id, Map<String, dynamic> data) {
+    final typeStr = data['type'] as String? ?? 'alert';
+    NotificationType t;
+    switch (typeStr) {
+      case 'trip_started':
+      case 'busStart':
+        t = NotificationType.busStart;
+        break;
+      case 'boarded':
+        t = NotificationType.boarded;
+        break;
+      case 'arrival':
+        t = NotificationType.arrival;
+        break;
+      case 'support':
+        t = NotificationType.support;
+        break;
+      case 'proximity':
+        t = NotificationType.proximity;
+        break;
+      default:
+        t = NotificationType.alert;
+    }
 
-  void addNotification(AppNotification notification) {
-    state = [notification, ...state];
-  }
+    final ts = data['timestamp'] as Timestamp?;
+    final date = ts?.toDate() ?? DateTime.now();
 
-  void markAsRead(String id) {
-    state = [
-      for (final n in state)
-        if (n.id == id)
-          AppNotification(
-            id: n.id,
-            title: n.title,
-            subtitle: n.subtitle,
-            timestamp: n.timestamp,
-            type: n.type,
-            isRead: true,
-          )
-        else
-          n,
-    ];
-  }
-
-  static List<AppNotification> _getInitialDemos() {
-    return [
-      AppNotification(
-        id: '1',
-        title: 'ALERTA: novedad en la vía',
-        subtitle: 'Se reporta tráfico pesado en la Av. Principal. El tiempo de llegada podría verse afectado.',
-        timestamp: DateTime.now(),
-        type: NotificationType.alert,
-      ),
-      AppNotification(
-        id: '2',
-        title: 'Bus iniciando recorrido',
-        subtitle: 'La unidad 24 ha comenzado su ruta hacia el colegio.',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
-        type: NotificationType.busStart,
-      ),
-      AppNotification(
-        id: '3',
-        title: 'Soporte enviado',
-        subtitle: 'Tu mensaje ha sido recibido por el administrador.',
-        timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-        type: NotificationType.support,
-      ),
-    ];
+    return AppNotification(
+      id: id,
+      title: data['title'] ?? 'Notificación',
+      subtitle: data['message'] ?? '',
+      timestamp: date,
+      type: t,
+      isRead: data['isRead'] ?? false,
+    );
   }
 }
 
-final notificationListProvider = NotifierProvider<NotificationListNotifier, List<AppNotification>>(() {
-  return NotificationListNotifier();
+final notificationListProvider = StreamProvider<List<AppNotification>>((ref) {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return Stream.value([]);
+
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc('parents')
+      .collection('members')
+      .doc(user.uid)
+      .collection('notifications')
+      .orderBy('timestamp', descending: true)
+      .limit(50)
+      .snapshots()
+      .map((snap) => snap.docs.map((doc) => AppNotification.fromMap(doc.id, doc.data())).toList());
 });

@@ -23,7 +23,7 @@ class DriverDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
-  // Colores Premium para el Conductor (Identidad BusGuardian)
+  // Colores Premium para el Conductor (Identidad RutaSegura)
   final Color _primaryDriver = const Color(0xFF0D4D3A); // Esmeralda Profundo
   final Color _accentDriver = const Color(0xFFFFD600);  // Amarillo Bus
   final Color _surfaceDriver = const Color(0xFFF4F7F6);

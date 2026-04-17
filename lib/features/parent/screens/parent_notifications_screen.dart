@@ -16,7 +16,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifications = ref.watch(notificationListProvider);
+    final notificationsAsync = ref.watch(notificationListProvider);
 
     return Scaffold(
       backgroundColor: _surface,
@@ -45,15 +45,29 @@ class ParentNotificationsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: notifications.length,
-                    itemBuilder: (context, index) {
-                      final n = notifications[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _buildNotificationItem(n),
+                  notificationsAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(child: Text('Error: $err')),
+                    data: (notifications) {
+                      if (notifications.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Text('No tienes notificaciones recientes.', style: GoogleFonts.publicSans(color: Colors.grey)),
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: notifications.length,
+                        itemBuilder: (context, index) {
+                          final n = notifications[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _buildNotificationItem(n),
+                          );
+                        },
                       );
                     },
                   ),
@@ -98,7 +112,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
                     children: [
                       Icon(Icons.directions_bus, color: _primary, size: 24),
                       const SizedBox(width: 8),
-                      Text('BusGuardian', style: GoogleFonts.publicSans(fontSize: 18, fontWeight: FontWeight.w800, color: _primary, letterSpacing: -0.5))
+                      Text('RutaSegura', style: GoogleFonts.publicSans(fontSize: 18, fontWeight: FontWeight.w800, color: _primary, letterSpacing: -0.5))
                     ],
                   ),
                   IconButton(
@@ -163,6 +177,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
         titleColor = const Color(0xFF93000a);
         subtitleColor = const Color(0xFF93000a);
         break;
+      case NotificationType.trip_started:
       case NotificationType.busStart:
         icon = Icons.directions_bus_filled_rounded;
         iconBg = const Color(0xFFd4e3ff);

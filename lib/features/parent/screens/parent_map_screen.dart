@@ -106,6 +106,10 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
     final studentsAsync = ref.watch(parentStudentsProvider);
     final students = studentsAsync.value ?? [];
     
+    // Status de ruta en tiempo real
+    final busStatus = ref.watch(busStatusProvider).value ?? 'idle';
+    final isRouteActive = busStatus == 'on_route';
+    
     // Tomamos el primer estudiante para la cabecera (en caso de hermanos, podríamos rotarlos o elegir uno)
     final activeStudentName = students.isNotEmpty ? students.first['studentName'] : 'Estudiante';
     final homeLocation = students.isNotEmpty && students.first['stopLat'] != null
@@ -116,44 +120,79 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: _primaryColor,
-        elevation: 0,
+        elevation: 4,
+        shadowColor: Colors.black26,
         automaticallyImplyLeading: false,
-        title: Text(
-          'MONITOREO',
-          style: GoogleFonts.merriweather( // O un font sans-serif fuerte
-            color: Colors.black,
-            fontWeight: FontWeight.w900,
-            fontSize: 20,
-            letterSpacing: 1.0
-          ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.satellite_alt_rounded, color: Colors.black87, size: 24),
+            const SizedBox(width: 10),
+            Text(
+              'MONITOREO EN VIVO',
+              style: GoogleFonts.publicSans(
+                color: Colors.black87,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
         ),
         centerTitle: true,
       ),
       body: Column(
         children: [
-          // Sub-barra de Estado (Gabriel Flores - Ruta Activa)
+          // Sub-barra de Estado (Gabriel Flores - Ruta Activa) - Mejorada
           Container(
-            color: _statusGreen,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4))
+              ],
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  activeStudentName.toUpperCase(),
-                  style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
-                ),
                 Row(
                   children: [
-                    Text(
-                      'Ruta Activa',
-                      style: GoogleFonts.publicSans(fontSize: 14, color: Colors.black54),
-                    ),
-                    const SizedBox(width: 12),
                     Container(
-                      width: 18, height: 18,
-                      decoration: const BoxDecoration(color: Color(0xFF4CAF50), shape: BoxShape.circle),
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(color: Color(0xFFE8F5E9), shape: BoxShape.circle),
+                      child: const Icon(Icons.person, size: 18, color: Color(0xFF2E7D32)),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      activeStudentName.toUpperCase(),
+                      style: GoogleFonts.publicSans(fontWeight: FontWeight.w800, fontSize: 14, color: const Color(0xFF191c1d)),
                     ),
                   ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isRouteActive ? Colors.green.shade50 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isRouteActive ? Colors.green.shade200 : Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8, height: 8,
+                        decoration: BoxDecoration(
+                          color: isRouteActive ? const Color(0xFF4CAF50) : Colors.grey.shade500, 
+                          shape: BoxShape.circle,
+                          boxShadow: isRouteActive ? const [BoxShadow(color: Color(0xFF4CAF50), blurRadius: 4)] : null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isRouteActive ? 'Ruta Activa' : 'En Espera',
+                        style: GoogleFonts.publicSans(fontSize: 12, fontWeight: FontWeight.bold, color: isRouteActive ? const Color(0xFF2E7D32) : Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -222,7 +261,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
 
                 // Map View Controls (Botones Flotantes de Bus y Casa)
                 Positioned(
-                  bottom: 30,
+                  bottom: 40,
                   right: 20,
                   child: Column(
                     children: [
@@ -232,14 +271,18 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                           if (liveBusLocation != null) _centerOnLocation(liveBusLocation);
                         },
                         child: Container(
-                          width: 70, height: 70,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD600),
+                          width: 65, height: 65,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.red, width: 3),
-                            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: const Offset(0, 4))],
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6))
+                            ],
                           ),
-                          child: const Icon(Icons.directions_bus, color: Colors.black, size: 35),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Image.asset('assets/images/autobus-escolar.png', fit: BoxFit.contain),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -249,14 +292,18 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                           if (homeLocation != null) _centerOnLocation(homeLocation);
                         },
                         child: Container(
-                          width: 70, height: 70,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50), // Vibrant Green matching new house
+                          width: 65, height: 65,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.black, width: 3),
-                            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: const Offset(0, 4))],
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6))
+                            ],
                           ),
-                          child: const Icon(Icons.home, color: Colors.white, size: 35),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14.0),
+                            child: Image.asset('assets/images/casa.png', fit: BoxFit.contain),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
