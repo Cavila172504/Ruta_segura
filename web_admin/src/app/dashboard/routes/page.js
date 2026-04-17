@@ -88,7 +88,8 @@ export default function RoutesPage() {
     if (route.driverId) {
       await updateDoc(doc(db, 'companies', SCHOOL_CODE, 'students', student.id), { 
         driverId: route.driverId,
-        assignedRoute: route.name 
+        assignedRoute: route.name,
+        status: 'active'
       });
     }
     setSyncStatus(prev => ({ ...prev, [routeId]: 'pending' }));
@@ -117,6 +118,12 @@ export default function RoutesPage() {
     const route = routes.find(r => r.id === routeId);
     const newAssigned = route.assignedStudents.filter(s => s.id !== studentId);
     await updateDoc(doc(db, 'companies', SCHOOL_CODE, 'routes', routeId), { assignedStudents: newAssigned });
+    
+    await updateDoc(doc(db, 'companies', SCHOOL_CODE, 'students', studentId), {
+      driverId: null,
+      assignedRoute: null
+    });
+
     setSyncStatus(prev => ({ ...prev, [routeId]: 'pending' }));
   };
 
