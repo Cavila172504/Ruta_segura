@@ -57,7 +57,7 @@ class RootAuthWrapper extends ConsumerWidget {
         if (user == null) {
           return const LoginScreen(isDriverApp: false);
         }
-        
+
         // El usuario está logueado, determinar su dashboard
         return FutureBuilder<String?>(
           future: ref.read(authRepositoryProvider).getUserRole(user.uid),
@@ -67,7 +67,7 @@ class RootAuthWrapper extends ConsumerWidget {
                 body: Center(child: CircularProgressIndicator()),
               );
             }
-            
+
             final role = snapshot.data ?? 'parent';
             if (role == 'driver') {
               return const DriverMainShell();
@@ -83,9 +83,8 @@ class RootAuthWrapper extends ConsumerWidget {
           },
         );
       },
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => const LoginScreen(isDriverApp: false),
     );
   }

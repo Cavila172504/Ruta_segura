@@ -7,6 +7,29 @@ import 'app_providers.dart';
 import 'notification_list_provider.dart';
 import 'route_provider.dart';
 
+/// Provider que escucha nuevas notificaciones de Firebase para lanzar pop-ups locales (Push local).
+final remoteNotificationsListenerProvider = Provider<void>((ref) {
+  ref.listen<AsyncValue<List<AppNotification>>>(notificationListProvider, (previous, next) {
+    if (previous == null || previous.isLoading) return; // Saltamos la carga inicial (no alertar del pasado)
+    final prevList = previous.value ?? [];
+    final nextList = next.value ?? [];
+    
+    final prevIds = prevList.map((e) => e.id).toSet();
+    final newNotifs = nextList.where((n) => !prevIds.contains(n.id)).toList();
+    
+    for (final n in newNotifs) {
+      // La notificación de proximidad ya despliega su local notification arriba
+      if (n.type != NotificationType.proximity) {
+        NotificationService().showLocalNotification(
+          id: n.id.hashCode,
+          title: n.title,
+          body: n.subtitle,
+        );
+      }
+    }
+  });
+});
+
 /// Provider que monitorea las cercanías de los buses en tiempo real para el padre.
 final proximityMonitoringProvider = Provider<void>((ref) {
   final studentsAsync = ref.watch(parentStudentsProvider);

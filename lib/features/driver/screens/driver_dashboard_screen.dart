@@ -450,8 +450,38 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         final driverId = profile?['uid'] ?? 'UNKNOWN';
         final unitCode = profile?['unitCode'] ?? 'CAD31';
         
+        final routeType = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: Text('Tipo de Recorrido', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: _primaryDriver)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.school, color: Colors.blue),
+                  title: Text('Ida al Colegio', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+                  onTap: () => Navigator.pop(context, 'to_school'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.home, color: Colors.orange),
+                  title: Text('Retorno a Casa', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+                  onTap: () => Navigator.pop(context, 'to_home'),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        if (routeType == null) return; // Cancelado
+
         // 1. Cambiar estado en Firebase
         await ref.read(trackingRepositoryProvider).updateRouteStatus(unitCode, driverId, 'on_route');
+        
+        // Guardar el tipo de ruta también
+        await FirebaseFirestore.instance.collection('companies').doc(unitCode).collection('live_tracking').doc(driverId).set({
+          'routeType': routeType,
+        }, SetOptions(merge: true));
 
         // 2. Notificar a todos los padres de la ruta que el bus ha iniciado
         try {
@@ -460,9 +490,11 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
           
           final batch = FirebaseFirestore.instance.batch();
           final now = Timestamp.now();
+          
+          final directionText = routeType == 'to_school' ? 'hacia el colegio' : 'de retorno a casa';
 
           for (var doc in studentsSnapshot.docs) {
-            final parentUid = doc.data()['parentUid'] as String?;
+            final parentUid = doc.data()['parentId'] as String?;
             if (parentUid != null) {
               final notificationRef = FirebaseFirestore.instance
                   .collection('users').doc('parents').collection('members').doc(parentUid)
@@ -470,7 +502,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
               
               batch.set(notificationRef, {
                 'title': '🚌 Recorrido Iniciado',
-                'message': 'El transporte ha iniciado su recorrido hacia el colegio. ¡Ten un excelente día!',
+                'message': 'El transporte ha iniciado su recorrido $directionText.',
                 'timestamp': now,
                 'type': 'trip_started',
                 'isRead': false,

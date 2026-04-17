@@ -9,6 +9,7 @@ import '../../../core/providers/map_provider.dart';
 import '../../../core/providers/route_provider.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/screens/login_screen.dart';
+import '../../../core/providers/notification_provider.dart';
 
 import '../../../core/services/notification_service.dart';
 import 'package:geolocator/geolocator.dart';
@@ -66,6 +67,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(remoteNotificationsListenerProvider);
     // 1. Lógica de Alerta de Proximidad (600 metros)
     ref.listen(liveBusLocationProvider, (previous, next) {
       final busLoc = next.value;

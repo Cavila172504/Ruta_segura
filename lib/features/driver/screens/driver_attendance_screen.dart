@@ -59,7 +59,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
 
       for (var student in students) {
         final studentId = student['id'];
-        final parentUid = student['parentUid'];
+        final parentUid = student['parentId'];
 
         final studentRef = FirebaseFirestore.instance
             .collection('companies').doc(unitCode).collection('students').doc(studentId);
@@ -301,7 +301,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                 });
 
                 if (val) {
-                  final parentUid = s['parentUid'] as String?;
+                  final parentUid = s['parentId'] as String?;
                   if (parentUid != null) {
                     try {
                       final notificationRef = FirebaseFirestore.instance

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/notification_list_provider.dart';
+import '../../../core/providers/notification_provider.dart';
 import '../../../core/screens/login_screen.dart';
 import 'parent_dashboard_screen.dart';
 import 'parent_map_screen.dart';
@@ -16,6 +17,10 @@ class ParentNotificationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Iniciar el monitoreo de cercanía y eventos del bus
+    ref.watch(proximityMonitoringProvider);
+    ref.watch(remoteNotificationsListenerProvider);
+
     final notificationsAsync = ref.watch(notificationListProvider);
 
     return Scaffold(

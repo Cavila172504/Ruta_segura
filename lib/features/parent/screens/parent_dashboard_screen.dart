@@ -26,6 +26,7 @@ class ParentDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Iniciar el monitoreo de cercanía y eventos del bus
     ref.watch(proximityMonitoringProvider);
+    ref.watch(remoteNotificationsListenerProvider);
     
     final userProfileAsync = ref.watch(userProfileProvider);
     final authUser = ref.watch(authStateProvider).value;

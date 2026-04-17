@@ -100,7 +100,7 @@ class DriverProfileScreen extends ConsumerWidget {
                             value: unitCode,
                           ),
                           const SizedBox(height: 16),
-                          _buildInfoCard(icon: Icons.business, title: 'COOPERATIVA / COMPAÑÍA', value: 'TransEscolar S.A.'),
+                          _buildInfoCard(icon: Icons.business, title: 'COOPERATIVA / COMPAÑÍA', value: 'Colorado Express S.A.'),
                           const SizedBox(height: 16),
                           _buildInfoCard(icon: Icons.phone, title: 'TELÉFONO DE CONTACTO', value: '+593 98 765 4321'),
 

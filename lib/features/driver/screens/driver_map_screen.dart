@@ -58,6 +58,8 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     return BitmapDescriptor.fromBytes(bytes);
   }
 
+  bool _hasCenteredInitially = false;
+
   void _startTracking() {
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5),
@@ -68,6 +70,11 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
           _speed = position.speed * 3.6;
         });
         _updateFirebase(position);
+
+        if (!_hasCenteredInitially && ref.read(mapControllerProvider) != null) {
+          ref.read(mapControllerProvider)!.animateCamera(CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 16));
+          _hasCenteredInitially = true;
+        }
       }
     });
   }
@@ -144,7 +151,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     try {
       final batch = FirebaseFirestore.instance.batch();
       for (var student in students) {
-        final parentUid = student['parentUid'] as String?;
+        final parentUid = student['parentId'] as String?;
         if (parentUid != null) {
           final notifRef = FirebaseFirestore.instance.collection('users').doc('parents').collection('members').doc(parentUid).collection('notifications').doc();
           batch.set(notifRef, {
@@ -223,8 +230,17 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
         children: [
           GoogleMap(
             mapType: _currentMapType,
+            zoomControlsEnabled: false,
+            myLocationButtonEnabled: false,
+            mapToolbarEnabled: false,
             initialCameraPosition: CameraPosition(target: _currentPosition != null ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude) : _cadeLocation, zoom: 15),
-            onMapCreated: (c) => ref.read(mapControllerProvider.notifier).setController(c),
+            onMapCreated: (c) {
+              ref.read(mapControllerProvider.notifier).setController(c);
+              if (_currentPosition != null) {
+                c.animateCamera(CameraUpdate.newLatLng(LatLng(_currentPosition!.latitude, _currentPosition!.longitude)));
+                _hasCenteredInitially = true;
+              }
+            },
             markers: _buildMarkers(studentsAsync.value ?? [], isTripActive),
             polylines: {
               if (_routePoints.isNotEmpty && isTripActive)
@@ -246,7 +262,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
           Positioned(top: 110, left: 16, child: _teleBox()),
           if (isTripActive) ...[
             Positioned(top: 110, right: 16, child: _novedadesBtn(() => _sendTrafficAlert(unitCode, studentsAsync.value ?? []))),
-            Positioned(bottom: 25, left: 20, right: 20, child: _finishBtn(() => _finishTrip(unitCode, profile?['uid']))),
+            Positioned(bottom: 25, left: 50, right: 50, child: _finishBtn(() => _finishTrip(unitCode, profile?['uid']))),
           ],
           Positioned(bottom: isTripActive ? 160 : 100, right: 16, child: _mapTypeBtn()),
           Positioned(bottom: isTripActive ? 105 : 45, right: 16, child: _gpsBtn()),
