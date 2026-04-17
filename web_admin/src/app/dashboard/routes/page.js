@@ -58,7 +58,8 @@ export default function RoutesPage() {
       await addDoc(collection(db, 'companies', SCHOOL_CODE, 'routes'), {
         name: formData.get('name') || 'SIN NOMBRE',
         shift: formData.get('shift') || 'MATUTINA',
-        entryDriver: formData.get('driver') || '',
+        entryDriver: formData.get('driverName') || '',
+        driverId: formData.get('driverId') || '',
         entryUnit: formData.get('unit') || 'S/N',
         assignedStudents: [],
         status: 'active',
@@ -82,6 +83,14 @@ export default function RoutesPage() {
       matrix: days.reduce((acc, d) => ({ ...acc, [d]: { entrance: 'confirmed', exit: 'confirmed' } }), {})
     }];
     await updateDoc(doc(db, 'companies', SCHOOL_CODE, 'routes', routeId), { assignedStudents: newAssigned });
+    
+    // Vincular al estudiante con el conductor en su documento principal
+    if (route.driverId) {
+      await updateDoc(doc(db, 'companies', SCHOOL_CODE, 'students', student.id), { 
+        driverId: route.driverId,
+        assignedRoute: route.name 
+      });
+    }
     setSyncStatus(prev => ({ ...prev, [routeId]: 'pending' }));
   };
 
@@ -130,158 +139,164 @@ export default function RoutesPage() {
       <div className="max-w-[1600px] mx-auto space-y-8 pb-20">
         
         {/* CABECERA (Azul Suave) */}
-        <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 flex justify-between items-center bg-white border-2 border-slate-50">
-           <button onClick={() => setShowCreate(!showCreate)} className={`flex items-center gap-4 px-10 py-6 ${primaryBlue} text-white rounded-[2rem] font-black text-lg hover:brightness-110 transition-all shadow-2xl shadow-blue-200 active:scale-95`}>
-              {showCreate ? <X className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl flex flex-col-reverse sm:flex-row justify-between items-start sm:items-center shadow-sm border border-slate-100 gap-4">
+           <button onClick={() => setShowCreate(!showCreate)} className={`flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 ${primaryBlue} text-white rounded-xl font-black text-sm hover:brightness-110 transition-all shadow-lg shadow-blue-200 active:scale-95`}>
+              {showCreate ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
               {showCreate ? 'CANCELAR' : 'NUEVA RUTA TÁCTICA'}
            </button>
-           <div className="text-right">
-              <p className="text-sm font-black text-slate-400 uppercase italic tracking-widest mb-1">RutaSegura Global</p>
-              <p className={`text-6xl font-black ${primaryBlueText} tracking-tighter italic uppercase`}>Panel Gestión</p>
+           <div className="text-left sm:text-right w-full sm:w-auto">
+              <p className="text-[10px] sm:text-sm font-black text-slate-400 uppercase italic tracking-widest mb-0 sm:mb-1">RutaSegura Global</p>
+              <p className={`text-xl sm:text-2xl font-black ${primaryBlueText} tracking-tighter italic uppercase`}>Panel Gestión</p>
            </div>
         </div>
 
         {/* CREACIÓN */}
         {showCreate && (
-          <form onSubmit={handleSaveNewRoute} className="bg-white p-10 rounded-[3rem] shadow-2xl border border-blue-50 animate-in slide-in-from-top duration-300">
-             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+          <form onSubmit={handleSaveNewRoute} className="bg-white p-4 sm:p-6 rounded-2xl shadow-md border border-blue-50 animate-in slide-in-from-top duration-300">
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase italic mb-2 block tracking-widest">Nombre de Ruta</label>
-                   <input name="name" placeholder="Ej: RUTA 1" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-400 font-bold" />
+                   <label className="text-[10px] font-black text-slate-400 uppercase italic mb-1 block tracking-widest">Nombre de Ruta</label>
+                   <input name="name" placeholder="Ej: RUTA 1" className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 font-bold" />
                 </div>
                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase italic mb-2 block tracking-widest">Jornada</label>
-                   <select name="shift" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 outline-none font-bold">
+                   <label className="text-[10px] font-black text-slate-400 uppercase italic mb-1 block tracking-widest">Jornada</label>
+                   <select name="shift" className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2 text-sm outline-none font-bold">
                       <option>MATUTINA</option><option>VESPERTINA</option><option>NOCTURNA</option>
                    </select>
                 </div>
                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase italic mb-2 block tracking-widest">Conductor</label>
-                   <select name="driver" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 outline-none font-bold">
-                      <option value="">Seleccionar...</option>
-                      {drivers.map(d => <option key={d.id} value={d.name || `${d.names} ${d.lastNames}`}>{d.name || `${d.names} ${d.lastNames}`}</option>)}
-                   </select>
+                   <label className="text-[10px] font-black text-slate-400 uppercase italic mb-1 block tracking-widest">Conductor</label>
+                    <select name="driverId" onChange={(e) => {
+                      const selected = drivers.find(d => (d.uid || d.id) === e.target.value);
+                      document.getElementById('selected_driver_name').value = selected ? (selected.name || `${selected.names} ${selected.lastNames}`) : '';
+                    }} className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2 text-sm outline-none font-bold">
+                       <option value="">Seleccionar...</option>
+                       {drivers.map(d => <option key={d.id} value={d.uid || d.id}>{d.name || `${d.names} ${d.lastNames}`}</option>)}
+                    </select>
+                    <input type="hidden" id="selected_driver_name" name="driverName" />
                 </div>
                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase italic mb-2 block tracking-widest">Placa / Unidad</label>
-                   <input name="unit" placeholder="Ej: P-10" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 outline-none font-bold" />
+                   <label className="text-[10px] font-black text-slate-400 uppercase italic mb-1 block tracking-widest">Placa / Unidad</label>
+                   <input name="unit" placeholder="Ej: P-10" className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2 text-sm outline-none font-bold" />
                 </div>
              </div>
-             <div className="flex justify-end gap-4"><button type="submit" className={`px-12 py-4 ${primaryBlue} text-white font-black rounded-2xl shadow-xl shadow-blue-100 hover:scale-105 active:scale-95 transition-all`}>GUARDAR RUTA</button></div>
+             <div className="flex justify-end gap-2"><button type="submit" className={`w-full sm:w-auto px-6 py-2.5 ${primaryBlue} text-white text-sm font-black rounded-lg shadow-md shadow-blue-100 hover:scale-105 active:scale-95 transition-all`}>GUARDAR RUTA</button></div>
           </form>
         )}
 
         {/* LISTADO DE RUTAS */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
            {routes.map(route => (
-             <div key={route.id} className="bg-white rounded-[4rem] shadow-xl border border-slate-100 overflow-hidden flex flex-col hover:border-blue-200 transition-all">
+             <div key={route.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col hover:border-blue-200 transition-all">
                 
                 {/* HEAD DE RUTA (CON CONDUCTOR Y PLACA) */}
-                <div className="p-12 flex flex-wrap items-center justify-between gap-10">
-                   <div className="flex items-center gap-8">
-                      <div className={`w-24 h-24 ${primaryBlue} bg-opacity-10 rounded-3xl flex items-center justify-center`}><Truck className={`w-12 h-12 ${primaryBlueText}`} /></div>
+                <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+                   <div className="flex items-center gap-4">
+                      <div className={`hidden sm:flex w-16 h-16 ${primaryBlue} bg-opacity-10 rounded-xl items-center justify-center`}><Truck className={`w-8 h-8 ${primaryBlueText}`} /></div>
                       <div>
-                         <h3 className="text-5xl font-black text-slate-800 uppercase tracking-tighter leading-none mb-4 italic">{route.name}</h3>
-                         <div className="flex gap-6">
-                            <span className={`text-base font-black ${primaryBlue} text-white px-6 py-2 rounded-xl italic uppercase tracking-widest shadow-md`}>{route.shift}</span>
-                            <span className="flex items-center gap-2 text-lg font-bold text-slate-500 uppercase"><User className="w-6 h-6 text-blue-500" /> <span className="text-slate-900 font-black">{route.entryDriver || 'PENDIENTE'}</span></span>
-                            <span className="flex items-center gap-2 text-lg font-bold text-slate-500 uppercase"><CreditCard className="w-6 h-6 text-blue-500" /> PLACA: <span className="text-slate-900 font-black">{route.entryUnit || 'S/N'}</span></span>
+                         <h3 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tighter leading-none mb-2 italic">{route.name}</h3>
+                         <div className="flex flex-wrap gap-2 sm:gap-4">
+                            <span className={`text-[10px] sm:text-xs font-black ${primaryBlue} text-white px-3 py-1 rounded-md italic uppercase tracking-widest shadow-sm`}>{route.shift}</span>
+                            <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-slate-500 uppercase"><User className="w-4 h-4 text-blue-500" /> <span className="text-slate-900 font-black">{route.entryDriver || 'PENDIENTE'}</span></span>
+                            <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-slate-500 uppercase"><CreditCard className="w-4 h-4 text-blue-500" /> PLACA: <span className="text-slate-900 font-black">{route.entryUnit || 'S/N'}</span></span>
                          </div>
                       </div>
                    </div>
 
-                   <div className="flex gap-6">
+                   <div className="flex w-full sm:w-auto gap-2 sm:gap-4">
                       <button 
                         onClick={() => setExpandedRoute(expandedRoute === route.id ? null : route.id)}
-                        className={`flex items-center gap-4 px-12 py-6 rounded-3xl font-black text-lg transition-all shadow-xl hover:scale-105 ${expandedRoute === route.id ? 'bg-amber-100 text-amber-700 shadow-amber-100' : 'bg-slate-900 text-white hover:bg-black shadow-slate-200'}`}
+                        className={`flex-1 sm:flex-none flex justify-center items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs transition-all shadow-sm hover:scale-105 ${expandedRoute === route.id ? 'bg-amber-100 text-amber-700 shadow-amber-100' : 'bg-slate-900 text-white hover:bg-black shadow-slate-200'}`}
                       >
                          {expandedRoute === route.id ? 'CERRAR PANEL' : 'GESTIONAR PASAJEROS'}
-                         {expandedRoute === route.id ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
+                         {expandedRoute === route.id ? <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5" /> : <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />}
                       </button>
-                      <button onClick={() => deleteDoc(doc(db, 'companies', SCHOOL_CODE, 'routes', route.id))} className="w-16 h-16 flex items-center justify-center bg-rose-50 text-rose-300 hover:bg-rose-500 hover:text-white rounded-2xl transition-all shadow-sm"><Trash2 className="w-8 h-8" /></button>
+                      <button onClick={() => deleteDoc(doc(db, 'companies', SCHOOL_CODE, 'routes', route.id))} className="w-10 h-10 sm:w-12 sm:h-auto flex items-center justify-center bg-rose-50 text-rose-300 hover:bg-rose-500 hover:text-white rounded-xl transition-all shadow-sm"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5" /></button>
                    </div>
                 </div>
 
                 {/* CUERPO TÁCTICO */}
                 {expandedRoute === route.id && (
-                  <div className="p-8 bg-slate-50 border-t border-slate-100 space-y-6 animate-in slide-in-from-top duration-300">
+                  <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 space-y-4 sm:space-y-6 animate-in slide-in-from-top duration-300 relative">
                      
-                     <div className="flex flex-wrap justify-between items-center gap-6">
-                        <button onClick={() => setShowStudentPicker(route.id)} className={`flex items-center gap-4 px-12 py-5 ${primaryBlue} text-white rounded-2xl font-black text-sm hover:scale-105 transition-all shadow-xl shadow-blue-100`}>
-                           <Plus className="w-5 h-5 text-white" /> AGREGAR ESTUDIANTES A RUTA
+                     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                        <button onClick={() => setShowStudentPicker(route.id)} className={`flex items-center justify-center w-full sm:w-auto gap-2 px-6 py-3 ${primaryBlue} text-white rounded-xl font-black text-xs hover:scale-105 transition-all shadow-md shadow-blue-100`}>
+                           <Plus className="w-4 h-4 text-white" /> AGREGAR ESTUDIANTES A RUTA
                         </button>
                         
                         {/* LEYENDA TÁCTICA */}
-                        <div className="flex flex-wrap items-center gap-8 bg-white px-10 py-5 rounded-[2rem] border border-slate-200 shadow-sm">
-                           <div className="flex items-center gap-2"><span className="text-xs font-black text-slate-400">SIGNIFICADOS:</span></div>
-                           <div className="flex items-center gap-3"><div className="w-6 h-6 bg-emerald-500 text-white flex items-center justify-center rounded text-xs font-black">E</div><span className="text-xs font-bold text-slate-500">ENTRADA (Mñn)</span></div>
-                           <div className="flex items-center gap-3"><div className="w-6 h-6 bg-emerald-500 text-white flex items-center justify-center rounded text-xs font-black">S</div><span className="text-xs font-bold text-slate-500">SALIDA (Tde)</span></div>
-                           <div className="w-px h-8 bg-slate-100 mx-2"></div>
-                           <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded-full"></div><span className="text-xs font-bold text-slate-500 uppercase">Asiste</span></div>
-                           <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-200 rounded-full"></div><span className="text-xs font-bold text-slate-500 uppercase">Posible</span></div>
-                           <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-500 rounded-full"></div><span className="text-xs font-bold text-slate-500 uppercase">No Asiste</span></div>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto justify-center sm:justify-start">
+                           <div className="flex items-center gap-1"><span className="text-[10px] font-black text-slate-400 hidden sm:inline">SIGNIFICADOS:</span></div>
+                           <div className="flex items-center gap-1"><div className="w-5 h-5 bg-emerald-500 text-white flex items-center justify-center rounded text-[10px] font-black">E</div><span className="text-[10px] font-bold text-slate-500 hidden sm:inline">ENTRADA</span></div>
+                           <div className="flex items-center gap-1"><div className="w-5 h-5 bg-emerald-500 text-white flex items-center justify-center rounded text-[10px] font-black">S</div><span className="text-[10px] font-bold text-slate-500 hidden sm:inline">SALIDA</span></div>
+                           <div className="w-px h-4 bg-slate-200 mx-1 hidden sm:block"></div>
+                           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div><span className="text-[10px] font-bold text-slate-500 uppercase">Asiste</span></div>
+                           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 bg-slate-200 rounded-full"></div><span className="text-[10px] font-bold text-slate-500 uppercase">Posible</span></div>
+                           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 bg-red-500 rounded-full"></div><span className="text-[10px] font-bold text-slate-500 uppercase">Falta</span></div>
                         </div>
                      </div>
 
-                     <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden">
-                        <table className="w-full text-left">
-                           <thead className={`${primaryBlue} text-white`}>
-                              <tr className="text-xs font-black uppercase tracking-widest italic">
-                                 <th className="px-8 py-8">#</th>
-                                 <th className="px-8 py-8">Estudiante</th>
-                                 <th className="px-8 py-8">Tipo Servicio</th>
-                                 <th className="px-8 py-8 text-center italic">Mapa</th>
-                                 {days.map(d => <th key={d} className="px-2 py-8 text-center border-l border-white/10">{d}</th>)}
-                                 <th className="px-8 py-8 text-center text-red-200">Quitar</th>
-                              </tr>
-                           </thead>
-                           <tbody className="divide-y divide-slate-50">
-                              {route.assignedStudents?.map((s, idx) => (
-                                <tr key={s.id} className="hover:bg-blue-50/50 transition-all border-b border-slate-50">
-                                   <td className="px-8 py-8 text-lg font-bold text-slate-300">{idx + 1}</td>
-                                   <td className="px-8 py-8">
-                                      <p className="font-black text-2xl uppercase text-slate-800 tracking-tight leading-none mb-1">{s.studentName}</p>
-                                      <p className="text-sm font-bold text-slate-400 italic uppercase">DIVISIÓN: {s.grade || 'CADE'}</p>
-                                   </td>
-                                   <td className="px-8 py-8">
-                                      <select 
-                                        value={s.serviceType || 'COMPLETO'}
-                                        onChange={(e) => updateStudentService(route.id, s.id, e.target.value)}
-                                        className="bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black text-slate-600 uppercase outline-none focus:ring-4 focus:ring-blue-100"
-                                      >
-                                         <option>COMPLETO</option><option>SOLO IDA</option><option>SOLO RETORNO</option>
-                                      </select>
-                                   </td>
-                                   <td className="px-8 py-8 text-center">
-                                      <button onClick={() => setStudentMapData(s)} className="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all mx-auto shadow-sm"><MapPin className="w-6 h-6" /></button>
-                                   </td>
-                                   {days.map(d => {
-                                      const m = s.matrix?.[d] || { entrance: 'confirmed', exit: 'confirmed' };
-                                      return (
-                                        <td key={d} className="px-4 py-8 border-l border-slate-50">
-                                           <div className="flex flex-col gap-3 items-center">
-                                              <button onClick={() => updateMatrixCell(route.id, s.id, d, 'entrance', m.entrance)} className={`w-14 h-12 rounded-xl text-xs font-black transition-all ${m.entrance === 'confirmed' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : m.entrance === 'maybe' ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white shadow-lg shadow-red-100'}`}>E</button>
-                                              <button onClick={() => updateMatrixCell(route.id, s.id, d, 'exit', m.exit)} className={`w-14 h-12 rounded-xl text-xs font-black transition-all ${m.exit === 'confirmed' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : m.exit === 'maybe' ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white shadow-lg shadow-red-100'}`}>S</button>
-                                           </div>
-                                        </td>
-                                      )
-                                   })}
-                                   <td className="px-8 py-8 text-center">
-                                      <button onClick={() => removeStudentFromRoute(route.id, s.id)} className="w-12 h-12 flex items-center justify-center text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><X className="w-7 h-7" /></button>
-                                   </td>
+                     <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left min-w-[800px]">
+                             <thead className={`${primaryBlue} text-white`}>
+                                <tr className="text-[10px] font-black uppercase tracking-widest italic">
+                                   <th className="px-4 py-3">#</th>
+                                   <th className="px-4 py-3">Estudiante</th>
+                                   <th className="px-4 py-3">Tipo Servicio</th>
+                                   <th className="px-4 py-3 text-center italic">Mapa</th>
+                                   {days.map(d => <th key={d} className="px-2 py-3 text-center border-l border-white/10">{d}</th>)}
+                                   <th className="px-4 py-3 text-center text-red-200">Quitar</th>
                                 </tr>
-                            ))}
-                              {!route.assignedStudents?.length && (
-                                <tr><td colSpan={11} className="py-24 text-center text-[10px] font-black text-slate-300 uppercase italic tracking-widest animate-pulse">Haz clic en "AGREGAR ESTUDIANTES" para iniciar la hoja de ruta</td></tr>
-                              )}
-                           </tbody>
-                        </table>
-                        <div className="p-10 bg-slate-50 border-t border-slate-100 flex justify-end">
+                             </thead>
+                             <tbody className="divide-y divide-slate-50">
+                                {route.assignedStudents?.map((s, idx) => (
+                                  <tr key={s.id} className="hover:bg-blue-50/50 transition-all border-b border-slate-50">
+                                     <td className="px-4 py-3 text-xs font-bold text-slate-400">{idx + 1}</td>
+                                     <td className="px-4 py-3">
+                                        <p className="font-black text-xs uppercase text-slate-800 tracking-tight leading-none mb-1">{s.studentName}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 italic uppercase">DIVISIÓN: {s.grade || 'CADE'}</p>
+                                     </td>
+                                     <td className="px-4 py-3">
+                                        <select 
+                                          value={s.serviceType || 'COMPLETO'}
+                                          onChange={(e) => updateStudentService(route.id, s.id, e.target.value)}
+                                          className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[10px] font-black text-slate-600 uppercase outline-none focus:ring-2 focus:ring-blue-100"
+                                        >
+                                           <option>COMPLETO</option><option>SOLO IDA</option><option>SOLO RETORNO</option>
+                                        </select>
+                                     </td>
+                                     <td className="px-4 py-3 text-center">
+                                        <button onClick={() => setStudentMapData(s)} className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all mx-auto shadow-sm"><MapPin className="w-4 h-4" /></button>
+                                     </td>
+                                     {days.map(d => {
+                                        const m = s.matrix?.[d] || { entrance: 'confirmed', exit: 'confirmed' };
+                                        return (
+                                          <td key={d} className="px-2 py-2 border-l border-slate-50">
+                                             <div className="flex flex-col gap-1.5 items-center">
+                                                <button onClick={() => updateMatrixCell(route.id, s.id, d, 'entrance', m.entrance)} className={`w-8 h-6 rounded flex items-center justify-center text-[10px] font-black transition-all ${m.entrance === 'confirmed' ? 'bg-emerald-500 text-white shadow-sm' : m.entrance === 'maybe' ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white shadow-sm'}`}>E</button>
+                                                <button onClick={() => updateMatrixCell(route.id, s.id, d, 'exit', m.exit)} className={`w-8 h-6 rounded flex items-center justify-center text-[10px] font-black transition-all ${m.exit === 'confirmed' ? 'bg-emerald-500 text-white shadow-sm' : m.exit === 'maybe' ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white shadow-sm'}`}>S</button>
+                                             </div>
+                                          </td>
+                                        )
+                                     })}
+                                     <td className="px-4 py-3 text-center">
+                                        <button onClick={() => removeStudentFromRoute(route.id, s.id)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all mx-auto"><X className="w-5 h-5" /></button>
+                                     </td>
+                                  </tr>
+                              ))}
+                                {!route.assignedStudents?.length && (
+                                  <tr><td colSpan={11} className="py-10 text-center text-[10px] font-black text-slate-400 uppercase italic tracking-widest animate-pulse">Haz clic en &quot;AGREGAR ESTUDIANTES&quot; para iniciar la hoja de ruta</td></tr>
+                                )}
+                             </tbody>
+                          </table>
+                        </div>
+                        <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
                            <button 
                              onClick={() => handleSync(route.id)} 
-                             className={`flex items-center gap-4 px-16 py-6 text-white font-black rounded-[2.5rem] text-sm uppercase shadow-2xl transition-all hover:scale-105 active:scale-95 ${syncStatus[route.id] === 'synced' ? 'bg-slate-400 shadow-slate-200' : 'bg-emerald-500 shadow-emerald-200'}`}
+                             className={`flex w-full sm:w-auto justify-center items-center gap-2 px-6 py-3 text-white font-black rounded-xl text-xs uppercase shadow-md transition-all hover:scale-105 active:scale-95 ${syncStatus[route.id] === 'synced' ? 'bg-slate-400 shadow-slate-200' : 'bg-emerald-500 shadow-emerald-200'}`}
                            >
-                              <Save className="w-6 h-6" /> 
+                              <Save className="w-4 h-4" /> 
                               {syncStatus[route.id] === 'synced' ? '¡SINCRO EXITOSA!' : 'ACTUALIZAR Y SINCRONIZAR'}
                            </button>
                         </div>

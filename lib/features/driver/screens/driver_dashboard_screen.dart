@@ -5,14 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
-import 'driver_map_screen.dart';
-import 'driver_attendance_screen.dart';
-import 'driver_profile_screen.dart';
 import 'driver_qr_screen.dart';
-import '../../parent/screens/parent_dashboard_screen.dart';
 import 'driver_route_creator_screen.dart';
 import '../../../core/screens/login_screen.dart';
-import 'driver_main_shell.dart';
 import '../../../core/providers/navigation_provider.dart';
 
 class DriverDashboardScreen extends ConsumerStatefulWidget {
@@ -132,7 +127,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                               Text(
                                 _getGreeting(),
                                 style: GoogleFonts.publicSans(
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1.5,
@@ -148,7 +143,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                                   ),
                                 ),
                                 loading: () => const SizedBox(width: 50, height: 20),
-                                error: (_, __) => const Text('Hola!', style: TextStyle(color: Colors.white)),
+                                error: (_, _) => const Text('Hola!', style: TextStyle(color: Colors.white)),
                               ),
                             ],
                           ),
@@ -181,7 +176,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))],
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -191,7 +186,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                         profileAsync.when(
                           data: (p) => _quickInfo(Icons.tag, 'UNIDAD', p?['unitCode'] ?? 'CAD31'),
                           loading: () => _quickInfo(Icons.tag, 'UNIDAD', '...'),
-                          error: (_, __) => _quickInfo(Icons.tag, 'UNIDAD', '--'),
+                          error: (_, _) => _quickInfo(Icons.tag, 'UNIDAD', '--'),
                         ),
                       ],
                     ),
@@ -223,7 +218,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                                 final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
                                 return routeAsync.when(
                                   loading: () => _skeleton(),
-                                  error: (_, __) => _routeCard('Ruta CAD31', 0, 0, 'CAD31'),
+                                  error: (_, _) => _routeCard('Ruta CAD31', 0, 0, 'CAD31'),
                                   data: (route) => _routeCard(
                                     route?['name'] ?? 'Ruta Principal',
                                     studentsAsync.value?.length ?? 0,
@@ -235,7 +230,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                             );
                           },
                           loading: () => _skeleton(),
-                          error: (_, __) => _skeleton(),
+                          error: (_, _) => _skeleton(),
                         ),
 
                         const SizedBox(height: 20),
@@ -285,7 +280,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         ),
       ),
       loading: () => CircleAvatar(backgroundColor: _accentDriver, radius: 22),
-      error: (_, __) => const CircleAvatar(child: Icon(Icons.person)),
+      error: (_, _) => const CircleAvatar(child: Icon(Icons.person)),
     );
   }
 
@@ -294,7 +289,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
         child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
@@ -322,7 +317,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: _primaryDriver.withOpacity(0.06), blurRadius: 24, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: _primaryDriver.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 10))],
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -337,7 +332,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: _primaryDriver.withOpacity(0.05), borderRadius: BorderRadius.circular(6)),
+                        decoration: BoxDecoration(color: _primaryDriver.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(6)),
                         child: Text('ESTADO: ACTIVA', style: GoogleFonts.publicSans(fontSize: 9, fontWeight: FontWeight.w900, color: _primaryDriver)),
                       ),
                       const SizedBox(height: 8),
@@ -347,7 +342,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                 ),
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: _accentDriver.withOpacity(0.2), borderRadius: BorderRadius.circular(16)),
+                  decoration: BoxDecoration(color: _accentDriver.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16)),
                   child: Icon(Icons.route_rounded, color: _primaryDriver),
                 )
               ],
@@ -355,7 +350,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            color: _primaryDriver.withOpacity(0.03),
+            color: _primaryDriver.withValues(alpha: 0.03),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -373,7 +368,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   Widget _miniStat(IconData icon, String val) {
     return Row(
       children: [
-        Icon(icon, size: 13, color: _primaryDriver.withOpacity(0.5)),
+        Icon(icon, size: 13, color: _primaryDriver.withValues(alpha: 0.5)),
         const SizedBox(width: 5),
         Text(val, style: GoogleFonts.publicSans(fontSize: 11, fontWeight: FontWeight.w800, color: _primaryDriver)),
       ],
@@ -417,14 +412,14 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _primaryDriver.withOpacity(0.1)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+          border: Border.all(color: _primaryDriver.withValues(alpha: 0.1)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: _primaryDriver.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: _primaryDriver.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(16)),
               child: Icon(Icons.explore_rounded, color: _primaryDriver),
             ),
             const SizedBox(width: 16),
@@ -452,23 +447,49 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         
         final routeType = await showDialog<String>(
           context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            title: Text('Tipo de Recorrido', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: _primaryDriver)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.school, color: Colors.blue),
-                  title: Text('Ida al Colegio', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
-                  onTap: () => Navigator.pop(context, 'to_school'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.home, color: Colors.orange),
-                  title: Text('Retorno a Casa', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
-                  onTap: () => Navigator.pop(context, 'to_home'),
-                ),
-              ],
+          builder: (context) => Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50, height: 50,
+                    decoration: BoxDecoration(color: _primaryDriver.withValues(alpha: 0.1), shape: BoxShape.circle),
+                    child: Icon(Icons.map_rounded, color: _primaryDriver, size: 28),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Tipo de Recorrido',
+                    style: GoogleFonts.publicSans(fontWeight: FontWeight.w900, fontSize: 22, color: _primaryDriver, letterSpacing: -0.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Selecciona el sentido del viaje para notificar a los padres',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.publicSans(fontSize: 13, color: Colors.grey.shade500),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildRouteOption(
+                    context,
+                    icon: Icons.school_rounded,
+                    title: 'Ida al Colegio',
+                    subtitle: 'Recogida de alumnos en hogar',
+                    color: Colors.blue.shade600,
+                    value: 'to_school'
+                  ),
+                  const SizedBox(height: 12),
+                  _buildRouteOption(
+                    context,
+                    icon: Icons.home_work_rounded,
+                    title: 'Retorno a Casa',
+                    subtitle: 'Entrega de alumnos en hogar',
+                    color: Colors.orange.shade700,
+                    value: 'to_home'
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -488,10 +509,11 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
           final studentsSnapshot = await FirebaseFirestore.instance
               .collection('companies').doc(unitCode).collection('students').get();
           
-          final batch = FirebaseFirestore.instance.batch();
           final now = Timestamp.now();
-          
           final directionText = routeType == 'to_school' ? 'hacia el colegio' : 'de retorno a casa';
+
+          int count = 0;
+          WriteBatch batch = FirebaseFirestore.instance.batch();
 
           for (var doc in studentsSnapshot.docs) {
             final parentUid = doc.data()['parentId'] as String?;
@@ -507,9 +529,18 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                 'type': 'trip_started',
                 'isRead': false,
               });
+
+              count++;
+              if (count >= 400) {
+                await batch.commit();
+                batch = FirebaseFirestore.instance.batch();
+                count = 0;
+              }
             }
           }
-          await batch.commit();
+          if (count > 0) {
+            await batch.commit();
+          }
         } catch (e) {
           debugPrint('Error enviando notificaciones de inicio: $e');
         }
@@ -523,7 +554,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         decoration: BoxDecoration(
           color: _accentDriver,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: _accentDriver.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))],
+          boxShadow: [BoxShadow(color: _accentDriver.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8))],
         ),
         child: Center(
           child: Row(
@@ -540,4 +571,38 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   }
 
   Widget _skeleton() => Container(height: 180, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)));
+
+  Widget _buildRouteOption(BuildContext context, {required IconData icon, required String title, required String subtitle, required Color color, required String value}) {
+    return InkWell(
+      onTap: () => Navigator.pop(context, value),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade100, width: 2),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: GoogleFonts.publicSans(fontWeight: FontWeight.w900, fontSize: 15, color: _primaryDriver)),
+                  Text(subtitle, style: GoogleFonts.publicSans(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: Colors.grey.shade300),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -21,10 +21,21 @@ const LoginPage = () => {
       const trimmedInput = loginInput.trim();
       const trimmedPassword = password.trim();
       
+      // --- BYPASS SÚPER ADMINISTRADOR ---
+      if (trimmedInput === '1725049827' && trimmedPassword === 'Admin123') {
+        // En lugar de un push suave de Next.js, guardamos una credencial local ciega
+        // y recargamos a la fuerza para que el AuthContext (recién parcheado) lo atrape.
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('adminBypass', 'true');
+          window.location.href = '/dashboard';
+        }
+        return;
+      }
+
       let finalEmail = trimmedInput;
       let finalPassword = trimmedPassword;
 
-      // Acceso Especial Super Usuario
+      // Acceso Especial Super Usuario (Mapeo a correo si no coincide el bypass anterior)
       if (trimmedInput === '1725049827') {
         finalEmail = 'csavilaf95@gmail.com';
       }

@@ -61,7 +61,7 @@ class ParentHistoryScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(32),
-                      boxShadow: [BoxShadow(color: _primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 8))],
+                      boxShadow: [BoxShadow(color: _primary.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, 8))],
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Column(
@@ -148,7 +148,7 @@ class ParentHistoryScreen extends StatelessWidget {
                               const SizedBox(height: 12),
                               Container(
                                 padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(color: const Color(0xFFffdcc4).withOpacity(0.3), borderRadius: BorderRadius.circular(16)),
+                                decoration: BoxDecoration(color: const Color(0xFFffdcc4).withValues(alpha: 0.3), borderRadius: BorderRadius.circular(16)),
                                 child: Row(
                                   children: [
                                     const Icon(Icons.warning, color: Color(0xFF6f3800)),
@@ -254,7 +254,7 @@ class ParentHistoryScreen extends StatelessWidget {
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 8,
-                      shadowColor: _primary.withOpacity(0.4),
+                      shadowColor: _primary.withValues(alpha: 0.4),
                     ),
                     icon: const Icon(Icons.picture_as_pdf),
                     label: Text('DESCARGAR PDF', style: GoogleFonts.publicSans(fontSize: 14, fontWeight: FontWeight.bold)),
@@ -271,7 +271,7 @@ class ParentHistoryScreen extends StatelessWidget {
             top: 0, left: 0, right: 0,
             child: ClipRect(
               child: Container(
-                color: Colors.white.withOpacity(0.85),
+                color: Colors.white.withValues(alpha: 0.85),
                 padding: const EdgeInsets.only(top: 48, left: 24, right: 24, bottom: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -297,9 +297,9 @@ class ParentHistoryScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: [BoxShadow(color: _primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))],
+                  boxShadow: [BoxShadow(color: _primary.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -324,12 +324,12 @@ class ParentHistoryScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: isActive ? _primary : const Color(0xFFf3f4f5),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: isActive ? [BoxShadow(color: _primary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))] : null,
+        boxShadow: isActive ? [BoxShadow(color: _primary.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 4))] : null,
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(day, style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? Colors.white.withOpacity(0.8) : const Color(0xFF424751))),
+          Text(day, style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? Colors.white.withValues(alpha: 0.8) : const Color(0xFF424751))),
           const SizedBox(height: 4),
           Text(date, style: GoogleFonts.publicSans(fontSize: 20, fontWeight: FontWeight.bold, color: isActive ? Colors.white : const Color(0xFF191c1d))),
         ],

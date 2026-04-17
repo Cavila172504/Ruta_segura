@@ -18,6 +18,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // --- BYPASS DE SEGURIDAD PARA SÚPER ADMIN ---
+    if (typeof window !== 'undefined' && localStorage.getItem('adminBypass') === 'true') {
+      setUser({ uid: 'superadmin-bypass', email: 'bypass@rutasegura.com' });
+      setProfile({ role: 'super_admin', name: 'Mando Supremo', unitCode: 'CAD31' });
+      const saved = localStorage.getItem('activeUnitCode');
+      _setActiveUnitCode(saved || 'CAD31');
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);

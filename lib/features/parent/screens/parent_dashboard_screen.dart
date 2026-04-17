@@ -10,7 +10,6 @@ import 'add_student_screen.dart';
 import '../../../core/providers/notification_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/providers/route_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class ParentDashboardScreen extends ConsumerWidget {
   const ParentDashboardScreen({super.key});
@@ -154,7 +153,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(28),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: _primaryContainer.withOpacity(0.06),
+                                    color: _primaryContainer.withValues(alpha: 0.06),
                                     blurRadius: 24,
                                     offset: const Offset(0, 8),
                                   ),
@@ -221,7 +220,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.2,
-                                    color: _onSurfaceVariant.withOpacity(0.6),
+                                    color: _onSurfaceVariant.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ),
@@ -232,7 +231,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                 final grade = student['grade'] as String? ?? '--';
                                 final serviceType = student['serviceType'] as String? ?? '--';
                                 final studentId = student['studentId'] ?? student['id'];
-                                final isActive = status == 'approved';
+                                final isActive = status == 'active';
                                 final initial = name[0].toUpperCase();
 
                                 return Container(
@@ -242,7 +241,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                     borderRadius: BorderRadius.circular(24),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.04),
+                                        color: Colors.black.withValues(alpha: 0.04),
                                         blurRadius: 20,
                                         offset: const Offset(0, 4),
                                       ),
@@ -259,7 +258,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                             Container(
                                               width: 50, height: 50,
                                               decoration: BoxDecoration(
-                                                color: isActive ? _primaryContainer.withOpacity(0.1) : Colors.amber.shade50,
+                                                color: isActive ? _primaryContainer.withValues(alpha: 0.1) : Colors.amber.shade50,
                                                 borderRadius: BorderRadius.circular(16),
                                               ),
                                               child: Center(
@@ -329,7 +328,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         decoration: BoxDecoration(
-                                          color: isActive ? _primaryContainer.withOpacity(0.05) : Colors.grey.shade50,
+                                          color: isActive ? _primaryContainer.withValues(alpha: 0.05) : Colors.grey.shade50,
                                           border: Border(top: BorderSide(color: Colors.grey.shade100)),
                                         ),
                                           child: Wrap(
@@ -438,7 +437,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                                     ],
                                   ),
                                 );
-                              }).toList(),
+                              }),
                             ],
                           );
                         },
@@ -464,7 +463,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: _primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(color: _primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                           child: Icon(Icons.headset_mic_rounded, color: _primary, size: 24),
                         ),
                         const SizedBox(width: 16),
@@ -508,7 +507,7 @@ class ParentDashboardScreen extends ConsumerWidget {
             top: 0, left: 0, right: 0,
             child: ClipRect(
               child: Container(
-                color: Colors.white.withOpacity(0.85),
+                color: Colors.white.withValues(alpha: 0.85),
                 padding: const EdgeInsets.only(top: 48, left: 24, right: 24, bottom: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -553,10 +552,10 @@ class ParentDashboardScreen extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   boxShadow: [
-                    BoxShadow(color: _primaryContainer.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))
+                    BoxShadow(color: _primaryContainer.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))
                   ]
                 ),
                 child: Row(
@@ -992,11 +991,12 @@ class ParentDashboardScreen extends ConsumerWidget {
                   return;
                 }
 
-                try {
-                  final authRepo = ref.read(authRepositoryProvider);
-                  final uid = await authRepo.getCurrentUserId();
+                  try {
+                    final authRepo = ref.read(authRepositoryProvider);
+                    final uid = await authRepo.getCurrentUserId();
+                    
+                    // Obtener datos del usuario actual para el ticket
                   
-                  // Obtener datos del usuario actual para el ticket
                   final parentQuery = await FirebaseFirestore.instance
                       .collection('users').doc('parents').collection('members')
                       .where('uid', isEqualTo: uid).limit(1).get();

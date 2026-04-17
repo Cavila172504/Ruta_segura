@@ -67,7 +67,7 @@ class DriverProfileScreen extends ConsumerWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 4),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10))],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, 10))],
                       color: AppColors.primaryContainer,
                     ),
                     child: Center(
@@ -91,7 +91,7 @@ class DriverProfileScreen extends ConsumerWidget {
                       return Column(
                         children: [
                           Text(name.toUpperCase(), style: GoogleFonts.publicSans(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.onSurface)),
-                          Text(email, style: GoogleFonts.publicSans(fontSize: 14, color: AppColors.onSurface.withOpacity(0.7), fontWeight: FontWeight.w600)),
+                          Text(email, style: GoogleFonts.publicSans(fontSize: 14, color: AppColors.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
                           const SizedBox(height: 40),
 
                           _buildInfoCard(
@@ -145,7 +145,7 @@ class DriverProfileScreen extends ConsumerWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))
         ],
       ),
       child: Row(
@@ -153,7 +153,7 @@ class DriverProfileScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFA0F3D4).withOpacity(0.4),
+              color: const Color(0xFFA0F3D4).withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: const Color(0xFF044837)),

@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../providers/app_providers.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../features/driver/screens/driver_dashboard_screen.dart';
 import '../../features/driver/screens/driver_main_shell.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
@@ -31,7 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   AuthMode _authMode = AuthMode.login;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true; // Nuevo
-  String _selectedRole = 'parent';
+  final String _selectedRole = 'parent';
 
   @override
   void dispose() {
@@ -53,9 +52,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final confirmPassword = _confirmPasswordController.text.trim();
     final name = _nameController.text.trim(); // Nombre
 
+    // --- ACCESO DIRECTO DE SÚPER USUARIO (BYPASS SIN CORREO) ---
+    if (_authMode == AuthMode.login && email == '1725049827' && password == 'Admin123') {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+      return;
+    }
+
     // Validaciones de Formato
     if (email.isEmpty) {
-      setState(() => _errorMessage = 'Por favor ingrese su correo electrónico');
+      setState(() => _errorMessage = 'Por favor ingrese su correo electrónico o usuario');
       return;
     }
     if (!_isValidEmail(email)) {
@@ -210,7 +215,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AdminDashboardScreen()));
       } else {
         // Validar verificación de correo SOLO para padres (no-conductores/no-admins)
-        if (!creds!.user!.emailVerified) {
+        if (!creds.user!.emailVerified) {
           await creds.user!.sendEmailVerification();
           await authRepo.signOut();
           setState(() => _errorMessage = 'Correo no verificado. Hemos re-enviado el enlace, revisa tu SPAM o bandeja de entrada.');
@@ -257,7 +262,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.15),
+                                color: Colors.black.withValues(alpha: 0.15),
                                 blurRadius: 30,
                                 offset: const Offset(0, 10),
                               )
@@ -341,9 +346,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Input de Correo
+                            // Input de Correo o Usuario
                             Text(
-                              'CORREO ELECTRÓNICO',
+                              'CORREO O USUARIO',
                               style: GoogleFonts.publicSans(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -360,9 +365,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               },
                               style: GoogleFonts.publicSans(color: AppColors.onSurface),
                               decoration: InputDecoration(
-                                hintText: 'usuario@rutasegura.com',
-                                hintStyle: TextStyle(color: AppColors.outline.withOpacity(0.5)),
-                                prefixIcon: const Icon(Icons.mail, color: Colors.grey),
+                                hintText: 'usuario@rutasegura.com o Cédula',
+                                hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.5)),
+                                prefixIcon: const Icon(Icons.person, color: Colors.grey),
                                 filled: true,
                                 fillColor: AppColors.surfaceContainerLowest,
                                 border: OutlineInputBorder(
@@ -394,7 +399,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 style: GoogleFonts.publicSans(color: AppColors.onSurface),
                                 decoration: InputDecoration(
                                   hintText: '••••••••',
-                                  hintStyle: TextStyle(color: AppColors.outline.withOpacity(0.5)),
+                                  hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.5)),
                                   prefixIcon: const Icon(Icons.lock, color: Colors.grey),
                                   suffixIcon: IconButton(
                                     icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
@@ -436,7 +441,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 style: GoogleFonts.publicSans(color: AppColors.onSurface),
                                 decoration: InputDecoration(
                                   hintText: '••••••••',
-                                  hintStyle: TextStyle(color: AppColors.outline.withOpacity(0.5)),
+                                  hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.5)),
                                   prefixIcon: const Icon(Icons.lock_reset, color: Colors.grey),
                                   suffixIcon: IconButton(
                                     icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
@@ -475,7 +480,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 style: GoogleFonts.publicSans(color: AppColors.onSurface),
                                 decoration: InputDecoration(
                                   hintText: 'Ej: Juan Pérez',
-                                  hintStyle: TextStyle(color: AppColors.outline.withOpacity(0.5)),
+                                  hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.5)),
                                   prefixIcon: const Icon(Icons.person, color: Colors.grey),
                                   filled: true,
                                   fillColor: AppColors.surfaceContainerLowest,
@@ -522,7 +527,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.3),
+                                      color: AppColors.primary.withValues(alpha: 0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                     ),
@@ -609,7 +614,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: GoogleFonts.publicSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.onSurfaceVariant.withOpacity(0.7),
+                        color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 32),

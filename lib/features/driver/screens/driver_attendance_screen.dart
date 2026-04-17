@@ -54,7 +54,8 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
     setState(() => _isSaving = true);
     
     try {
-      final batch = FirebaseFirestore.instance.batch();
+      int count = 0;
+      WriteBatch batch = FirebaseFirestore.instance.batch();
       final now = DateTime.now();
 
       for (var student in students) {
@@ -67,6 +68,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
           'last_arrival': Timestamp.fromDate(now),
           'attendance_status': _presentIds.contains(studentId) ? 'arrived_at_school' : 'not_picked_up'
         });
+        count++;
 
         if (_presentIds.contains(studentId) && parentUid != null) {
           final notificationRef = FirebaseFirestore.instance
@@ -80,10 +82,19 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
             'type': 'arrival',
             'isRead': false,
           });
+          count++;
+        }
+
+        if (count >= 390) {
+          await batch.commit();
+          batch = FirebaseFirestore.instance.batch();
+          count = 0;
         }
       }
 
-      await batch.commit();
+      if (count > 0) {
+        await batch.commit();
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,7 +164,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(24),
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))],
+                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 8))],
                               ),
                               child: Row(
                                 children: [
@@ -185,7 +196,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: students.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                separatorBuilder: (_, _) => const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final s = students[index];
                                   final id = s['id'];
@@ -219,7 +230,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          CircularProgressIndicator(value: percent, strokeWidth: 8, backgroundColor: _primaryDriver.withOpacity(0.05), color: _primaryDriver),
+          CircularProgressIndicator(value: percent, strokeWidth: 8, backgroundColor: _primaryDriver.withValues(alpha: 0.05), color: _primaryDriver),
           Text('${(percent * 100).toInt()}%', style: GoogleFonts.publicSans(fontSize: 12, fontWeight: FontWeight.w900, color: _primaryDriver)),
         ],
       ),
@@ -236,15 +247,15 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isNear ? (isPresent ? _primaryDriver.withOpacity(0.1) : Colors.transparent) : Colors.orange.withOpacity(0.3),
+          color: isNear ? (isPresent ? _primaryDriver.withValues(alpha: 0.1) : Colors.transparent) : Colors.orange.withValues(alpha: 0.3),
           width: isNear ? 1 : 2,
         ),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: isAbsent ? Colors.red.shade50 : (isNear ? _primaryDriver.withOpacity(0.05) : Colors.orange.shade50),
+            backgroundColor: isAbsent ? Colors.red.shade50 : (isNear ? _primaryDriver.withValues(alpha: 0.05) : Colors.orange.shade50),
             child: Icon(
               isAbsent ? Icons.person_off_rounded : (isNear ? Icons.person_rounded : Icons.location_off_rounded), 
               color: isAbsent ? Colors.red : (isNear ? _primaryDriver : Colors.orange.shade700), 
@@ -283,8 +294,8 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
           if (!isAbsent)
             Switch(
               value: isPresent, 
-              activeColor: _primaryDriver,
-              activeTrackColor: _primaryDriver.withOpacity(0.2),
+              activeThumbColor: _primaryDriver,
+              activeTrackColor: _primaryDriver.withValues(alpha: 0.2),
               onChanged: (val) async {
                 if (!isNear && val) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -296,8 +307,11 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                   );
                 }
                 setState(() {
-                  if (val) _presentIds.add(s['id'] as String);
-                  else _presentIds.remove(s['id'] as String);
+                  if (val) {
+                    _presentIds.add(s['id'] as String);
+                  } else {
+                    _presentIds.remove(s['id'] as String);
+                  }
                 });
 
                 if (val) {
@@ -337,7 +351,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 10, shadowColor: _primaryDriver.withOpacity(0.4),
+        elevation: 10, shadowColor: _primaryDriver.withValues(alpha: 0.4),
       ),
       child: _isSaving
           ? const CircularProgressIndicator(color: Colors.white)

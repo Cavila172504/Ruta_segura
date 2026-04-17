@@ -149,7 +149,8 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Future<void> _sendTrafficAlert(String unitCode, List<dynamic> students) async {
     try {
-      final batch = FirebaseFirestore.instance.batch();
+      int count = 0;
+      WriteBatch batch = FirebaseFirestore.instance.batch();
       for (var student in students) {
         final parentUid = student['parentId'] as String?;
         if (parentUid != null) {
@@ -161,9 +162,17 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
             'type': 'traffic_alert',
             'isRead': false,
           });
+          count++;
+          if (count >= 400) {
+            await batch.commit();
+            batch = FirebaseFirestore.instance.batch();
+            count = 0;
+          }
         }
       }
-      await batch.commit();
+      if (count > 0) {
+        await batch.commit();
+      }
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Alerta de tráfico enviada'), backgroundColor: Colors.blue));
     } catch (e) {
       debugPrint('Error sending alert: $e');
@@ -188,8 +197,11 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
   Future<void> _zoomCamera(bool zoomIn) async {
     final controller = ref.read(mapControllerProvider);
     if (controller != null) {
-      if (zoomIn) await controller.animateCamera(CameraUpdate.zoomIn());
-      else await controller.animateCamera(CameraUpdate.zoomOut());
+      if (zoomIn) {
+        await controller.animateCamera(CameraUpdate.zoomIn());
+      } else {
+        await controller.animateCamera(CameraUpdate.zoomOut());
+      }
     }
   }
 
@@ -275,7 +287,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Widget _topBadge(String text, Color color, IconData icon) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 5)]),
+    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 5)]),
     child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 12), const SizedBox(width: 4), Text(text.toUpperCase(), style: GoogleFonts.publicSans(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900))]),
   );
 
@@ -293,7 +305,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Widget _dpad() => Container(
     padding: const EdgeInsets.all(2),
-    decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), borderRadius: BorderRadius.circular(15), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)]),
+    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(15), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)]),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [

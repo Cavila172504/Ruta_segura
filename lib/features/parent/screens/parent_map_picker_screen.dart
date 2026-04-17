@@ -79,7 +79,7 @@ class _ParentMapPickerScreenState extends State<ParentMapPickerScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)
                 ]
               ),
               child: Row(

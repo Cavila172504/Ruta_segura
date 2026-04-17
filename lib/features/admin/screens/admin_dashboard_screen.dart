@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../providers/admin_provider.dart';
 import 'admin_routes_screen.dart';
 import 'admin_students_screen.dart';
 import 'admin_reports_screen.dart';
 
-class AdminDashboardScreen extends StatelessWidget {
+class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
   final Color _primary = const Color(0xFF3B309E);
@@ -17,7 +19,7 @@ class AdminDashboardScreen extends StatelessWidget {
   final Color _error = const Color(0xFFBA1A1A);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // For web/desktop, we'll keep it simple with a top app bar and scrollable body.
     return Scaffold(
       backgroundColor: _surface,
@@ -61,6 +63,10 @@ class AdminDashboardScreen extends StatelessWidget {
             // Metrics Grid
             LayoutBuilder(
               builder: (context, constraints) {
+                final studentsCount = ref.watch(adminStudentsCountProvider).value ?? 0;
+                final activeBuses = ref.watch(adminActiveBusesProvider);
+                final totalRoutes = ref.watch(adminCompaniesProvider).value?.length ?? 0;
+                
                 int crossAxisCount = constraints.maxWidth > 800 ? 4 : (constraints.maxWidth > 400 ? 2 : 1);
                 return GridView.count(
                   crossAxisCount: crossAxisCount,
@@ -70,10 +76,10 @@ class AdminDashboardScreen extends StatelessWidget {
                   mainAxisSpacing: 16,
                   childAspectRatio: constraints.maxWidth > 800 ? 1.5 : 1.2,
                   children: [
-                    _buildMetricCard('Rutas activas', '12', Icons.directions_bus, _primary, '+2', _surfaceContainerLowest, _onSurface),
-                    _buildMetricCard('Buses en marcha', '08', Icons.speed, _primary, 'Live', _surfaceContainerLowest, _onSurface),
-                    _buildMetricCard('Alumnos transportados hoy', '432', Icons.school, _primary, '86%', _surfaceContainerLowest, _onSurface),
-                    _buildMetricCard('Incidentes activos', '02', Icons.warning, _error, 'Crítico', _errorContainer, _onErrorContainer, isError: true),
+                    _buildMetricCard('Rutas totales', totalRoutes.toString().padLeft(2, '0'), Icons.directions_bus, _primary, 'Activas', _surfaceContainerLowest, _onSurface),
+                    _buildMetricCard('Buses en marcha', activeBuses.toString().padLeft(2, '0'), Icons.speed, _primary, 'Live', _surfaceContainerLowest, _onSurface),
+                    _buildMetricCard('Alumnos transportados hoy', studentsCount.toString(), Icons.school, _primary, '100%', _surfaceContainerLowest, _onSurface),
+                    _buildMetricCard('Incidentes activos', '0', Icons.warning, _error, 'Normal', _surfaceContainerLowest, _onSurface, isError: false),
                   ],
                 );
               }
@@ -84,7 +90,7 @@ class AdminDashboardScreen extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 bool isDesktop = constraints.maxWidth > 800;
-                Widget activeTrips = _buildActiveTrips();
+                Widget activeTrips = _buildActiveTrips(ref);
                 Widget monitoring = _buildMonitoringPanel();
 
                 if (isDesktop) {
@@ -126,7 +132,7 @@ class AdminDashboardScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Column(
@@ -139,7 +145,7 @@ class AdminDashboardScreen extends StatelessWidget {
               Icon(icon, color: iconColor),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: isError ? Colors.red.shade100 : _primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(color: isError ? Colors.red.shade100 : _primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
                 child: Text(badge, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: iconColor)),
               )
             ],
@@ -156,7 +162,9 @@ class AdminDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActiveTrips() {
+  Widget _buildActiveTrips(WidgetRef ref) {
+    final companiesAsync = ref.watch(adminCompaniesProvider);
+
     return Container(
       height: 500,
       padding: const EdgeInsets.all(24),
@@ -178,18 +186,40 @@ class AdminDashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: ListView(
-              children: [
-                _buildTripItem('Ruta Norte - Colegio San José', 'Salida: 06:45 AM • Conductor: Carlos M.', Icons.route, _primary, 'En curso', _primaryContainer),
-                _buildTripItem('Ruta Sur - El Trébol', 'Salida: 07:00 AM • Conductor: Elena R.', Icons.route, _primary, 'En curso', _primaryContainer),
-                _buildTripItem('Ruta Express - Av. Central', 'Retraso 15 min - Tráfico pesado', Icons.traffic, _error, 'En curso', _primaryContainer, isWarning: true),
-                _buildTripItem('Ruta Escolar - Sector Este', 'Salida: 07:15 AM • Conductor: Roberto L.', Icons.route, _primary, 'Preparando', Colors.grey.shade600),
-              ],
+            child: companiesAsync.when(
+              data: (companies) {
+                if (companies.isEmpty) {
+                  return const Center(child: Text('No hay rutas registradas'));
+                }
+                return ListView.builder(
+                  itemCount: companies.length,
+                  itemBuilder: (context, index) {
+                    final comp = companies[index];
+                    final isEnCurso = comp['status'] == 'on_route' || comp['status'] == 'active';
+                    return _buildTripItem(
+                      'Unidad: ${comp['unitCode'] ?? 'Desconocida'}', 
+                      formatStatusInfo(comp), 
+                      Icons.route, 
+                      _primary, 
+                      isEnCurso ? 'En curso' : 'Detenido', 
+                      isEnCurso ? _primaryContainer : Colors.grey.shade600
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error al cargar datos: $err')),
             ),
           )
         ],
       ),
     );
+  }
+
+  String formatStatusInfo(Map<String, dynamic> comp) {
+    final status = comp['status'];
+    if (status == 'on_route' || status == 'active') return 'En Movimiento';
+    return 'Inactivo';
   }
 
   Widget _buildTripItem(String title, String subtitle, IconData icon, Color iconColor, String status, Color statusColor, {bool isWarning = false}) {
@@ -277,7 +307,7 @@ class AdminDashboardScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: _surfaceContainerLowest,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +330,7 @@ class AdminDashboardScreen extends StatelessWidget {
       children: [
         Container(
           width: 32, height: 32,
-          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
           child: Icon(icon, color: color, size: 16),
         ),
         const SizedBox(width: 12),
@@ -317,7 +347,7 @@ class AdminDashboardScreen extends StatelessWidget {
 
   Widget _buildBottomNav(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))]),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))]),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: SafeArea(
         child: Row(
@@ -340,7 +370,7 @@ class AdminDashboardScreen extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(color: isActive ? _primaryContainer.withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: isActive ? _primaryContainer.withValues(alpha: 0.1) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/providers/map_provider.dart';
+import '../providers/admin_provider.dart';
 
 class AdminRouteEditScreen extends ConsumerStatefulWidget {
   const AdminRouteEditScreen({super.key});
@@ -23,6 +24,34 @@ class _AdminRouteEditScreenState extends ConsumerState<AdminRouteEditScreen> {
     {'name': 'Lucía Fernanda Torres', 'address': 'Av. Horacio 1205, Int 402'},
     {'name': 'Iker Santiago Paredes', 'address': 'Privada de los Pinos 14, San Ángel'},
   ];
+
+  final _unitCodeController = TextEditingController();
+  final _startTimeController = TextEditingController(text: '07:00');
+  String _selectedDriver = 'Ricardo Mendoza - Licencia Federal A';
+
+  @override
+  void dispose() {
+    _unitCodeController.dispose();
+    _startTimeController.dispose();
+    super.dispose();
+  }
+
+  void _guardarRuta() async {
+    final code = _unitCodeController.text;
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor, ingresa el código/nombre de la ruta')));
+      return;
+    }
+    try {
+      await adminCreateRoute(code, _selectedDriver, _startTimeController.text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ruta guardada exitosamente')));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +92,7 @@ class _AdminRouteEditScreenState extends ConsumerState<AdminRouteEditScreen> {
                     children: [
                       TextButton(onPressed: () => Navigator.pop(context), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: Colors.grey.shade300, width: 2))), child: Text('Cancelar', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.grey.shade700))),
                       const SizedBox(width: 12),
-                      ElevatedButton(onPressed: () => Navigator.pop(context), style: ElevatedButton.styleFrom(backgroundColor: _primary, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), elevation: 8), child: Text('Guardar ruta', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white))),
+                      ElevatedButton(onPressed: _guardarRuta, style: ElevatedButton.styleFrom(backgroundColor: _primary, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), elevation: 8), child: Text('Guardar ruta', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white))),
                     ],
                   )
               ],
@@ -110,13 +139,13 @@ class _AdminRouteEditScreenState extends ConsumerState<AdminRouteEditScreen> {
       ),
       bottomNavigationBar: MediaQuery.of(context).size.width <= 800 ? Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))]),
+        decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))]),
         child: SafeArea(
           child: Row(
             children: [
               Expanded(child: TextButton(onPressed: () => Navigator.pop(context), style: TextButton.styleFrom(backgroundColor: const Color(0xFFF0ECF6), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text('Cancelar', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: _primary)))),
               const SizedBox(width: 12),
-              Expanded(flex: 2, child: ElevatedButton(onPressed: () => Navigator.pop(context), style: ElevatedButton.styleFrom(backgroundColor: _primary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text('Guardar ruta', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white)))),
+              Expanded(flex: 2, child: ElevatedButton(onPressed: _guardarRuta, style: ElevatedButton.styleFrom(backgroundColor: _primary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text('Guardar ruta', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white)))),
             ],
           ),
         ),
@@ -133,8 +162,8 @@ class _AdminRouteEditScreenState extends ConsumerState<AdminRouteEditScreen> {
         children: [
           Text('DETALLES BÁSICOS', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: _primary, letterSpacing: 1.5)),
           const SizedBox(height: 24),
-          _buildInputLabel('Nombre de la ruta'),
-          _buildTextField('Ej. Norte - Cumbres de Santa Fe'),
+          _buildInputLabel('Nombre/Código de la ruta'),
+          _buildTextField('Ej. RT-01', controller: _unitCodeController),
           const SizedBox(height: 16),
           _buildInputLabel('Conductor Asignado'),
           Container(
@@ -142,26 +171,30 @@ class _AdminRouteEditScreenState extends ConsumerState<AdminRouteEditScreen> {
             decoration: BoxDecoration(color: const Color(0xFFEBE6F0), borderRadius: BorderRadius.circular(16)),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: 'Seleccionar conductor...',
+                value: _selectedDriver,
                 isExpanded: true,
-                items: ['Seleccionar conductor...', 'Ricardo Mendoza - Licencia Federal A'].map((e) => DropdownMenuItem(value: e, child: Text(e, style: GoogleFonts.inter()))).toList(),
-                onChanged: (_) {},
+                items: ['Ricardo Mendoza - Licencia Federal A', 'Carlos Rodriguez', 'Sandra Milena Ortiz', 'Juan Camilo Meza']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e, style: GoogleFonts.inter()))).toList(),
+                onChanged: (val) {
+                  setState(() => _selectedDriver = val ?? _selectedDriver);
+                },
               ),
             ),
           ),
           const SizedBox(height: 16),
           _buildInputLabel('Hora de inicio'),
-          _buildTextField('07:00', icon: Icons.schedule),
+          _buildTextField('07:00', icon: Icons.schedule, controller: _startTimeController),
         ],
       ),
     );
   }
 
   Widget _buildInputLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 8, left: 4), child: Text(text, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700)));
-  Widget _buildTextField(String hint, {IconData? icon}) {
+  Widget _buildTextField(String hint, {IconData? icon, TextEditingController? controller}) {
     return Container(
       decoration: BoxDecoration(color: const Color(0xFFEBE6F0), borderRadius: BorderRadius.circular(16)),
       child: TextField(
+        controller: controller,
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.inter(color: Colors.grey.shade600),
@@ -250,7 +283,7 @@ class _AdminRouteEditScreenState extends ConsumerState<AdminRouteEditScreen> {
             top: 16, left: 16,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(16)),
               child: Row(
                 children: [
                   Container(width: 12, height: 12, decoration: BoxDecoration(color: _primary, shape: BoxShape.circle)),
@@ -288,7 +321,7 @@ class _AdminRouteEditScreenState extends ConsumerState<AdminRouteEditScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('ORDEN DE RECOGIDA', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: _primary, letterSpacing: 1.5)),
-              TextButton(onPressed: () {}, style: TextButton.styleFrom(backgroundColor: _primary.withOpacity(0.1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: Text('Añadir Estudiante', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: _primary))),
+              TextButton(onPressed: () {}, style: TextButton.styleFrom(backgroundColor: _primary.withValues(alpha: 0.1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: Text('Añadir Estudiante', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: _primary))),
             ],
           ),
           const SizedBox(height: 16),

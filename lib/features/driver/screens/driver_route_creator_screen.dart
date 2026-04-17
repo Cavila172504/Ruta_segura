@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +23,7 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
   
   Set<Marker> _markers = {};
   bool _isSaving = false;
-  int _currentIndex = 0;
+  final int _currentIndex = 0;
 
   BitmapDescriptor? _busIcon;
   BitmapDescriptor? _houseIcon;
@@ -185,7 +184,7 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
     return Container(
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 20, left: 24, right: 24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [_primaryColor, _primaryColor.withOpacity(0.8)]),
+        gradient: LinearGradient(colors: [_primaryColor, _primaryColor.withValues(alpha: 0.8)]),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
       child: Row(
@@ -234,7 +233,7 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
         padding: const EdgeInsets.symmetric(vertical: 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         elevation: 10,
-        shadowColor: _accentColor.withOpacity(0.4),
+        shadowColor: _accentColor.withValues(alpha: 0.4),
       ),
       child: _isSaving 
         ? const CircularProgressIndicator()

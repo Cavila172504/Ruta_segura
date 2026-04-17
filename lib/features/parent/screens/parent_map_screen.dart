@@ -2,13 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'parent_dashboard_screen.dart';
 import 'parent_notifications_screen.dart';
-import 'parent_proximity_alert_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../../../core/providers/map_provider.dart';
 import '../../../core/providers/route_provider.dart';
-import '../../../core/providers/app_providers.dart';
-import '../../../core/screens/login_screen.dart';
 import '../../../core/providers/notification_provider.dart';
 
 import '../../../core/services/notification_service.dart';
@@ -253,9 +249,9 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8)],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)],
                     ),
                     child: const Icon(Icons.map_outlined, color: Colors.black54),
                   ),
@@ -345,7 +341,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           decoration: BoxDecoration(
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4))],
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -4))],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,

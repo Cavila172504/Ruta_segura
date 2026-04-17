@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../providers/admin_provider.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_routes_screen.dart';
 import 'admin_reports_screen.dart';
 
-class AdminStudentsScreen extends StatelessWidget {
+class AdminStudentsScreen extends ConsumerStatefulWidget {
   const AdminStudentsScreen({super.key});
+  @override
+  ConsumerState<AdminStudentsScreen> createState() => _AdminStudentsScreenState();
+}
+
+class _AdminStudentsScreenState extends ConsumerState<AdminStudentsScreen> {
+  String searchQuery = '';
 
   final Color _primary = const Color(0xFF3B309E);
   final Color _primaryContainer = const Color(0xFF534AB7);
@@ -55,6 +63,11 @@ class AdminStudentsScreen extends StatelessWidget {
                   Widget search = Container(
                     decoration: BoxDecoration(color: _surfaceContainerLowest, borderRadius: BorderRadius.circular(16)),
                     child: TextField(
+                      onChanged: (val) {
+                        setState(() {
+                          searchQuery = val.toLowerCase();
+                        });
+                      },
                       decoration: InputDecoration(
                         icon: const Padding(padding: EdgeInsets.only(left: 16), child: Icon(Icons.search, color: Colors.grey)),
                         hintText: 'Buscar estudiante por nombre...',
@@ -107,10 +120,44 @@ class AdminStudentsScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Students List
-            _buildStudentCard('AM', const Color(0xFFC5C0FF), const Color(0xFF140067), 'Alejandro Morales', '4to de Primaria', 'Ruta Norte - 01', 'p.morales@email.com'),
-            _buildStudentCard('SV', const Color(0xFFC8C4DB), const Color(0xFF1B1A2A), 'Sofia Villamil', '2do de Bachillerato', 'Ruta Sur - 04', 'm.villamil@email.com'),
-            _buildStudentCard('JC', const Color(0xFFC5C5D5), const Color(0xFF191B26), 'Juan Castro', '6to de Primaria', 'Ruta Este - 02', 'l.castro@email.com'),
-            _buildStudentCard('EP', const Color(0xFFE5E1EB), const Color(0xFF474553), 'Elena Paredes', 'Jardín', 'Ruta Norte - 01', 'r.paredes@email.com'),
+            ref.watch(adminAllStudentsProvider).when(
+              data: (students) {
+                if (students.isEmpty) {
+                  return const Center(child: Text('No hay estudiantes registrados o las rutas están vacías.'));
+                }
+                
+                final filtered = students.where((s) {
+                  final name = (s['studentName'] ?? '').toString().toLowerCase();
+                  return name.contains(searchQuery);
+                }).toList();
+                
+                if (filtered.isEmpty) {
+                  return const Center(child: Text('No hay coincidencias en tu búsqueda.'));
+                }
+
+                return Column(
+                  children: filtered.map((s) {
+                    final name = s['studentName'] ?? 'Sin Nombre';
+                    final grade = s['grade'] ?? 'Sin Grado';
+                    final route = s['unitCode'] ?? 'Sin Unidad';
+                    final contact = s['parentEmail'] ?? s['parentName'] ?? 'Sin Contacto';
+                    final initials = name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?';
+                    
+                    final companyId = s['companyPath'] ?? s['unitCode'];
+                    final studentId = s['id'] ?? s['docId'];
+                    final parentId = s['parentId'] ?? '';
+
+                    return _buildStudentCard(
+                      initials, const Color(0xFFC5C0FF), const Color(0xFF140067), 
+                      name, grade, route, contact,
+                      onDelete: () => _confirmDelete(companyId, studentId, parentId, name)
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error: $err')),
+            ),
           ],
         ),
       ),
@@ -123,14 +170,14 @@ class AdminStudentsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStudentCard(String initials, Color bgColor, Color textColor, String name, String grade, String route, String contact) {
+  Widget _buildStudentCard(String initials, Color bgColor, Color textColor, String name, String grade, String route, String contact, {VoidCallback? onDelete}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _surfaceContainerLowest,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: LayoutBuilder(builder: (context, constraints) {
@@ -169,7 +216,7 @@ class AdminStudentsScreen extends StatelessWidget {
             Row(
               children: [
                 IconButton(icon: const Icon(Icons.edit, color: Colors.grey), onPressed: () {}),
-                IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () {}),
+                IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: onDelete),
               ],
             )
           ],
@@ -201,7 +248,7 @@ class AdminStudentsScreen extends StatelessWidget {
 
   Widget _buildBottomNav(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))]),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))]),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: SafeArea(
         child: Row(
@@ -224,7 +271,7 @@ class AdminStudentsScreen extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(color: isActive ? _primaryContainer.withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: isActive ? _primaryContainer.withValues(alpha: 0.1) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -233,6 +280,35 @@ class AdminStudentsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _confirmDelete(String? companyId, String? studentId, String parentId, String name) {
+    if (companyId == null || studentId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: Faltan datos del estudiante.')));
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar Eliminación'),
+        content: Text('¿Estás seguro que deseas eliminar a $name de la plataforma Firebase?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await adminDeleteStudent(companyId, studentId, parentId);
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Estudiante eliminado con éxito')));
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
+              }
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      )
     );
   }
 }

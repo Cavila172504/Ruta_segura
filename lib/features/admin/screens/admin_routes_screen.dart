@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../providers/admin_provider.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_students_screen.dart';
 import 'admin_reports_screen.dart';
 import 'admin_route_edit_screen.dart';
 
-class AdminRoutesScreen extends StatelessWidget {
+class AdminRoutesScreen extends ConsumerStatefulWidget {
   const AdminRoutesScreen({super.key});
+  @override
+  ConsumerState<AdminRoutesScreen> createState() => _AdminRoutesScreenState();
+}
+
+class _AdminRoutesScreenState extends ConsumerState<AdminRoutesScreen> {
+  String searchQuery = '';
+  String activeFilter = 'Todas';
 
   final Color _primary = const Color(0xFF3B309E);
   final Color _primaryContainer = const Color(0xFF534AB7);
@@ -50,28 +59,31 @@ class AdminRoutesScreen extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 bool isDesktop = constraints.maxWidth > 800;
-                Widget searchBox = Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(color: const Color(0xFFEBE6F0), borderRadius: BorderRadius.circular(16)),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      icon: const Icon(Icons.search, color: Colors.grey),
-                      hintText: 'Buscar rutas, conductores...',
-                      hintStyle: GoogleFonts.inter(color: Colors.grey.shade600),
-                      border: InputBorder.none,
+                  Widget searchBox = Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(color: const Color(0xFFEBE6F0), borderRadius: BorderRadius.circular(16)),
+                    child: TextField(
+                      onChanged: (val) {
+                        setState(() => searchQuery = val.toLowerCase());
+                      },
+                      decoration: InputDecoration(
+                        icon: const Icon(Icons.search, color: Colors.grey),
+                        hintText: 'Buscar rutas...',
+                        hintStyle: GoogleFonts.inter(color: Colors.grey.shade600),
+                        border: InputBorder.none,
+                      ),
                     ),
-                  ),
-                );
+                  );
 
-                Widget filters = Row(
-                  children: [
-                    _buildFilterChip('Todas', true),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Activas', false),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Inactivas', false),
-                  ],
-                );
+                  Widget filters = Row(
+                    children: [
+                      _buildFilterChip('Todas', activeFilter == 'Todas'),
+                      const SizedBox(width: 8),
+                      _buildFilterChip('Activas', activeFilter == 'Activas'),
+                      const SizedBox(width: 8),
+                      _buildFilterChip('Inactivas', activeFilter == 'Inactivas'),
+                    ],
+                  );
 
                 if (isDesktop) {
                   return Row(
@@ -95,10 +107,51 @@ class AdminRoutesScreen extends StatelessWidget {
             const SizedBox(height: 32),
 
             // Data Table / List
-            _buildRouteItem(context, 'Ruta del Sol - Norte', 'RT-0982', 'Carlos Rodriguez', '24', true, 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=150'),
-            _buildRouteItem(context, 'Expreso Central - Sur', 'RT-1143', 'Martha Elena López', '18', true, 'https://images.unsplash.com/photo-1520606775553-61b402ea2688?w=150'),
-            _buildRouteItem(context, 'Transversal Occidente', 'RT-0045', 'Juan Camilo Meza', '0', false, 'https://images.unsplash.com/photo-1449844908441-8829872d2607?w=150'),
-            _buildRouteItem(context, 'Circuito Educativo A', 'RT-5521', 'Sandra Milena Ortiz', '32', true, 'https://images.unsplash.com/photo-1464219222984-216ebbfdba3e?w=150'),
+            ref.watch(adminCompaniesProvider).when(
+              data: (companies) {
+                if (companies.isEmpty) {
+                  return const Center(child: Text('No hay rutas registradas.'));
+                }
+                
+                // Get all students to count them per route mapping
+                final studentsList = ref.watch(adminAllStudentsProvider).value ?? [];
+                
+                final filtered = companies.where((c) {
+                  final code = (c['unitCode'] ?? '').toString().toLowerCase();
+                  if (!code.contains(searchQuery)) return false;
+                  
+                  final isActiveRoute = c['status'] == 'active' || c['status'] == 'on_route';
+                  if (activeFilter == 'Activas' && !isActiveRoute) return false;
+                  if (activeFilter == 'Inactivas' && isActiveRoute) return false;
+                  return true;
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return const Center(child: Text('No hay coincidencias en tu búsqueda.'));
+                }
+
+                return Column(
+                  children: filtered.map((c) {
+                    final code = c['unitCode'] ?? 'Sin Código';
+                    final isActive = c['status'] == 'active' || c['status'] == 'on_route';
+                    
+                    final studentsInRoute = studentsList.where((s) => s['companyPath'] == c['id']).length;
+
+                    return _buildRouteItem(
+                      context, 
+                      'Unidad Transportista', 
+                      code, 
+                      'Chofer Registrado', 
+                      studentsInRoute.toString(), 
+                      isActive, 
+                      'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=150'
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error: $err')),
+            ),
           ],
         ),
       ),
@@ -114,13 +167,18 @@ class AdminRoutesScreen extends StatelessWidget {
   }
 
   Widget _buildFilterChip(String label, bool isActive) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: isActive ? _primary : const Color(0xFFEBE6F0),
-        borderRadius: BorderRadius.circular(24),
+    return GestureDetector(
+      onTap: () {
+        setState(() => activeFilter = label);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? _primary : const Color(0xFFEBE6F0),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: isActive ? Colors.white : Colors.grey.shade700)),
       ),
-      child: Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: isActive ? Colors.white : Colors.grey.shade700)),
     );
   }
 
@@ -135,7 +193,7 @@ class AdminRoutesScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: _surfaceContainerLowest,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.grey.withOpacity(0.1)),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
         ),
         child: LayoutBuilder(builder: (context, constraints) {
@@ -237,7 +295,7 @@ class AdminRoutesScreen extends StatelessWidget {
 
   Widget _buildBottomNav(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))]),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))]),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: SafeArea(
         child: Row(
@@ -260,7 +318,7 @@ class AdminRoutesScreen extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(color: isActive ? _primaryContainer.withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: isActive ? _primaryContainer.withValues(alpha: 0.1) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

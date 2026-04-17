@@ -108,7 +108,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
           Positioned(
             top: 0, left: 0, right: 0,
             child: Container(
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withValues(alpha: 0.85),
               padding: const EdgeInsets.only(top: 48, left: 24, right: 24, bottom: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -144,9 +144,9 @@ class ParentNotificationsScreen extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: [BoxShadow(color: _primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -8))],
+                  boxShadow: [BoxShadow(color: _primary.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -220,7 +220,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
         border: border,
-        boxShadow: bgColor == Colors.white ? [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))] : null,
+        boxShadow: bgColor == Colors.white ? [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))] : null,
       ),
       child: Opacity(
         opacity: dimmed ? 0.6 : 1.0,
@@ -250,7 +250,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Text(
                         notification.type == NotificationType.alert ? 'AHORA' : timeStr,
-                        style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: subtitleColor.withOpacity(0.6)),
+                        style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: subtitleColor.withValues(alpha: 0.6)),
                       ),
                     ],
                   ),

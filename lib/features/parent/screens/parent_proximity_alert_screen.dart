@@ -20,7 +20,7 @@ class ParentProximityAlertScreen extends StatelessWidget {
           color: _surfaceLowest,
           borderRadius: BorderRadius.circular(32),
           boxShadow: [
-            BoxShadow(color: _primary.withOpacity(0.12), blurRadius: 24, offset: const Offset(0, 8))
+            BoxShadow(color: _primary.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8))
           ],
         ),
         clipBehavior: Clip.antiAlias,
@@ -50,7 +50,7 @@ class ParentProximityAlertScreen extends StatelessWidget {
                       height: 4,
                       width: 100, // Partial progress
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [_primary.withOpacity(0.2), _primary]),
+                        gradient: LinearGradient(colors: [_primary.withValues(alpha: 0.2), _primary]),
                       ),
                     ),
                   ),
@@ -79,7 +79,7 @@ class ParentProximityAlertScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(colors: [_primary, _primaryContainer]),
                               shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: _primary.withOpacity(0.4), blurRadius: 24)],
+                              boxShadow: [BoxShadow(color: _primary.withValues(alpha: 0.4), blurRadius: 24)],
                               border: Border.all(color: const Color(0xFFd4e3ff), width: 4),
                             ),
                             child: const Icon(Icons.directions_bus, color: Colors.white, size: 36),
@@ -144,7 +144,7 @@ class ParentProximityAlertScreen extends StatelessWidget {
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 8,
-                      shadowColor: _primary.withOpacity(0.4),
+                      shadowColor: _primary.withValues(alpha: 0.4),
                     ),
                     icon: const Icon(Icons.map, size: 20),
                     label: Text(

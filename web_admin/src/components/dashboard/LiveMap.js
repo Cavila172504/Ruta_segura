@@ -81,7 +81,10 @@ export default function LiveMap({ buses, students }) {
   // Centro fijo: Colegio CADE – Km 14.5 vía Quevedo, Santo Domingo
   const cadeCenter = [-0.3485881, -79.2477156];
 
-  useEffect(() => { setIsMounted(true); }, []);
+  useEffect(() => { 
+    const timer = setTimeout(() => setIsMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (!isMounted) {
     return (

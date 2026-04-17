@@ -93,13 +93,13 @@ class AdminReportsScreen extends StatelessWidget {
 
             // Preview Table
             Container(
-              decoration: BoxDecoration(color: _surfaceContainerLowest, borderRadius: BorderRadius.circular(32), border: Border.all(color: Colors.grey.withOpacity(0.2))),
+              decoration: BoxDecoration(color: _surfaceContainerLowest, borderRadius: BorderRadius.circular(32), border: Border.all(color: Colors.grey.withValues(alpha: 0.2))),
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.2)))),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2)))),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -246,7 +246,7 @@ class AdminReportsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: _surfaceContainerLowest,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Stack(
@@ -294,7 +294,7 @@ class AdminReportsScreen extends StatelessWidget {
 
   Widget _buildBottomNav(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))]),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))]),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: SafeArea(
         child: Row(
@@ -317,7 +317,7 @@ class AdminReportsScreen extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(color: isActive ? _primaryContainer.withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: isActive ? _primaryContainer.withValues(alpha: 0.1) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

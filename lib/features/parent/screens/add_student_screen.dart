@@ -414,7 +414,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedGrade,
+                initialValue: _selectedGrade,
                 decoration: InputDecoration(
                   hintText: 'Seleccione un grado',
                   filled: true,
@@ -439,7 +439,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedServiceType,
+                initialValue: _selectedServiceType,
                 decoration: InputDecoration(
                   hintText: 'Seleccione el servicio',
                   filled: true,
@@ -557,7 +557,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: (_isScanning ? Colors.red : AppColors.primaryContainer).withOpacity(0.3),
+                            color: (_isScanning ? Colors.red : AppColors.primaryContainer).withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           )
@@ -578,9 +578,9 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -612,7 +612,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                         onDetect: _onQRScanned,
                       ),
                       Center(
-                        child: Icon(Icons.crop_free, size: 100, color: Colors.white.withOpacity(0.5)),
+                        child: Icon(Icons.crop_free, size: 100, color: Colors.white.withValues(alpha: 0.5)),
                       )
                     ],
                   ),
@@ -626,8 +626,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _errorMessage!.contains('correctamente') 
-                        ? Colors.green.withOpacity(0.1) 
-                        : Colors.red.withOpacity(0.1),
+                        ? Colors.green.withValues(alpha: 0.1) 
+                        : Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(

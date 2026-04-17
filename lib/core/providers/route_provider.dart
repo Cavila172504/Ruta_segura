@@ -124,7 +124,7 @@ final driverStudentsProvider = StreamProvider.family<List<Map<String, dynamic>>,
       .collection('companies')
       .doc(unitCode)
       .collection('students')
-      .where('status', isEqualTo: 'approved')
+      .where('status', isEqualTo: 'active')
       .where('driverId', isEqualTo: user.uid)
       .snapshots()
       .map((snap) => snap.docs.map((d) => d.data()).toList());
@@ -135,7 +135,7 @@ final activeRouteProvider = FutureProvider.family<Map<String, dynamic>?, String>
       .collection('companies')
       .doc(unitCode)
       .collection('routes')
-      .where('isActive', isEqualTo: true)
+      .where('status', isEqualTo: 'active')
       .limit(1)
       .get();
 

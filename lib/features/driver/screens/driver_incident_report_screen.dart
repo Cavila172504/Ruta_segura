@@ -69,7 +69,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                     decoration: BoxDecoration(
                       color: AppColors.error,
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))
                       ]
                     ),
                     child: Row(
@@ -151,7 +151,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                       'Seleccione una opción',
                                       style: GoogleFonts.publicSans(
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.onSurfaceVariant.withOpacity(0.5),
+                                        color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
                                       ),
                                     ),
                                     icon: const Icon(Icons.expand_more, color: AppColors.secondary),
@@ -210,7 +210,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                 style: GoogleFonts.publicSans(fontWeight: FontWeight.w500),
                                 decoration: InputDecoration(
                                   hintText: 'Detalle lo sucedido aquí...',
-                                  hintStyle: TextStyle(color: AppColors.onSurfaceVariant.withOpacity(0.5)),
+                                  hintStyle: TextStyle(color: AppColors.onSurfaceVariant.withValues(alpha: 0.5)),
                                   filled: true,
                                   fillColor: AppColors.surfaceContainerLowest,
                                   border: OutlineInputBorder(
@@ -277,7 +277,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                 activeThumbColor: Colors.white,
                                 activeTrackColor: AppColors.secondary,
                                 inactiveThumbColor: Colors.white,
-                                inactiveTrackColor: const Color(0xFF167159).withOpacity(0.2), // on-secondary-container
+                                inactiveTrackColor: const Color(0xFF167159).withValues(alpha: 0.2), // on-secondary-container
                                 onChanged: (val) {
                                   setState(() => _shareLocation = val);
                                 },
@@ -305,7 +305,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                 begin: Alignment.bottomCenter,
                                 end: Alignment.topCenter,
                                 colors: [
-                                  const Color(0xFF044837).withOpacity(0.8), // teal-900
+                                  const Color(0xFF044837).withValues(alpha: 0.8), // teal-900
                                   Colors.transparent,
                                 ],
                               )
@@ -335,7 +335,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             elevation: 8,
-                            shadowColor: AppColors.error.withOpacity(0.4),
+                            shadowColor: AppColors.error.withValues(alpha: 0.4),
                           ),
                           icon: const Icon(Icons.campaign, size: 28),
                           label: Text(
@@ -377,7 +377,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                 color: Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 boxShadow: [
-                  BoxShadow(color: AppColors.secondary.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, -4))
+                  BoxShadow(color: AppColors.secondary.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -4))
                 ]
               ),
               child: Row(

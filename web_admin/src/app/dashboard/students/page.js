@@ -31,10 +31,13 @@ const RepresentativesPage = () => {
 
   // Sincronizar unitCode del formulario con el perfil
   useEffect(() => {
-    if (SCHOOL_CODE) {
-      setFormData(prev => ({ ...prev, unitCode: SCHOOL_CODE }));
+    if (SCHOOL_CODE && formData.unitCode !== SCHOOL_CODE) {
+      const timer = setTimeout(() => {
+        setFormData(prev => ({ ...prev, unitCode: SCHOOL_CODE }));
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [SCHOOL_CODE]);
+  }, [SCHOOL_CODE]); // Mantener tamaño constante para evitar error de hooks con Fast Refresh
 
   useEffect(() => {
     if (authLoading || !SCHOOL_CODE) return;
@@ -148,7 +151,7 @@ const RepresentativesPage = () => {
       rep.idNumber?.includes(searchTerm) ||
       rep.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (activeTab === 'Alumnos aprobados') return matchesSearch && rep.status === 'approved';
+    if (activeTab === 'Alumnos aprobados') return matchesSearch && rep.status === 'active';
     if (activeTab === 'Alumnos Inscritos') return matchesSearch && (rep.status === 'pending' || !rep.status);
     return matchesSearch;
   });
@@ -157,18 +160,18 @@ const RepresentativesPage = () => {
 
   return (
     <DashboardLayout title="Gestión de Representantes">
-      <div className="mb-8 flex justify-between items-center bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-        <h1 className="text-4xl font-black text-slate-800 uppercase tracking-tighter italic">REPRESENTANTES</h1>
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 gap-4">
+        <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tighter italic">REPRESENTANTES</h1>
         <button 
           onClick={() => setShowAddModal(true)}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95"
+          className="w-full sm:w-auto justify-center bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95 text-sm"
         >
-          <span className="material-symbols-outlined">add</span>
+          <span className="material-symbols-outlined text-sm">add</span>
           NUEVO
         </button>
       </div>
 
-      <div className="flex border-b border-slate-200 mb-8">
+      <div className="flex border-b border-slate-200 mb-6 overflow-x-auto hide-scrollbar">
         {['Alumnos aprobados', 'Alumnos Inscritos', 'Todos'].map((tab) => {
           const statusKey = tab === 'Alumnos aprobados' ? 'active' : (tab === 'Alumnos Inscritos' ? 'pending' : null);
           const count = tab === 'Alumnos Inscritos' 
@@ -179,7 +182,7 @@ const RepresentativesPage = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-12 py-5 text-xl font-black transition-all border-b-4 flex items-center gap-3 ${
+              className={`px-4 sm:px-6 py-3 min-w-fit text-sm font-black transition-all border-b-4 flex items-center gap-2 ${
                 activeTab === tab 
                   ? 'border-primary text-primary bg-primary/5' 
                   : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -187,7 +190,7 @@ const RepresentativesPage = () => {
             >
               {tab}
               {count > 0 && (
-                <span className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded-lg shadow-lg">
+                <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm">
                   {count}
                 </span>
               )}
@@ -197,81 +200,83 @@ const RepresentativesPage = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="relative mb-8 max-w-xl">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-2xl">search</span>
+      <div className="relative mb-6 mx-auto w-full max-w-md md:max-w-xl md:mx-0">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-lg">search</span>
         <input 
           type="text"
           placeholder="Buscar estudiante o padre..."
-          className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-lg font-bold"
+          className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold shadow-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50/50 border-b border-slate-100">
-              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">N°</th>
-              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Identificación</th>
-              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Representante</th>
-              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Estudiante</th>
-              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Servicio</th>
-              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Estado</th>
-              <th className="px-8 py-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Opciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {loading ? (
-              <tr><td colSpan="7" className="py-10 text-center text-slate-400">Cargando datos...</td></tr>
-            ) : filteredReps.length === 0 ? (
-              <tr><td colSpan="7" className="py-10 text-center text-slate-400">No hay registros con los criterios seleccionados.</td></tr>
-            ) : filteredReps.map((rep, idx) => (
-              <tr key={rep.id} className="hover:bg-slate-50/80 transition-all border-b border-slate-50 group">
-                <td className="px-8 py-8 text-center text-lg font-bold text-slate-400">{idx + 1}</td>
-                <td className="px-8 py-8 text-center text-lg text-slate-700 font-bold tracking-tight">{rep.cedulaPadre || rep.idNumber || 'S/N'}</td>
-                <td className="px-8 py-8 text-center">
-                   <p className="text-xl font-black text-slate-800 uppercase leading-none mb-1">{rep.parentName || rep.name || '---'}</p>
-                   <p className="text-xs font-bold text-slate-400 italic">{rep.email || 'SIN EMAIL'}</p>
-                </td>
-                <td className="px-8 py-8 text-center text-xl font-black text-primary uppercase">{rep.studentName || '---'}</td>
-                <td className="px-8 py-8 text-center text-base font-bold text-slate-500 italic uppercase">{rep.serviceType || '---'}</td>
-                <td className="px-8 py-8 text-center">
-                  {rep.status === 'approved' ? (
-                    <span className="bg-emerald-500 text-white px-5 py-2 rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-100">APROBADO</span>
-                  ) : (
-                    <button 
-                      onClick={() => updateRepStatus(rep.id, 'approved')}
-                      className="bg-primary text-white hover:brightness-110 px-6 py-3 rounded-2xl text-xs font-black uppercase transition-all shadow-xl shadow-primary/20 flex items-center gap-2 mx-auto active:scale-95"
-                    >
-                      <span className="material-symbols-outlined text-lg">verified</span>
-                      ACEPTAR
-                    </button>
-                  )}
-                </td>
-                <td className="px-8 py-8 text-center">
-                  <div className="flex justify-center gap-4">
-                    <button onClick={() => openEditModal(rep)} className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-primary hover:text-white rounded-xl transition-all shadow-sm">
-                      <span className="material-symbols-outlined text-2xl">edit_note</span>
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleDelete(rep.id, rep.studentName);
-                      }} 
-                      className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-red-500 hover:text-white rounded-xl transition-all shadow-sm"
-                    >
-                      <span className="material-symbols-outlined text-2xl">delete</span>
-                    </button>
-                  </div>
-                </td>
+      <div className="bg-white rounded-2xl shadow-md border border-slate-100 overflow-hidden text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left min-w-[800px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-12">N°</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Identificac.</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Representante</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Estudiante</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Servicio</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estado</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Opciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                <tr><td colSpan="7" className="py-6 text-center text-slate-400 text-sm">Cargando datos...</td></tr>
+              ) : filteredReps.length === 0 ? (
+                <tr><td colSpan="7" className="py-6 text-center text-slate-400 text-sm">No hay registros con los criterios.</td></tr>
+              ) : filteredReps.map((rep, idx) => (
+                <tr key={rep.id} className="hover:bg-slate-50/80 transition-all group">
+                  <td className="px-4 py-3 text-center text-xs font-bold text-slate-400">{idx + 1}</td>
+                  <td className="px-4 py-3 text-center text-xs text-slate-700 font-bold">{rep.cedulaPadre || rep.idNumber || 'S/N'}</td>
+                  <td className="px-4 py-3 text-left">
+                     <p className="text-xs font-black text-slate-800 uppercase leading-tight">{rep.parentName || rep.name || '---'}</p>
+                     <p className="text-[10px] font-bold text-slate-400 italic">{rep.email || 'SIN EMAIL'}</p>
+                  </td>
+                  <td className="px-4 py-3 text-left text-xs md:text-sm font-black text-primary uppercase">{rep.studentName || '---'}</td>
+                  <td className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase">{rep.serviceType || '---'}</td>
+                  <td className="px-4 py-3 text-center">
+                    {rep.status === 'active' ? (
+                      <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1 rounded text-[10px] font-black uppercase inline-block">APROBADO</span>
+                    ) : (
+                      <button 
+                        onClick={() => updateRepStatus(rep.id, 'active')}
+                        className="bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded text-[10px] font-black uppercase transition-all shadow-sm flex items-center gap-1 mx-auto active:scale-95"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">verified</span>
+                        ACEPTAR
+                      </button>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button onClick={() => openEditModal(rep)} className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-primary hover:text-white rounded transition-colors border border-slate-100 font-medium">
+                        <span className="material-symbols-outlined text-sm">edit_note</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDelete(rep.id, rep.studentName);
+                        }} 
+                        className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-red-500 hover:text-white rounded transition-colors border border-slate-100 font-medium"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         
         {/* Footer Pagination style */}
         <div className="px-6 py-4 bg-slate-50 flex justify-end items-center gap-6 text-[10px] font-bold text-slate-400 uppercase">
@@ -418,7 +423,7 @@ const RepresentativesPage = () => {
                  </div>
                  <h2 className="text-xl font-black text-slate-800 mb-2 uppercase tracking-tight">¿Eliminar Estudiante?</h2>
                  <p className="text-sm text-slate-500 mb-8 leading-relaxed">
-                    Estás a punto de borrar permanentemente a <span className="font-bold text-slate-800">"{deletingRep.name}"</span>.<br/>Esta acción no se puede deshacer.
+                    Estás a punto de borrar permanentemente a <span className="font-bold text-slate-800">&quot;{deletingRep.name}&quot;</span>.<br/>Esta acción no se puede deshacer.
                  </p>
                  <div className="flex flex-col gap-3">
                     <button 
