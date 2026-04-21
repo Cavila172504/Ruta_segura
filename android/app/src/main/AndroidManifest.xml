@@ -52,6 +52,11 @@
         
         <!-- API Key de Google Maps -->
         <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyBRXBhHluPGhrGNTc9cj03aGut7Q6jkd_U"/>
+
+        <!-- Configuración de Canal por Defecto para FCM -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="ruta_segura_alerts_high_v2" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

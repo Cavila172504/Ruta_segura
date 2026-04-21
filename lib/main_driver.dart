@@ -1,12 +1,25 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/screens/login_screen.dart';
+import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('--- ARRANCANDO APP CHOFER ---');
+  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  ).timeout(const Duration(seconds: 10));
+
+  // Registrar handler para segundo plano
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // Inicializar servicio de notificaciones
+  await NotificationService().init();
+
   runApp(const ProviderScope(child: DriverApp()));
 }
 

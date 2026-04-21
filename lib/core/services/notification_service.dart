@@ -15,9 +15,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final plugin = FlutterLocalNotificationsPlugin();
 
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'ruta_segura_alerts',
-    'Alertas RutaSegura',
-    description: 'Notificaciones en tiempo real del bus escolar.',
+    'ruta_segura_alerts_high_v2',
+    'Alertas Urgentes RutaSegura',
+    description: 'Notificaciones importantes de la ruta escolar.',
     importance: Importance.max,
     playSound: true,
     enableVibration: true,
@@ -43,14 +43,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     body: body,
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(
-        'ruta_segura_alerts',
-        'Alertas RutaSegura',
-        channelDescription: 'Notificaciones en tiempo real del bus escolar.',
+        'ruta_segura_alerts_high_v2',
+        'Alertas Urgentes RutaSegura',
+        channelDescription: 'Notificaciones importantes de la ruta escolar.',
         importance: Importance.max,
         priority: Priority.high,
         fullScreenIntent: true,
         playSound: true,
         enableVibration: true,
+        visibility: NotificationVisibility.public,
+        category: AndroidNotificationCategory.alarm,
       ),
     ),
   );
@@ -68,9 +70,9 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
 
-  static const String _channelId   = 'ruta_segura_alerts';
-  static const String _channelName = 'Alertas RutaSegura';
-  static const String _channelDesc = 'Notificaciones en tiempo real del bus escolar.';
+  static const String _channelId   = 'ruta_segura_alerts_high_v2'; // Nuevo ID para forzar configuración
+  static const String _channelName = 'Alertas Urgentes RutaSegura';
+  static const String _channelDesc = 'Notificaciones importantes de la ruta escolar.';
 
   Future<void> init() async {
     try {
@@ -171,6 +173,8 @@ class NotificationService {
       playSound: true,
       enableVibration: true,
       ticker: 'RutaSegura',
+      visibility: NotificationVisibility.public, // Visible en pantalla de bloqueo
+      category: AndroidNotificationCategory.alarm, // Prioridad máxima de sistema
     );
 
     await _localNotifications.show(
