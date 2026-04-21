@@ -8,6 +8,7 @@ import 'parent_map_screen.dart';
 import 'parent_notifications_screen.dart';
 import 'add_student_screen.dart';
 import '../../../core/providers/notification_provider.dart';
+import '../../../core/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/providers/route_provider.dart';
 
@@ -26,6 +27,21 @@ class ParentDashboardScreen extends ConsumerWidget {
     // Iniciar el monitoreo de cercanía y eventos del bus
     ref.watch(proximityMonitoringProvider);
     ref.watch(remoteNotificationsListenerProvider);
+
+    // Auto-suscribir al topic FCM del bus cuando carguen los estudiantes.
+    // Así el padre recibe push incluso si la app estuvo cerrada un tiempo.
+    ref.listen(parentStudentsProvider, (_, next) {
+      next.whenData((students) {
+        final subscribedCodes = <String>{};
+        for (final student in students) {
+          final unitCode = student['unitCode'] as String?;
+          if (unitCode != null && !subscribedCodes.contains(unitCode)) {
+            subscribedCodes.add(unitCode);
+            NotificationService().subscribeToBus(unitCode);
+          }
+        }
+      });
+    });
     
     final userProfileAsync = ref.watch(userProfileProvider);
     final authUser = ref.watch(authStateProvider).value;
@@ -278,28 +294,15 @@ class ParentDashboardScreen extends ConsumerWidget {
                                               child: Column(
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          name,
-                                                          style: GoogleFonts.publicSans(
-                                                            fontSize: 16,
-                                                            fontWeight: FontWeight.w800,
-                                                            color: _onSurface,
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                      // Botón Eliminar
-                                                      IconButton(
-                                                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                                                        onPressed: () => _showDeleteStudentConfirmation(context, ref, name, studentId, unitCode),
-                                                        constraints: const BoxConstraints(),
-                                                        padding: const EdgeInsets.all(4),
-                                                      ),
-                                                    ],
+                                                  Text(
+                                                    name,
+                                                    style: GoogleFonts.publicSans(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w800,
+                                                      color: _onSurface,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                                   Text(
                                                     '${unitCode.startsWith('CAD') ? 'CADE' : unitCode} • $grade',

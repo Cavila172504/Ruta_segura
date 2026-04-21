@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -20,7 +21,12 @@ void main() async {
     ).timeout(const Duration(seconds: 10));
     print('Firebase listo.');
 
-    // Inicializar notificaciones locales
+    // ── REGISTRO DE BACKGROUND HANDLER ─────────────────────────────────────
+    // Debe registrarse ANTES de runApp para que Firebase lo pueda llamar
+    // cuando la app está cerrada o en segundo plano (background / terminated).
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+    // Inicializar notificaciones locales (foreground + canal)
     print('Iniciando NotificationService...');
     await NotificationService().init().timeout(const Duration(seconds: 5));
     print('NotificationService listo.');

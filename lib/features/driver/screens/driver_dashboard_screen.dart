@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
+import '../../../core/services/push_notification_sender.dart';
 import 'driver_qr_screen.dart';
 import 'driver_route_creator_screen.dart';
 import '../../../core/screens/login_screen.dart';
@@ -542,7 +543,22 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
             await batch.commit();
           }
         } catch (e) {
-          debugPrint('Error enviando notificaciones de inicio: $e');
+          debugPrint('Error guardando notificaciones en Firestore: $e');
+        }
+
+        // 3. Enviar push REAL por FCM al topic del bus
+        //    Llega a todos los padres aunque su app esté cerrada.
+        try {
+          final directionEmoji = routeType == 'to_school' ? '🏫' : '🏠';
+          final directionText = routeType == 'to_school' ? 'hacia el colegio' : 'de retorno a casa';
+          await PushNotificationSender.notifyTopic(
+            unitCode: unitCode,
+            title: '🚌 ¡El bus inició su recorrido!',
+            body: 'El transporte está en camino $directionText $directionEmoji. Manténte pendiente.',
+            data: {'type': 'trip_started', 'unitCode': unitCode},
+          );
+        } catch (e) {
+          debugPrint('Error enviando push FCM: $e');
         }
 
         if (context.mounted) {

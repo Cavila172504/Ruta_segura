@@ -91,16 +91,6 @@ const RepresentativesPage = () => {
   };
 
   const [editFormData, setEditFormData] = useState(null);
-  const [drivers, setDrivers] = useState([]);
-
-  useEffect(() => {
-    if (!SCHOOL_CODE) return;
-    const driversRef = collection(db, 'companies', SCHOOL_CODE, 'drivers');
-    const unsubscribe = onSnapshot(driversRef, (snap) => {
-      setDrivers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => unsubscribe();
-  }, [SCHOOL_CODE]);
 
   const openEditModal = (rep) => {
     setSelectedRep(rep);
@@ -243,7 +233,12 @@ const RepresentativesPage = () => {
                   <td className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase">{rep.serviceType || '---'}</td>
                   <td className="px-4 py-3 text-center">
                     {rep.status === 'active' ? (
-                      <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1 rounded text-[10px] font-black uppercase inline-block">APROBADO</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1 rounded text-[10px] font-black uppercase inline-block">APROBADO</span>
+                        {rep.assignedRoute && (
+                          <span className="text-[8px] font-bold text-slate-400 italic">Ruta: {rep.assignedRoute}</span>
+                        )}
+                      </div>
                     ) : (
                       <button 
                         onClick={() => updateRepStatus(rep.id, 'active')}
@@ -349,31 +344,32 @@ const RepresentativesPage = () => {
                         />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 font-bold text-primary">Conductor Asignado:</label>
-                        <select 
-                          value={editFormData?.driverId || ''} 
-                          onChange={(e) => setEditFormData({...editFormData, driverId: e.target.value})}
-                          className="w-full text-xs p-2 border-b outline-none bg-primary/5 font-bold"
-                        >
-                          <option value="">-- No Asignado --</option>
-                          {drivers.map(d => (
-                            <option key={d.id} value={d.uid || d.id}>{d.name || d.names}</option>
-                          ))}
-                        </select>
+                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Estado Actual:</label>
+                        <div className="pt-2">
+                          {editFormData?.status === 'active' ? (
+                            <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1 rounded text-[10px] font-black uppercase">ACTIVADO</span>
+                          ) : (
+                            <span className="bg-amber-50 text-amber-600 border border-amber-100 px-3 py-1 rounded text-[10px] font-black uppercase">PENDIENTE</span>
+                          )}
+                        </div>
                     </div>
                   </div>
-                  <div className="pt-4 flex justify-between items-center">
+                  <div className="pt-6 flex flex-col gap-3">
                       <button 
-                        onClick={() => updateRepStatus(editFormData.id, editFormData.status === 'active' ? 'pending' : 'active')}
-                        className={`px-4 py-2 rounded text-white text-[10px] font-bold ${editFormData?.status === 'active' ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        onClick={() => {
+                          const newStatus = editFormData.status === 'active' ? 'pending' : 'active';
+                          updateRepStatus(editFormData.id, newStatus);
+                          setEditFormData({...editFormData, status: newStatus});
+                        }}
+                        className={`w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 ${editFormData?.status === 'active' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-100'}`}
                       >
-                        {editFormData?.status === 'active' ? 'DESACTIVAR ACCOUNT' : 'ACTIVAR CUENTA'}
+                        {editFormData?.status === 'active' ? 'Revertir a Pendiente' : 'Aprobar Acceso'}
                       </button>
                       <button 
                         onClick={handleEditSave}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95"
+                        className="w-full py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2"
                       >
-                        <span className="material-symbols-outlined text-xs">save</span> GUARDAR
+                        <span className="material-symbols-outlined text-sm">save</span> GUARDAR CAMBIOS
                       </button>
                   </div>
                 </div>

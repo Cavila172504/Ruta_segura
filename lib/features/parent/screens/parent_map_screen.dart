@@ -219,8 +219,8 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                         infoWindow: InfoWindow(title: 'Ubicación de $activeStudentName'),
                       ),
                     
-                    // Marcador Bus Real-time
-                    if (liveBusLocation != null)
+                    // Marcador Bus Real-time (solo cuando la ruta está activa)
+                    if (liveBusLocation != null && isRouteActive)
                       Marker(
                         markerId: const MarkerId('bus_marker'),
                         position: liveBusLocation,
@@ -263,26 +263,27 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                   right: 20,
                   child: Column(
                     children: [
-                      // Centrar en Bus
-                      GestureDetector(
-                        onTap: () {
-                          if (liveBusLocation != null) _centerOnLocation(liveBusLocation);
-                        },
-                        child: Container(
-                          width: 65, height: 65,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6))
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Image.asset('assets/images/autobus-escolar.png', fit: BoxFit.contain),
+                      // Centrar en Bus (solo si la ruta está activa)
+                      if (isRouteActive)
+                        GestureDetector(
+                          onTap: () {
+                            if (liveBusLocation != null) _centerOnLocation(liveBusLocation);
+                          },
+                          child: Container(
+                            width: 65, height: 65,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6))
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Image.asset('assets/images/autobus-escolar.png', fit: BoxFit.contain),
+                            ),
                           ),
                         ),
-                      ),
                       const SizedBox(height: 16),
                       // Centrar en Casa
                       GestureDetector(
