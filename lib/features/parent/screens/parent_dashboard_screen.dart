@@ -12,8 +12,14 @@ import '../../../core/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/providers/route_provider.dart';
 
-class ParentDashboardScreen extends ConsumerWidget {
+class ParentDashboardScreen extends ConsumerStatefulWidget {
   const ParentDashboardScreen({super.key});
+
+  @override
+  ConsumerState<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
+}
+
+class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
 
   // Colores del tema Parent (Blue Theme)
   final Color _primary = const Color(0xFF004782);
@@ -22,11 +28,32 @@ class ParentDashboardScreen extends ConsumerWidget {
   final Color _onSurface = const Color(0xFF191c1d);
   final Color _onSurfaceVariant = const Color(0xFF424751);
 
+  // Bandera para evitar doble navegación
+  bool _hasNavigatedToMap = false;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     // Iniciar el monitoreo de cercanía y eventos del bus
     ref.watch(proximityMonitoringProvider);
     ref.watch(remoteNotificationsListenerProvider);
+
+    // ── AUTO-NAVEGACIÓN AL MAPA cuando el conductor inicia el recorrido ──
+    ref.listen<AsyncValue<String>>(busStatusProvider, (previous, next) {
+      final prevStatus = previous?.value ?? 'idle';
+      final newStatus = next.value ?? 'idle';
+      // Si cambia de 'idle'/'finished' a 'on_route', navegar al mapa
+      if (newStatus == 'on_route' && prevStatus != 'on_route' && !_hasNavigatedToMap && mounted) {
+        _hasNavigatedToMap = true;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ParentMapScreen()),
+        );
+      }
+      // Resetear la bandera cuando el viaje termine
+      if (newStatus != 'on_route') {
+        _hasNavigatedToMap = false;
+      }
+    });
 
     // Auto-suscribir al topic FCM del bus cuando carguen los estudiantes.
     // Así el padre recibe push incluso si la app estuvo cerrada un tiempo.

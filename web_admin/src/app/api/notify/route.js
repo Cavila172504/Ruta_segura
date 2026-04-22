@@ -55,15 +55,19 @@ export async function POST(request) {
         }
 
         // Configuración del mensaje FCM (alta prioridad, compatible Android)
+        // IMPORTANTE: channelId DEBE coincidir con el canal creado en Flutter
         const messagePayload = {
             notification: { title, body },
             android: {
                 priority: 'high',
+                ttl: 0, // Entrega inmediata, sin retraso
                 notification: {
                     sound: 'default',
-                    channelId: 'ruta_segura_alerts',
+                    channelId: 'ruta_segura_alerts_high_v2', // Debe coincidir con el canal de Flutter
                     priority: 'max',
+                    visibility: 'PUBLIC', // Visible en pantalla de bloqueo
                     defaultVibrateTimings: true,
+                    notificationCount: 1,
                     clickAction: 'FLUTTER_NOTIFICATION_CLICK',
                 },
             },

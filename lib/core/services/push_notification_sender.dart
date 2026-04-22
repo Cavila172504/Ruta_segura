@@ -15,7 +15,7 @@ import 'package:flutter/foundation.dart';
 class PushNotificationSender {
   static const String _baseUrl = String.fromEnvironment(
     'NOTIFY_API_URL',
-    defaultValue: 'http://10.20.4.44:3000', // IP local de tu PC
+    defaultValue: 'http://192.168.0.104:3000', // IP local de tu PC
   );
 
   /// Envía una notificación push a TODOS los padres de un bus (via FCM Topic).

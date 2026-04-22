@@ -30,6 +30,9 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
   BitmapDescriptor? _schoolIcon;
   GoogleMapController? _mapController;
 
+  // Auto-centrado en el bus al iniciar la ruta
+  bool _hasCenteredOnBus = false;
+
   @override
   void initState() {
     super.initState();
@@ -107,6 +110,24 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
     // Status de ruta en tiempo real
     final busStatus = ref.watch(busStatusProvider).value ?? 'idle';
     final isRouteActive = busStatus == 'on_route';
+
+    // ── AUTO-CENTRAR en el bus cuando la ruta acaba de iniciar ──
+    ref.listen<AsyncValue<LatLng?>>(liveBusLocationProvider, (previous, next) {
+      final busLoc = next.value;
+      if (busLoc != null && isRouteActive && _mapController != null) {
+        if (!_hasCenteredOnBus) {
+          _hasCenteredOnBus = true;
+          _mapController!.animateCamera(
+            CameraUpdate.newLatLngZoom(busLoc, 16),
+          );
+        }
+      }
+    });
+
+    // Resetear bandera cuando termine la ruta
+    if (!isRouteActive) {
+      _hasCenteredOnBus = false;
+    }
     
     // Tomamos el primer estudiante para la cabecera (en caso de hermanos, podríamos rotarlos o elegir uno)
     final activeStudentName = students.isNotEmpty ? students.first['studentName'] : 'Estudiante';

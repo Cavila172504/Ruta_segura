@@ -86,6 +86,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     if (driverId == null) return;
 
     // Actualizamos en live_tracking según tu estructura de Firebase
+    // NO sobreescribimos 'status' aquí – se controla desde el Dashboard (on_route / finished)
     await FirebaseFirestore.instance.collection('companies').doc(unitCode).collection('live_tracking').doc(driverId).set({
       'driverId': driverId,
       'driverName': profile?['name'] ?? 'Conductor',
@@ -94,7 +95,6 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
       'speed': _speed,
       'heading': position.heading,
       'lastUpdated': FieldValue.serverTimestamp(),
-      'status': 'active',
     }, SetOptions(merge: true));
   }
 
@@ -138,6 +138,8 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
           setState(() {
             _routePoints = allPoints.map((p) => LatLng(p.latitude, p.longitude)).toList();
           });
+          // Ajustar cámara para mostrar toda la ruta
+          _fitRouteOnMap(origin, destination, validStudents);
         }
       }
     } catch (e) {
@@ -145,6 +147,52 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     } finally {
       _isCalculatingRoute = false;
     }
+  }
+
+  /// Centra el mapa en la ubicación del bus a un zoom cómodo para conducir
+  void _fitRouteOnMap(LatLng origin, LatLng destination, List<dynamic> students) {
+    final controller = ref.read(mapControllerProvider);
+    if (controller == null) return;
+
+    // Centrar en la posición actual del conductor con zoom cercano
+    controller.animateCamera(
+      CameraUpdate.newLatLngZoom(origin, 15),
+    );
+  }
+
+  /// Muestra toda la ruta completa (bus + paradas + colegio) ajustando el zoom
+  void _showFullRoute() {
+    final controller = ref.read(mapControllerProvider);
+    if (controller == null || _routePoints.isEmpty) return;
+
+    // Incluir posición actual y colegio
+    final List<LatLng> allPoints = [..._routePoints];
+    if (_currentPosition != null) {
+      allPoints.add(LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
+    }
+    allPoints.add(_cadeLocation);
+
+    double minLat = allPoints.first.latitude;
+    double maxLat = allPoints.first.latitude;
+    double minLng = allPoints.first.longitude;
+    double maxLng = allPoints.first.longitude;
+
+    for (var p in allPoints) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    controller.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        ),
+        80,
+      ),
+    );
   }
 
   Future<void> _sendTrafficAlert(String unitCode, List<dynamic> students) async {
@@ -224,16 +272,18 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     
     // Escuchamos live_tracking en lugar de routes para ser consistentes con tu Firebase
     final tripStatusAsync = ref.watch(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId)));
-    final isTripActive = tripStatusAsync.value?['status'] == 'active' || tripStatusAsync.value?['status'] == 'on_route';
+    final isTripActive = tripStatusAsync.value?['status'] == 'on_route';
 
     if (!isTripActive && _routePoints.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) { setState(() => _routePoints = []); });
     }
 
-    if (isTripActive && studentsAsync.value != null && studentsAsync.value!.isNotEmpty && _routePoints.isEmpty && !_isCalculatingRoute) {
+    // Calcular ruta SIEMPRE que haya un viaje activo y no tengamos polyline aún
+    // Ya no se requiere que haya estudiantes – si no hay, traza ruta directa bus→colegio
+    if (isTripActive && _routePoints.isEmpty && !_isCalculatingRoute && _currentPosition != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final startPos = _currentPosition != null ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude) : _cadeLocation; 
-        _getPolyline(startPos, _cadeLocation, studentsAsync.value!);
+        final startPos = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+        _getPolyline(startPos, _cadeLocation, studentsAsync.value ?? []);
       });
     }
 
@@ -276,9 +326,12 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
             Positioned(top: 110, right: 16, child: _novedadesBtn(() => _sendTrafficAlert(unitCode, studentsAsync.value ?? []))),
             Positioned(bottom: 25, left: 50, right: 50, child: _finishBtn(() => _finishTrip(unitCode, profile?['uid']))),
           ],
+          // Botón VER RUTA COMPLETA (solo cuando hay ruta calculada)
+          if (isTripActive && _routePoints.isNotEmpty)
+            Positioned(bottom: isTripActive ? 270 : 210, right: 16, child: _fullRouteBtn()),
+          Positioned(bottom: isTripActive ? 215 : 155, right: 16, child: _zoomButtons()),
           Positioned(bottom: isTripActive ? 160 : 100, right: 16, child: _mapTypeBtn()),
           Positioned(bottom: isTripActive ? 105 : 45, right: 16, child: _gpsBtn()),
-          Positioned(bottom: isTripActive ? 215 : 155, right: 16, child: _zoomButtons()),
           Positioned(bottom: isTripActive ? 105 : 45, left: 16, child: _dpad()),
         ],
       ),
@@ -337,6 +390,20 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     child: Container(width: 38, height: 38, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3)]), child: Icon(icon, color: const Color(0xFF0D4D3A), size: 22)),
   );
 
+  /// Botón para ver toda la ruta completa en el mapa
+  Widget _fullRouteBtn() => GestureDetector(
+    onTap: _showFullRoute,
+    child: Container(
+      width: 45, height: 45,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D4D3A),
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: const Color(0xFF0D4D3A).withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: const Icon(Icons.route_rounded, color: Color(0xFFFFD600), size: 22),
+    ),
+  );
+
   Widget _mapTypeBtn() => GestureDetector(
     onTap: () => setState(() => _currentMapType = _currentMapType == MapType.normal ? MapType.satellite : (_currentMapType == MapType.satellite ? MapType.terrain : MapType.normal)),
     child: Container(width: 45, height: 45, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFFD600), width: 1.5), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 5)]), child: const Icon(Icons.layers_rounded, color: Color(0xFF0D4D3A), size: 22)),
@@ -351,16 +418,36 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Set<Marker> _buildMarkers(List<Map<String, dynamic>> students, bool isTripActive) {
     Set<Marker> markers = {};
-    markers.add(Marker(markerId: const MarkerId('school'), position: _cadeLocation, icon: _schoolIcon ?? BitmapDescriptor.defaultMarker, infoWindow: const InfoWindow(title: 'Colegio')));
+
+    // Siempre mostrar el colegio como destino
+    markers.add(Marker(
+      markerId: const MarkerId('school'),
+      position: _cadeLocation,
+      icon: _schoolIcon ?? BitmapDescriptor.defaultMarker,
+      infoWindow: const InfoWindow(title: 'Colegio CADE', snippet: 'Destino'),
+    ));
+
+    // Siempre mostrar la ubicación del bus (conductor) si tenemos posición
+    if (_currentPosition != null) {
+      markers.add(Marker(
+        markerId: const MarkerId('bus'),
+        position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        icon: _busIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+        rotation: _currentPosition!.heading,
+        anchor: const Offset(0.5, 0.5),
+        infoWindow: const InfoWindow(title: 'Mi Ubicación'),
+      ));
+    }
+
+    // Mostrar las paradas de los estudiantes cuando el viaje está activo
     if (isTripActive) {
-      if (_currentPosition != null) markers.add(Marker(markerId: const MarkerId('bus'), position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude), icon: _busIcon ?? BitmapDescriptor.defaultMarker, rotation: _currentPosition!.heading, anchor: const Offset(0.5, 0.5)));
       for (var s in students) {
         if (s['stopLat'] != null && s['stopLng'] != null) {
           markers.add(Marker(
-            markerId: MarkerId(s['id']?.toString() ?? s['studentName']?.toString() ?? 'student_${s.hashCode}'), 
-            position: LatLng(s['stopLat'] as double, s['stopLng'] as double), 
-            icon: _houseIcon ?? BitmapDescriptor.defaultMarker, 
-            infoWindow: InfoWindow(title: s['studentName'] ?? 'Estudiante')
+            markerId: MarkerId(s['id']?.toString() ?? s['studentName']?.toString() ?? 'student_${s.hashCode}'),
+            position: LatLng(s['stopLat'] as double, s['stopLng'] as double),
+            icon: _houseIcon ?? BitmapDescriptor.defaultMarker,
+            infoWindow: InfoWindow(title: s['studentName'] ?? 'Estudiante'),
           ));
         }
       }
