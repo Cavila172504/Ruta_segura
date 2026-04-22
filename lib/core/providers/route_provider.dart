@@ -9,83 +9,128 @@ final activeUnitCodeProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(authStateProvider).value;
   if (user == null) return null;
 
+  // 1. Intentar obtenerlo del perfil (preferido)
   final profile = await ref.watch(userProfileProvider.future);
-  final profileCode = profile?['activeUnitCode'] as String?;
-  
-  if (profileCode != null) return profileCode;
+  if (profile?['activeUnitCode'] != null && profile!['activeUnitCode'].toString().isNotEmpty) {
+    return profile['activeUnitCode'] as String;
+  }
 
-  // Si no está en perfil, buscamos en sus estudiantes vinculados
-  final students = await FirebaseFirestore.instance
-      .collectionGroup('students')
-      .where('parentId', isEqualTo: user.uid)
-      .limit(1)
-      .get();
-
-  if (students.docs.isNotEmpty) {
-    return students.docs.first.data()['unitCode'] as String?;
+  // 2. Si no hay en perfil, buscar en la lista de sus estudiantes ya cargados
+  final studentsAsync = await ref.watch(parentStudentsProvider.future);
+  if (studentsAsync.isNotEmpty) {
+    return studentsAsync.first['unitCode'] as String?;
   }
 
   return null;
 });
 
-// Stream de la ubicación real del bus desde Firestore
-final liveBusLocationProvider = StreamProvider<LatLng?>((ref) {
+// Proveedor para extraer los driverIds únicos de los estudiantes del padre
+final activeDriverIdsProvider = Provider<List<String>>((ref) {
+  final students = ref.watch(parentStudentsProvider).value;
+  if (students == null || students.isEmpty) return [];
+  
+  return students
+      .map((s) => s['driverId'] as String?)
+      .where((id) => id != null && id.isNotEmpty)
+      .cast<String>()
+      .toSet()
+      .toList();
+});
+
+// Stream de los datos del bus activo (solo para los conductores asignados a los hijos del padre)
+final activeBusDataProvider = StreamProvider<Map<String, dynamic>?>((ref) {
   final unitCode = ref.watch(activeUnitCodeProvider).value;
-  if (unitCode == null) return Stream.value(null);
+  final driverIds = ref.watch(activeDriverIdsProvider);
+
+  if (unitCode == null || driverIds.isEmpty) return Stream.value(null);
+
+  // Firestore limita el 'whereIn' a 10 elementos como máximo.
+  // Si un padre tiene más de 10 conductores diferentes, tomará los primeros 10.
+  final safeDriverIds = driverIds.take(10).toList();
 
   return FirebaseFirestore.instance
       .collection('companies')
       .doc(unitCode)
       .collection('live_tracking')
-      .limit(1)
+      .where(FieldPath.documentId, whereIn: safeDriverIds)
       .snapshots()
       .map((snap) {
         if (snap.docs.isEmpty) return null;
-        final data = snap.docs.first.data();
-        if (data['lat'] == null || data['lng'] == null) return null;
-        return LatLng(data['lat'] as double, data['lng'] as double);
+        
+        // Priorizar el bus que esté 'on_route'
+        final activeDocs = snap.docs.where((doc) => doc.data()['status'] == 'on_route').toList();
+        if (activeDocs.isNotEmpty) {
+          return activeDocs.first.data();
+        }
+        
+        return snap.docs.first.data();
       });
 });
 
-// Stream del estado actual de la ruta (idle, on_route)
-final busStatusProvider = StreamProvider<String>((ref) {
-  final unitCode = ref.watch(activeUnitCodeProvider).value;
-  if (unitCode == null) return Stream.value('idle');
+// Proveedor de la ubicación real del bus
+final liveBusLocationProvider = Provider<AsyncValue<LatLng?>>((ref) {
+  final dataAsync = ref.watch(activeBusDataProvider);
+  return dataAsync.whenData((data) {
+    if (data == null || data['lat'] == null || data['lng'] == null) return null;
+    return LatLng((data['lat'] as num).toDouble(), (data['lng'] as num).toDouble());
+  });
+});
 
-  return FirebaseFirestore.instance
-      .collection('companies')
-      .doc(unitCode)
-      .collection('live_tracking')
-      .limit(1)
-      .snapshots()
-      .map((snap) => snap.docs.isEmpty ? 'idle' : (snap.docs.first.data()['status'] as String?) ?? 'idle');
+// Proveedor del estado actual de la ruta (idle, on_route)
+final busStatusProvider = Provider<AsyncValue<String>>((ref) {
+  final dataAsync = ref.watch(activeBusDataProvider);
+  return dataAsync.whenData((data) => (data?['status'] as String?) ?? 'idle');
 });
 
 // Stream de las paradas de los estudiantes del padre (Hogar)
-final parentStudentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+final parentStudentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final user = ref.watch(authStateProvider).value;
-  final unitCode = ref.watch(activeUnitCodeProvider).value;
-  if (user == null || unitCode == null) return Stream.value([]);
+  if (user == null) {
+    yield [];
+    return;
+  }
 
-  return FirebaseFirestore.instance
-      .collection('companies')
-      .doc(unitCode)
-      .collection('students')
-      .where('parentId', isEqualTo: user.uid)
-      .snapshots()
-      .map((snap) {
-        if (snap.docs.isEmpty) {
-          // Fallback para pruebas si no hay datos reales vinculados
-          return [
-            {
-              'studentName': 'ESTUDIANTE DE PRUEBA',
-              'stopLat': -0.180653,
-              'stopLng': -0.467834,
-            }
-          ];
-        }
-        return snap.docs.map((doc) => doc.data()).toList();
-      });
+  // Buscamos el documento del padre para extraer el unitCode
+  final parentQuery = await FirebaseFirestore.instance
+      .collection('users')
+      .doc('parents')
+      .collection('members')
+      .where('uid', isEqualTo: user.uid)
+      .limit(1)
+      .get();
+
+  if (parentQuery.docs.isEmpty) {
+    yield [];
+    return;
+  }
+
+  final parentData = parentQuery.docs.first.data();
+  String? unitCode = parentData['activeUnitCode'] as String?;
+
+  // Si no está en el perfil, revisamos la subcolección estática una sola vez
+  if (unitCode == null || unitCode.isEmpty) {
+    final subStudents = await parentQuery.docs.first.reference.collection('students').limit(1).get();
+    if (subStudents.docs.isNotEmpty) {
+      unitCode = subStudents.docs.first.data()['unitCode'] as String?;
+    }
+  }
+
+  // Si logramos encontrar el unitCode, escuchamos la fuente de la verdad (donde el Admin actualiza)
+  if (unitCode != null && unitCode.isNotEmpty) {
+    yield* FirebaseFirestore.instance
+        .collection('companies')
+        .doc(unitCode)
+        .collection('students')
+        .where('parentId', isEqualTo: user.uid)
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) => doc.data()).toList());
+  } else {
+    // Fallback extremo
+    yield* parentQuery.docs.first.reference
+        .collection('students')
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) => doc.data()).toList());
+  }
 });
 
 final busRouteProvider = Provider<List<LatLng>>((ref) {
