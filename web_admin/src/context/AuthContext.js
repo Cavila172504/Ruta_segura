@@ -18,15 +18,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // --- BYPASS DE SEGURIDAD PARA SÚPER ADMIN ---
-    if (typeof window !== 'undefined' && localStorage.getItem('adminBypass') === 'true') {
-      setUser({ uid: 'superadmin-bypass', email: 'bypass@rutasegura.com' });
-      setProfile({ role: 'super_admin', name: 'Mando Supremo', unitCode: 'CAD31' });
-      const saved = localStorage.getItem('activeUnitCode');
-      _setActiveUnitCode(saved || 'CAD31');
-      setLoading(false);
-      return;
-    }
+
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -37,7 +29,7 @@ export const AuthProvider = ({ children }) => {
 
         if (adminSnap.exists()) {
           const data = adminSnap.data();
-          setProfile({ ...data, role: "admin" });
+          setProfile({ ...data, role: data.role || "admin" });
           _setActiveUnitCode(data.unitCode);
         } else {
           // Si no es admin, quizás es un super_admin

@@ -155,13 +155,15 @@ const DriversPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button 
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-on-primary px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-primary/20"
-          >
-            <span className="material-symbols-outlined text-base">person_add</span>
-            Nuevo Conductor
-          </button>
+          {profile?.role !== 'viewer' && (
+            <button 
+              onClick={handleOpenCreateModal}
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-on-primary px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-primary/20"
+            >
+              <span className="material-symbols-outlined text-base">person_add</span>
+              Nuevo Conductor
+            </button>
+          )}
         </div>
       </section>
 
@@ -174,7 +176,7 @@ const DriversPage = () => {
                 <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">ID (Clave)</th>
                 <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Cooperativa</th>
                 <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-center whitespace-nowrap">Estado</th>
-                <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-right">Acciones</th>
+                {profile?.role !== 'viewer' && <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-right">Acciones</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -207,27 +209,29 @@ const DriversPage = () => {
                         Activo
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                         <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleOpenEditModal(driver); }}
-                          className="flex items-center gap-1 bg-white hover:bg-primary hover:text-white text-slate-400 px-3 py-1.5 rounded-lg transition-all border border-slate-200"
-                        >
-                          <span className="material-symbols-outlined text-xs">edit</span>
-                          <span className="text-[10px] font-black tracking-widest uppercase">Editar</span>
-                        </button>
-                        
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); openDeleteModal(driver); }}
-                          className="flex items-center gap-1 bg-white hover:bg-error hover:text-white text-slate-400 px-3 py-1.5 rounded-lg transition-all border border-slate-200"
-                        >
-                          <span className="material-symbols-outlined text-xs">delete</span>
-                          <span className="text-[10px] font-black tracking-widest uppercase">Baja</span>
-                        </button>
-                      </div>
-                    </td>
+                    {profile?.role !== 'viewer' && (
+                      <td className="px-5 py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                           <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleOpenEditModal(driver); }}
+                            className="flex items-center gap-1 bg-white hover:bg-primary hover:text-white text-slate-400 px-3 py-1.5 rounded-lg transition-all border border-slate-200"
+                          >
+                            <span className="material-symbols-outlined text-xs">edit</span>
+                            <span className="text-[10px] font-black tracking-widest uppercase">Editar</span>
+                          </button>
+                          
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); openDeleteModal(driver); }}
+                            className="flex items-center gap-1 bg-white hover:bg-error hover:text-white text-slate-400 px-3 py-1.5 rounded-lg transition-all border border-slate-200"
+                          >
+                            <span className="material-symbols-outlined text-xs">delete</span>
+                            <span className="text-[10px] font-black tracking-widest uppercase">Baja</span>
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

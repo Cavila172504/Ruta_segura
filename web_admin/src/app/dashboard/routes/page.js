@@ -147,10 +147,16 @@ export default function RoutesPage() {
         
         {/* CABECERA (Azul Suave) */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl flex flex-col-reverse sm:flex-row justify-between items-start sm:items-center shadow-sm border border-slate-100 gap-4">
-           <button onClick={() => setShowCreate(!showCreate)} className={`flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 ${primaryBlue} text-white rounded-xl font-black text-sm hover:brightness-110 transition-all shadow-lg shadow-blue-200 active:scale-95`}>
-              {showCreate ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-              {showCreate ? 'CANCELAR' : 'NUEVA RUTA TÁCTICA'}
-           </button>
+           {profile?.role !== 'viewer' ? (
+             <button onClick={() => setShowCreate(!showCreate)} className={`flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 ${primaryBlue} text-white rounded-xl font-black text-sm hover:brightness-110 transition-all shadow-lg shadow-blue-200 active:scale-95`}>
+                {showCreate ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                {showCreate ? 'CANCELAR' : 'NUEVA RUTA TÁCTICA'}
+             </button>
+           ) : (
+             <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-widest px-4">
+               <Eye className="w-4 h-4" /> Modo Monitoreo
+             </div>
+           )}
            <div className="text-left sm:text-right w-full sm:w-auto">
               <p className="text-[10px] sm:text-sm font-black text-slate-400 uppercase italic tracking-widest mb-0 sm:mb-1">RutaSegura Global</p>
               <p className={`text-xl sm:text-2xl font-black ${primaryBlueText} tracking-tighter italic uppercase`}>Panel Gestión</p>
@@ -215,10 +221,10 @@ export default function RoutesPage() {
                         onClick={() => setExpandedRoute(expandedRoute === route.id ? null : route.id)}
                         className={`flex-1 sm:flex-none flex justify-center items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs transition-all shadow-sm hover:scale-105 ${expandedRoute === route.id ? 'bg-amber-100 text-amber-700 shadow-amber-100' : 'bg-slate-900 text-white hover:bg-black shadow-slate-200'}`}
                       >
-                         {expandedRoute === route.id ? 'CERRAR PANEL' : 'GESTIONAR PASAJEROS'}
+                         {expandedRoute === route.id ? 'CERRAR PANEL' : (profile?.role === 'viewer' ? 'VER PASAJEROS' : 'GESTIONAR PASAJEROS')}
                          {expandedRoute === route.id ? <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5" /> : <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />}
                       </button>
-                      <button onClick={() => deleteDoc(doc(db, 'companies', SCHOOL_CODE, 'routes', route.id))} className="w-10 h-10 sm:w-12 sm:h-auto flex items-center justify-center bg-rose-50 text-rose-300 hover:bg-rose-500 hover:text-white rounded-xl transition-all shadow-sm"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+                      {profile?.role !== 'viewer' && <button onClick={() => deleteDoc(doc(db, 'companies', SCHOOL_CODE, 'routes', route.id))} className="w-10 h-10 sm:w-12 sm:h-auto flex items-center justify-center bg-rose-50 text-rose-300 hover:bg-rose-500 hover:text-white rounded-xl transition-all shadow-sm"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5" /></button>}
                    </div>
                 </div>
 
@@ -227,9 +233,11 @@ export default function RoutesPage() {
                   <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 space-y-4 sm:space-y-6 animate-in slide-in-from-top duration-300 relative">
                      
                      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-                        <button onClick={() => setShowStudentPicker(route.id)} className={`flex items-center justify-center w-full sm:w-auto gap-2 px-6 py-3 ${primaryBlue} text-white rounded-xl font-black text-xs hover:scale-105 transition-all shadow-md shadow-blue-100`}>
-                           <Plus className="w-4 h-4 text-white" /> AGREGAR ESTUDIANTES A RUTA
-                        </button>
+                        {profile?.role !== 'viewer' && (
+                          <button onClick={() => setShowStudentPicker(route.id)} className={`flex items-center justify-center w-full sm:w-auto gap-2 px-6 py-3 ${primaryBlue} text-white rounded-xl font-black text-xs hover:scale-105 transition-all shadow-md shadow-blue-100`}>
+                             <Plus className="w-4 h-4 text-white" /> AGREGAR ESTUDIANTES A RUTA
+                          </button>
+                        )}
                         
                         {/* LEYENDA TÁCTICA */}
                         <div className="flex flex-wrap items-center gap-2 sm:gap-4 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto justify-center sm:justify-start">
@@ -253,7 +261,7 @@ export default function RoutesPage() {
                                    <th className="px-4 py-3">Tipo Servicio</th>
                                    <th className="px-4 py-3 text-center italic">Mapa</th>
                                    {days.map(d => <th key={d} className="px-2 py-3 text-center border-l border-white/10">{d}</th>)}
-                                   <th className="px-4 py-3 text-center text-red-200">Quitar</th>
+                                   {profile?.role !== 'viewer' && <th className="px-4 py-3 text-center text-red-200">Quitar</th>}
                                 </tr>
                              </thead>
                              <tbody className="divide-y divide-slate-50">
@@ -281,15 +289,17 @@ export default function RoutesPage() {
                                         return (
                                           <td key={d} className="px-2 py-2 border-l border-slate-50">
                                              <div className="flex flex-col gap-1.5 items-center">
-                                                <button onClick={() => updateMatrixCell(route.id, s.id, d, 'entrance', m.entrance)} className={`w-8 h-6 rounded flex items-center justify-center text-[10px] font-black transition-all ${m.entrance === 'confirmed' ? 'bg-emerald-500 text-white shadow-sm' : m.entrance === 'maybe' ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white shadow-sm'}`}>E</button>
-                                                <button onClick={() => updateMatrixCell(route.id, s.id, d, 'exit', m.exit)} className={`w-8 h-6 rounded flex items-center justify-center text-[10px] font-black transition-all ${m.exit === 'confirmed' ? 'bg-emerald-500 text-white shadow-sm' : m.exit === 'maybe' ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white shadow-sm'}`}>S</button>
+                                                <button onClick={() => profile?.role !== 'viewer' && updateMatrixCell(route.id, s.id, d, 'entrance', m.entrance)} className={`w-8 h-6 rounded flex items-center justify-center text-[10px] font-black transition-all ${m.entrance === 'confirmed' ? 'bg-emerald-500 text-white shadow-sm' : m.entrance === 'maybe' ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white shadow-sm'} ${profile?.role === 'viewer' ? 'cursor-default' : ''}`}>E</button>
+                                                <button onClick={() => profile?.role !== 'viewer' && updateMatrixCell(route.id, s.id, d, 'entrance', m.entrance)} className={`w-8 h-6 rounded flex items-center justify-center text-[10px] font-black transition-all ${m.exit === 'confirmed' ? 'bg-emerald-500 text-white shadow-sm' : m.exit === 'maybe' ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white shadow-sm'} ${profile?.role === 'viewer' ? 'cursor-default' : ''}`}>S</button>
                                              </div>
                                           </td>
                                         )
                                      })}
-                                     <td className="px-4 py-3 text-center">
-                                        <button onClick={() => removeStudentFromRoute(route.id, s.id)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all mx-auto"><X className="w-5 h-5" /></button>
-                                     </td>
+                                     {profile?.role !== 'viewer' && (
+                                       <td className="px-4 py-3 text-center">
+                                          <button onClick={() => removeStudentFromRoute(route.id, s.id)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all mx-auto"><X className="w-5 h-5" /></button>
+                                       </td>
+                                     )}
                                   </tr>
                               ))}
                                 {!route.assignedStudents?.length && (
@@ -299,13 +309,15 @@ export default function RoutesPage() {
                           </table>
                         </div>
                         <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
-                           <button 
-                             onClick={() => handleSync(route.id)} 
-                             className={`flex w-full sm:w-auto justify-center items-center gap-2 px-6 py-3 text-white font-black rounded-xl text-xs uppercase shadow-md transition-all hover:scale-105 active:scale-95 ${syncStatus[route.id] === 'synced' ? 'bg-slate-400 shadow-slate-200' : 'bg-emerald-500 shadow-emerald-200'}`}
-                           >
-                              <Save className="w-4 h-4" /> 
-                              {syncStatus[route.id] === 'synced' ? '¡SINCRO EXITOSA!' : 'ACTUALIZAR Y SINCRONIZAR'}
-                           </button>
+                           {profile?.role !== 'viewer' && (
+                               <button 
+                                 onClick={() => handleSync(route.id)} 
+                                 className={`flex w-full sm:w-auto justify-center items-center gap-2 px-6 py-3 text-white font-black rounded-xl text-xs uppercase shadow-md transition-all hover:scale-105 active:scale-95 ${syncStatus[route.id] === 'synced' ? 'bg-slate-400 shadow-slate-200' : 'bg-emerald-500 shadow-emerald-200'}`}
+                               >
+                                  <Save className="w-4 h-4" /> 
+                                  {syncStatus[route.id] === 'synced' ? '¡SINCRO EXITOSA!' : 'ACTUALIZAR Y SINCRONIZAR'}
+                               </button>
+                            )}
                         </div>
                      </div>
                   </div>

@@ -60,16 +60,23 @@ const Sidebar = ({ profile, isOpen, setIsOpen }) => {
 
   const menuItems = [
     { icon: 'dashboard', label: 'Dashboard', href: '/dashboard' },
-    ...(profile?.role === 'super_admin' ? [{ icon: 'corporate_fare', label: 'Gestión Empresas', href: '/dashboard/companies' }] : []),
-    { icon: 'person', label: 'Conductores', href: '/dashboard/drivers' },
-    { icon: 'route', label: 'Rutas', href: '/dashboard/routes' },
-    { 
-      icon: 'how_to_reg', 
-      label: 'Inscripciones', 
-      href: '/dashboard/students',
-      badge: pendingCount > 0 ? pendingCount : null 
-    },
-    { icon: 'headset_mic', label: 'Soporte', href: '/dashboard/support' },
+    ...(profile?.role === 'super_admin' ? [
+      { icon: 'corporate_fare', label: 'Gestión Empresas', href: '/dashboard/companies' },
+      { icon: 'group_add', label: 'Gestión Usuarios', href: '/dashboard/users' }
+    ] : []),
+    // Solo mostrar herramientas de gestión si NO es viewer
+    ...(profile?.role !== 'viewer' ? [
+      { icon: 'person', label: 'Conductores', href: '/dashboard/drivers' },
+      { icon: 'route', label: 'Rutas', href: '/dashboard/routes' },
+      { 
+        icon: 'how_to_reg', 
+        label: 'Inscripciones', 
+        href: '/dashboard/students',
+        badge: pendingCount > 0 ? pendingCount : null 
+      },
+      { icon: 'headset_mic', label: 'Soporte', href: '/dashboard/support' },
+    ] : []),
+    // Informes disponible para todos (monitoreo)
     { icon: 'analytics', label: 'Informes', href: '/dashboard/reports' },
   ];
 
