@@ -342,11 +342,14 @@ const getFilteredActiveBuses = (buses) => {
   const TEN_MINUTES = 10 * 60 * 1000;
   
   return buses.filter(bus => {
-    // Si no tiene lastUpdate, dejarlo solo si es reciente o está enviando velocidad
-    if (!bus.lastUpdate) return true; 
+    // Usar lastUpdated (App) o lastUpdate o timestamp
+    const stamp = bus.lastUpdated || bus.lastUpdate || bus.timestamp;
+    
+    // Si no hay ninguna fecha registrada, no mostrarlo por seguridad (o dejarlo expirar)
+    if (!stamp) return false; 
     
     // Convertir de Firestore Timestamp a ms
-    const updateTime = bus.lastUpdate?.toDate ? bus.lastUpdate.toDate().getTime() : now;
+    const updateTime = stamp.toDate ? stamp.toDate().getTime() : now;
     return (now - updateTime) < TEN_MINUTES;
   });
 };
