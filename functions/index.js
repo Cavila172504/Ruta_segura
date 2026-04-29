@@ -145,3 +145,50 @@ exports.onLiveTrackingUpdate = onDocumentCreated(
     );
   }
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCIÓN 4: CRON JOB DIARIO para reiniciar asistencias
+// Se ejecuta todos los días a la 1:00 AM (Hora Local de EC, America/Guayaquil)
+// ─────────────────────────────────────────────────────────────────────────────
+exports.resetDailyAttendance = onSchedule(
+  {
+    schedule: "0 1 * * *",
+    timeZone: "America/Guayaquil"
+  },
+  async (event) => {
+    logger.info("🕒 Iniciando reinicio diario de asistencias...");
+    
+    try {
+      const studentsSnap = await db.collectionGroup("students").get();
+      
+      let batch = db.batch();
+      let batchCount = 0;
+      let resetCount = 0;
+
+      for (const docSnap of studentsSnap.docs) {
+        const data = docSnap.data();
+        if (data.attendance_status) {
+          batch.update(docSnap.ref, {
+            attendance_status: admin.firestore.FieldValue.delete(),
+          });
+          batchCount++;
+          resetCount++;
+
+          if (batchCount >= 400) {
+            await batch.commit();
+            batch = db.batch();
+            batchCount = 0;
+          }
+        }
+      }
+
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+
+      logger.info(`✅ Reinicio completado. Se limpiaron ${resetCount} registros.`);
+    } catch (error) {
+      logger.error("❌ Error en el cron job de reinicio:", error);
+    }
+  }
+);

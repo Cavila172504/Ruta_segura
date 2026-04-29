@@ -153,13 +153,10 @@ const RepresentativesPage = () => {
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 gap-4">
         <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tighter italic">REPRESENTANTES</h1>
         {profile?.role !== 'viewer' && (
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="w-full sm:w-auto justify-center bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95 text-sm"
-          >
-            <span className="material-symbols-outlined text-sm">add</span>
-            NUEVO
-          </button>
+          <div className="w-full sm:w-auto justify-center bg-blue-50 text-blue-600 px-5 py-2 rounded font-bold flex items-center gap-2 shadow-sm text-xs border border-blue-100">
+            <span className="material-symbols-outlined text-sm">info</span>
+            LOS PADRES DEBEN REGISTRARSE DESDE LA APP
+          </div>
         )}
       </div>
 
@@ -448,150 +445,7 @@ const RepresentativesPage = () => {
         </div>
       )}
 
-      {/* Add New Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 flex justify-between items-center border-b bg-slate-50">
-               <div>
-                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-tighter">REGISTRAR NUEVA FAMILIA</h2>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Administración de Rutas Escolares</p>
-               </div>
-               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-red-500 transition-colors">
-                  <span className="material-symbols-outlined">close</span>
-               </button>
-            </div>
 
-            <form onSubmit={handleAddSubmit} className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                {/* REPRESENTANTE SECTION */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-8 h-8 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">01</span>
-                    <h3 className="text-[11px] font-black text-slate-700 uppercase tracking-wider">DATOS DEL REPRESENTANTE</h3>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Cédula Identidad</label>
-                      <input 
-                        required
-                        type="text" 
-                        placeholder="Ej. 1712345678"
-                        className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-primary focus:bg-white transition-all"
-                        value={formData.cedulaPadre}
-                        onChange={(e) => setFormData({...formData, cedulaPadre: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Nombres Completos</label>
-                      <input 
-                        required
-                        type="text" 
-                        placeholder="Ej. Juan Pérez"
-                        className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-primary focus:bg-white transition-all"
-                        value={formData.parentName}
-                        onChange={(e) => setFormData({...formData, parentName: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Correo Electrónico</label>
-                      <input 
-                        required
-                        type="email" 
-                        placeholder="representante@ejemplo.com"
-                        className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-primary focus:bg-white transition-all"
-                        value={formData.parentEmail}
-                        onChange={(e) => setFormData({...formData, parentEmail: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ESTUDIANTE SECTION */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-8 h-8 rounded bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">02</span>
-                    <h3 className="text-[11px] font-black text-slate-700 uppercase tracking-wider">DATOS DEL ESTUDIANTE</h3>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Nombre del Alumno</label>
-                      <input 
-                        required
-                        type="text" 
-                        placeholder="Ej. Mateo Pérez"
-                        className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-emerald-500 focus:bg-white transition-all"
-                        value={formData.studentName}
-                        onChange={(e) => setFormData({...formData, studentName: e.target.value})}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Grado / Curso</label>
-                        <select 
-                          className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-emerald-500 focus:bg-white transition-all"
-                          value={formData.grade}
-                          onChange={(e) => setFormData({...formData, grade: e.target.value})}
-                        >
-                          <option>Inicial 1</option>
-                          <option>Inicial 2</option>
-                          <option>Primero de Básica</option>
-                          <option>Segundo de Básica</option>
-                          <option>Octavo de Básica</option>
-                          <option>Primero de Bachillerato</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Unidad/Bus</label>
-                        <input 
-                          type="text" 
-                          placeholder="CAD31"
-                          className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-emerald-500 focus:bg-white transition-all"
-                          value={formData.unitCode}
-                          onChange={(e) => setFormData({...formData, unitCode: e.target.value.toUpperCase()})}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tipo de Servicio</label>
-                      <select 
-                        className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-emerald-500 focus:bg-white transition-all text-emerald-700 font-bold"
-                        value={formData.serviceType}
-                        onChange={(e) => setFormData({...formData, serviceType: e.target.value})}
-                      >
-                        <option>Completo (Ida y Retorno)</option>
-                        <option>Solo Entrada (Mañana)</option>
-                        <option>Solo Salida (Tarde)</option>
-                        <option>Combinado / Especial</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-12 flex justify-end gap-3 border-t pt-6 bg-white">
-                <button 
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-8 py-3 text-[11px] font-black text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit"
-                  className="px-10 py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white rounded-md text-[11px] font-black shadow-lg shadow-emerald-500/20 transition-all uppercase tracking-widest"
-                >
-                  Guardar Registro
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       <footer className="mt-10 text-[10px] font-medium text-slate-400">
          2026 - Ruta Segura Cavila95

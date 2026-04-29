@@ -52,7 +52,8 @@ class ParentApp extends StatelessWidget {
 }
 
 class RootAuthWrapper extends ConsumerWidget {
-  const RootAuthWrapper({super.key});
+  final bool isDriverApp;
+  const RootAuthWrapper({super.key, this.isDriverApp = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -61,7 +62,7 @@ class RootAuthWrapper extends ConsumerWidget {
     return authState.when(
       data: (user) {
         if (user == null) {
-          return const LoginScreen(isDriverApp: false);
+          return LoginScreen(isDriverApp: isDriverApp);
         }
 
         // El usuario está logueado, determinar su dashboard
@@ -91,7 +92,7 @@ class RootAuthWrapper extends ConsumerWidget {
       },
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => const LoginScreen(isDriverApp: false),
+      error: (e, _) => LoginScreen(isDriverApp: isDriverApp),
     );
   }
 }

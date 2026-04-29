@@ -52,11 +52,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final confirmPassword = _confirmPasswordController.text.trim();
     final name = _nameController.text.trim(); // Nombre
 
-    // --- ACCESO DIRECTO DE SÚPER USUARIO (BYPASS SIN CORREO) ---
-    if (_authMode == AuthMode.login && email == '1725049827' && password == 'Admin123') {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
-      return;
-    }
+
 
     // Validaciones de Formato
     if (email.isEmpty) {

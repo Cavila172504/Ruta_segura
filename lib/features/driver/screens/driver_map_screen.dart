@@ -60,7 +60,21 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   bool _hasCenteredInitially = false;
 
-  void _startTracking() {
+  Future<void> _startTracking() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      return;
+    }
+
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5),
     ).listen((Position position) {
