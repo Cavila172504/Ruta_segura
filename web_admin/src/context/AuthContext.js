@@ -20,7 +20,21 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
 
 
+    // --- SOPORTE PARA BYPASS QUEMADO (SINCRONICO) ---
+    if (typeof window !== 'undefined' && localStorage.getItem('adminBypass') === 'true') {
+      setUser({ email: 'superuser@rutasegura.local', uid: 'bypass-id' });
+      setProfile({ 
+        name: "Súper Usuario (Bypass)", 
+        role: "super_admin",
+        unitCode: localStorage.getItem('activeUnitCode') || 'CAD31'
+      });
+      _setActiveUnitCode(localStorage.getItem('activeUnitCode') || 'CAD31');
+      setLoading(false);
+      return; // No suscribimos a Firebase si hay bypass
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+
       if (user) {
         setUser(user);
         // Buscar perfil en Firestore (admins, drivers, parents)
