@@ -116,7 +116,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
         
         // Cargar ruta inicialmente si la posición llegó y hay un viaje activo en progreso
         final profile = ref.read(userProfileProvider).value;
-        final unitCode = profile?['unitCode'] ?? 'CADE';
+        final unitCode = profile?['unitCode'] ?? 'CAD31';
         final driverId = profile?['uid'];
         if (driverId != null) {
           final tripStatus = ref.read(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId))).value;
@@ -138,7 +138,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Future<void> _updateFirebase(Position position) async {
     final profile = ref.read(userProfileProvider).value;
-    final unitCode = profile?['unitCode'] ?? 'CADE';
+    final unitCode = profile?['unitCode'] ?? 'CAD31';
     final driverId = profile?['uid'];
     if (driverId == null) return;
 
@@ -200,7 +200,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
           
           // Sincronización en tiempo real: Guardar la nueva ruta para el Padre y Web Admin
           final profile = ref.read(userProfileProvider).value;
-          final unitCode = profile?['unitCode'] ?? 'CADE';
+          final unitCode = profile?['unitCode'] ?? 'CAD31';
           final driverId = profile?['uid'];
           if (driverId != null) {
             String fullRouteJson = jsonEncode(_routePoints.map((p) => [p.latitude, p.longitude]).toList());
@@ -335,7 +335,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Widget _buildMainMap() {
     final profile = ref.watch(userProfileProvider).value;
-    final unitCode = profile?['unitCode'] ?? 'CADE';
+    final unitCode = profile?['unitCode'] ?? 'CAD31';
     final driverId = profile?['uid'] ?? 'UNKNOWN';
     final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
     

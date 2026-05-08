@@ -63,6 +63,31 @@ final notificationListProvider = StreamProvider<List<AppNotification>>((ref) {
   final user = ref.watch(authStateProvider).value;
   if (user == null) return Stream.value([]);
 
+  // Auto-limpieza en segundo plano: Borrar notificaciones mayores a 48 horas
+  Future.microtask(() async {
+    try {
+      final limitDate = DateTime.now().subtract(const Duration(hours: 48));
+      final oldDocs = await FirebaseFirestore.instance
+          .collection('users')
+          .doc('parents')
+          .collection('members')
+          .doc(user.uid)
+          .collection('notifications')
+          .where('timestamp', isLessThan: Timestamp.fromDate(limitDate))
+          .get();
+          
+      if (oldDocs.docs.isNotEmpty) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (var doc in oldDocs.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+    } catch (e) {
+      // Ignorar errores de limpieza silenciosamente
+    }
+  });
+
   return FirebaseFirestore.instance
       .collection('users')
       .doc('parents')
