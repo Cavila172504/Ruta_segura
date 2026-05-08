@@ -38,19 +38,26 @@ final activeDriverIdsProvider = Provider<List<String>>((ref) {
 });
 
 // Stream de los datos del bus activo (solo para los conductores asignados a los hijos del padre)
-final activeBusDataProvider = StreamProvider<Map<String, dynamic>?>((ref) {
-  final unitCode = ref.watch(activeUnitCodeProvider).value;
+final activeBusDataProvider = StreamProvider<Map<String, dynamic>?>((ref) async* {
+  final unitCode = await ref.watch(activeUnitCodeProvider.future);
   final driverIds = ref.watch(activeDriverIdsProvider);
 
-  if (unitCode == null || driverIds.isEmpty) return Stream.value(null);
+  if (unitCode == null || unitCode.trim().isEmpty || driverIds.isEmpty) {
+    yield null;
+    return;
+  }
 
   // Firestore limita el 'whereIn' a 10 elementos como máximo.
-  // Si un padre tiene más de 10 conductores diferentes, tomará los primeros 10.
-  final safeDriverIds = driverIds.take(10).toList();
+  final safeDriverIds = driverIds.map((id) => id.trim()).where((id) => id.isNotEmpty).take(10).toList();
+  
+  if (safeDriverIds.isEmpty) {
+    yield null;
+    return;
+  }
 
-  return FirebaseFirestore.instance
+  yield* FirebaseFirestore.instance
       .collection('companies')
-      .doc(unitCode)
+      .doc(unitCode.trim())
       .collection('live_tracking')
       .where(FieldPath.documentId, whereIn: safeDriverIds)
       .snapshots()
