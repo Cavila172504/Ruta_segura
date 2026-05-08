@@ -21,7 +21,6 @@ class _DriverMainShellState extends ConsumerState<DriverMainShell> {
     const DriverDashboardScreen(),
     const DriverMapScreen(),
     const DriverAttendanceScreen(),
-    const DriverProfileScreen(),
   ];
 
   @override
@@ -63,10 +62,12 @@ class _DriverMainShellState extends ConsumerState<DriverMainShell> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(driverNavigationProvider);
+    // Prevent out of bounds if selectedIndex was previously 3
+    final safeIndex = selectedIndex > 2 ? 0 : selectedIndex;
 
     return Scaffold(
       body: IndexedStack(
-        index: selectedIndex,
+        index: safeIndex,
         children: _screens,
       ),
       bottomNavigationBar: Container(
@@ -87,7 +88,7 @@ class _DriverMainShellState extends ConsumerState<DriverMainShell> {
               elevation: 0,
               type: BottomNavigationBarType.fixed,
               backgroundColor: Colors.white,
-              currentIndex: selectedIndex,
+              currentIndex: safeIndex,
               onTap: (index) {
                 ref.read(driverNavigationProvider.notifier).setIndex(index);
               },
@@ -99,7 +100,6 @@ class _DriverMainShellState extends ConsumerState<DriverMainShell> {
                 BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'DASHBOARD'),
                 BottomNavigationBarItem(icon: Icon(Icons.map_rounded), label: 'MAPA'),
                 BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: 'ALUMNOS'),
-                BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'PERFIL'),
               ],
             ),
           ),

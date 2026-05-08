@@ -11,6 +11,7 @@ import '../../../core/services/notification_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:ui' as ui;
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 
 class ParentMapScreen extends ConsumerStatefulWidget {
@@ -32,6 +33,37 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
 
   // Auto-centrado en el bus al iniciar la ruta
   bool _hasCenteredOnBus = false;
+
+  List<LatLng> _parentRoutePoints = [];
+  String? _lastRouteJson;
+
+  void _updateParentRouteProgress(LatLng busLocation) {
+    if (_parentRoutePoints.isEmpty) return;
+
+    int closestIndex = 0;
+    double minDistance = double.infinity;
+
+    // Buscar en toda la ruta sin límite para evitar problemas si el bus salta tramos
+    for (int i = 0; i < _parentRoutePoints.length; i++) {
+      double distance = Geolocator.distanceBetween(
+        busLocation.latitude, busLocation.longitude,
+        _parentRoutePoints[i].latitude, _parentRoutePoints[i].longitude
+      );
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+
+    if (minDistance < 60 && closestIndex > 0) {
+      // Llamada directa a setState más eficiente (se ejecuta desde ref.listen, no en build)
+      if (mounted) {
+        setState(() {
+          _parentRoutePoints.removeRange(0, closestIndex);
+        });
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -104,6 +136,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
     });
 
     final liveBusLocation = ref.watch(liveBusLocationProvider).value;
+    final busHeading = ref.watch(busHeadingProvider).value ?? 0.0;
     final studentsAsync = ref.watch(parentStudentsProvider);
     final students = studentsAsync.value ?? [];
     
@@ -111,11 +144,30 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
     final busStatus = ref.watch(busStatusProvider).value ?? 'idle';
     final isRouteActive = busStatus == 'on_route';
 
-    // ── AUTO-CENTRAR en el bus cuando la ruta acaba de iniciar ──
+    // ── ACTUALIZAR LA RUTA DEL PADRE ──
+    ref.listen<AsyncValue<String?>>(busRouteJsonProvider, (previous, next) {
+      if (next.value != null && next.value != _lastRouteJson) {
+        _lastRouteJson = next.value;
+        try {
+          List<dynamic> parsed = jsonDecode(next.value!);
+          if (mounted) {
+            setState(() {
+              _parentRoutePoints = parsed.map((e) => LatLng(e[0], e[1])).toList();
+            });
+          }
+        } catch (e) {
+          debugPrint("Error parsing parent route: $e");
+        }
+      }
+    });
+
+    // ── AUTO-CENTRAR en el bus y ACTUALIZAR PROGRESO ──
     ref.listen<AsyncValue<LatLng?>>(liveBusLocationProvider, (previous, next) {
       final busLoc = next.value;
-      if (busLoc != null && isRouteActive && _mapController != null) {
-        if (!_hasCenteredOnBus) {
+      if (busLoc != null && isRouteActive) {
+        _updateParentRouteProgress(busLoc);
+        
+        if (_mapController != null && !_hasCenteredOnBus) {
           _hasCenteredOnBus = true;
           _mapController!.animateCamera(
             CameraUpdate.newLatLngZoom(busLoc, 16),
@@ -229,6 +281,20 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                   myLocationEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
+                  polylines: {
+                    if (_parentRoutePoints.isNotEmpty && isRouteActive)
+                      Polyline(
+                        polylineId: const PolylineId('route'),
+                        points: liveBusLocation != null 
+                            ? [liveBusLocation, ..._parentRoutePoints]
+                            : _parentRoutePoints,
+                        color: const Color(0xFF2196F3),
+                        width: 6,
+                        jointType: JointType.round,
+                        startCap: Cap.roundCap,
+                        endCap: Cap.roundCap,
+                      ),
+                  },
                   markers: {
                     // Marcador Casa Estudiante
                     if (homeLocation != null)
@@ -246,6 +312,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                         markerId: const MarkerId('bus_marker'),
                         position: liveBusLocation,
                         icon: _busIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+                        rotation: busHeading - 90.0,
                         anchor: const Offset(0.5, 0.5),
                         infoWindow: const InfoWindow(title: 'Unidad de Transporte'),
                       ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -11,6 +12,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 /// ─────────────────────────────────────────────────────────────────────────
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(); // OBLIGATORIO en el Isolate de background
+
   // Mostramos la notificación local aunque la app esté cerrada.
   final plugin = FlutterLocalNotificationsPlugin();
 
@@ -37,12 +40,18 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final title = message.notification?.title ?? message.data['title'] ?? 'RutaSegura';
   final body  = message.notification?.body  ?? message.data['body']  ?? '';
 
+  const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+  );
+
   await plugin.show(
     id: message.hashCode,
     title: title,
     body: body,
-    notificationDetails: const NotificationDetails(
-      android: AndroidNotificationDetails(
+    notificationDetails: NotificationDetails(
+      android: const AndroidNotificationDetails(
         'ruta_segura_alerts_high_v2',
         'Alertas Urgentes RutaSegura',
         channelDescription: 'Notificaciones importantes de la ruta escolar.',
@@ -54,6 +63,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         visibility: NotificationVisibility.public,
         category: AndroidNotificationCategory.alarm,
       ),
+      iOS: iosDetails,
     ),
   );
 }
@@ -92,15 +102,26 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
 
-      // 2. Inicializar plugin local
+      // 2. Inicializar plugin local (Android e iOS)
       const AndroidInitializationSettings androidInit =
           AndroidInitializationSettings('@mipmap/launcher_icon');
+      const DarwinInitializationSettings iosInit = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      
       await _localNotifications.initialize(
-        settings: const InitializationSettings(android: androidInit),
+        settings: const InitializationSettings(android: androidInit, iOS: iosInit),
         onDidReceiveNotificationResponse: (NotificationResponse r) {
           debugPrint('Notificación local click: ${r.payload}');
         },
       );
+
+      // Petición explícita para Android 13+ (POST_NOTIFICATIONS)
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
 
       // 3. Permisos FCM
       if (!kIsWeb) {
@@ -177,11 +198,15 @@ class NotificationService {
       category: AndroidNotificationCategory.alarm, // Prioridad máxima de sistema
     );
 
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true, presentBadge: true, presentSound: true,
+    );
+
     await _localNotifications.show(
       id: id,
       title: title,
       body: body,
-      notificationDetails: const NotificationDetails(android: androidDetails),
+      notificationDetails: NotificationDetails(android: androidDetails, iOS: iosDetails),
       payload: payload,
     );
   }
@@ -193,6 +218,13 @@ class NotificationService {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
+      // 1. Guardar de forma global (seguro para Drivers y Admins)
+      await FirebaseFirestore.instance
+          .collection('user_tokens')
+          .doc(uid)
+          .set({'fcmToken': token, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+      // 2. Mantener retrocompatibilidad para Cloud Functions de Padres
       await FirebaseFirestore.instance
           .collection('users')
           .doc('parents')
@@ -200,7 +232,7 @@ class NotificationService {
           .doc(uid)
           .set({'fcmToken': token}, SetOptions(merge: true));
 
-      debugPrint('✅ FCM Token guardado en Firestore para uid: $uid');
+      debugPrint('✅ FCM Token guardado exitosamente para uid: $uid');
     } catch (e) {
       debugPrint('⚠️ Error guardando FCM Token: $e');
     }

@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
+import '../../../core/screens/login_screen.dart';
 
 class DriverAttendanceScreen extends ConsumerStatefulWidget {
   const DriverAttendanceScreen({super.key});
@@ -145,10 +146,27 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('ASISTENCIA', style: GoogleFonts.publicSans(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(color: _accentDriver, borderRadius: BorderRadius.circular(12)),
-                            child: Text(unitCode, style: GoogleFonts.publicSans(fontSize: 12, fontWeight: FontWeight.w900, color: _primaryDriver)),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(color: _accentDriver, borderRadius: BorderRadius.circular(12)),
+                                child: Text(unitCode, style: GoogleFonts.publicSans(fontSize: 12, fontWeight: FontWeight.w900, color: _primaryDriver)),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.logout, color: Colors.white),
+                                onPressed: () async {
+                                  await ref.read(authRepositoryProvider).signOut();
+                                  if (context.mounted) {
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                      (route) => false,
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
                           )
                         ],
                       ),

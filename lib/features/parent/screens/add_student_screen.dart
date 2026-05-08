@@ -66,6 +66,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
   Future<void> _validateUnit(String code) async {
     if (code.isEmpty) {
+      if (!mounted) return;
       setState(() {
         _schoolName = null;
         _errorMessage = null;
@@ -73,9 +74,11 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       return;
     }
 
+    if (!mounted) return;
     setState(() => _isValidatingUnit = true);
     try {
       final doc = await FirebaseFirestore.instance.collection('companies').doc(code.toUpperCase().trim()).get();
+      if (!mounted) return;
       if (doc.exists) {
         setState(() {
           // Asumimos 'name' o similar. Para CADE forzamos CADE si el código coincide con el patrón esperado
@@ -89,17 +92,23 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         });
       }
     } catch (_) {
-      setState(() => _schoolName = null);
+      if (mounted) setState(() => _schoolName = null);
     } finally {
-      setState(() => _isValidatingUnit = false);
+      if (mounted) setState(() => _isValidatingUnit = false);
     }
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 50);
-    if (image != null) {
-      setState(() => _studentImage = image);
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 50);
+      if (image != null && mounted) {
+        setState(() => _studentImage = image);
+      }
+    } catch (e) {
+      if (mounted) {
+         setState(() => _errorMessage = 'No se pudo acceder a la cámara. Verifica los permisos.');
+      }
     }
   }
 
@@ -116,6 +125,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   }
 
   Future<void> _registerStudent() async {
+    FocusScope.of(context).unfocus(); // Ocultar teclado al guardar
+    
     final name = _studentNameController.text.trim();
     final cedula = _cedulaController.text.trim();
     final unitCode = _unitCodeController.text.trim();
@@ -196,7 +207,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       );
       Navigator.of(context).pop(); // Volver al dashboard
     } catch (e) {
-      setState(() => _errorMessage = 'Error al registrar: ${e.toString()}');
+      if (mounted) setState(() => _errorMessage = 'Error al registrar: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

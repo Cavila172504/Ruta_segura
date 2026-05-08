@@ -9,6 +9,7 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -37,19 +38,34 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
       )}
 
       {/* Sidebar fixed from design */}
-      <Sidebar profile={profile} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <Sidebar 
+        profile={profile} 
+        isOpen={isSidebarOpen} 
+        setIsOpen={setIsSidebarOpen} 
+        isCollapsed={isSidebarCollapsed} 
+      />
       
       {/* Main Wrapper */}
-      <div className="flex-1 flex flex-col md:ml-[240px] ml-0 min-w-0 transition-all duration-300">
+      <div className={`flex-1 flex flex-col ${isSidebarCollapsed ? 'md:ml-[80px]' : 'md:ml-[240px]'} ml-0 min-w-0 transition-all duration-300`}>
         {/* TopNavBar from design */}
         <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-md shadow-[0px_10px_30px_rgba(83,74,183,0.06)] flex justify-between items-center h-16 px-4 md:px-8 border-b border-outline-variant/10">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden material-symbols-outlined text-slate-600 hover:text-primary transition-colors p-2"
-            >
-              menu
-            </button>
+            <div className="md:hidden">
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="material-symbols-outlined text-slate-600 hover:text-primary transition-colors p-2 flex items-center justify-center"
+              >
+                menu
+              </button>
+            </div>
+            <div className="hidden md:block">
+              <button 
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="material-symbols-outlined text-slate-600 hover:text-primary transition-colors p-2 flex items-center justify-center"
+              >
+                menu
+              </button>
+            </div>
             <h2 className="font-headline text-base md:text-lg font-bold text-primary truncate max-w-[200px] md:max-w-none">{title}</h2>
           </div>
           <div className="flex items-center gap-4 md:gap-6">
@@ -71,7 +87,7 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
         </header>
 
         {/* Content Canvas */}
-        <main className="p-4 md:p-8 space-y-6 md:space-y-10 max-w-[1600px] mx-auto w-full overflow-x-hidden">
+        <main className="p-4 md:p-8 space-y-6 md:space-y-10 max-w-[1600px] mx-auto w-full overflow-x-auto">
           {children}
         </main>
       </div>

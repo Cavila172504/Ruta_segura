@@ -237,7 +237,16 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                         const SizedBox(height: 20),
                         
                         // Banner Próximo Paso
-                        _nextActivityBanner(),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final profile = profileAsync.value;
+                            final unitCode = profile?['unitCode'] as String? ?? 'CAD31';
+                            final driverId = profile?['uid'] as String? ?? 'UNKNOWN';
+                            final tripStatusAsync = ref.watch(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId)));
+                            final isTripActive = tripStatusAsync.value?['status'] == 'on_route';
+                            return _nextActivityBanner(isTripActive);
+                          }
+                        ),
 
                         const SizedBox(height: 16),
 
@@ -253,11 +262,27 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
             ),
           ),
 
-          // Botón Flotante de INICIO
+          // Botón Flotante de INICIO o VIAJE EN CURSO
           Positioned(
             bottom: 24, left: 24, right: 24,
             child: profileAsync.maybeWhen(
-              data: (profile) => _startBtn(context, ref, profile),
+              data: (profile) {
+                final unitCode = profile?['unitCode'] as String? ?? 'CAD31';
+                final driverId = profile?['uid'] as String? ?? 'UNKNOWN';
+                
+                return Consumer(
+                  builder: (context, ref, _) {
+                    final tripStatusAsync = ref.watch(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId)));
+                    final isTripActive = tripStatusAsync.value?['status'] == 'on_route';
+
+                    if (isTripActive) {
+                       return _tripInProgressBtn(context, ref);
+                    } else {
+                       return _startBtn(context, ref, profile);
+                    }
+                  },
+                );
+              },
               orElse: () => const SizedBox.shrink(),
             ),
           ),
@@ -376,11 +401,11 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     );
   }
 
-  Widget _nextActivityBanner() {
+  Widget _nextActivityBanner(bool isTripActive) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _primaryDriver,
+        color: isTripActive ? Colors.green.shade600 : _primaryDriver,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -388,15 +413,15 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(color: _accentDriver, borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.rocket_launch_rounded, color: _primaryDriver, size: 20),
+            child: Icon(isTripActive ? Icons.navigation_rounded : Icons.rocket_launch_rounded, color: _primaryDriver, size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('SIGUIENTE ACCIÓN', style: GoogleFonts.publicSans(fontSize: 9, fontWeight: FontWeight.w900, color: _accentDriver, letterSpacing: 1)),
-                Text('Iniciar transmisión GPS', style: GoogleFonts.publicSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(isTripActive ? 'ESTADO ACTUAL' : 'SIGUIENTE ACCIÓN', style: GoogleFonts.publicSans(fontSize: 9, fontWeight: FontWeight.w900, color: _accentDriver, letterSpacing: 1)),
+                Text(isTripActive ? 'Transmitiendo GPS en vivo' : 'Iniciar transmisión GPS', style: GoogleFonts.publicSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
               ],
             ),
           ),
@@ -579,6 +604,32 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
               Icon(Icons.play_circle_filled_rounded, color: _primaryDriver, size: 28),
               const SizedBox(width: 12),
               Text('INICIAR RECORRIDO', style: GoogleFonts.publicSans(fontSize: 16, fontWeight: FontWeight.w900, color: _primaryDriver, letterSpacing: 1)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tripInProgressBtn(BuildContext context, WidgetRef ref) {
+    return InkWell(
+      onTap: () {
+        ref.read(driverNavigationProvider.notifier).setIndex(1); // Cambiar a la pestaña de MAPA
+      },
+      child: Container(
+        height: 64,
+        decoration: BoxDecoration(
+          color: Colors.green.shade600,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.green.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8))],
+        ),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.navigation_rounded, color: Colors.white, size: 28),
+              const SizedBox(width: 12),
+              Text('RECORRIDO EN CURSO', style: GoogleFonts.publicSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1)),
             ],
           ),
         ),

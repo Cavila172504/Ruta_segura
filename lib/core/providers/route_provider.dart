@@ -76,6 +76,18 @@ final liveBusLocationProvider = Provider<AsyncValue<LatLng?>>((ref) {
   });
 });
 
+// Proveedor para obtener la orientación del bus
+final busHeadingProvider = Provider<AsyncValue<double>>((ref) {
+  final dataAsync = ref.watch(activeBusDataProvider);
+  return dataAsync.whenData((data) => (data?['heading'] as num?)?.toDouble() ?? 0.0);
+});
+
+// Proveedor para obtener el JSON de la ruta actual del bus
+final busRouteJsonProvider = Provider<AsyncValue<String?>>((ref) {
+  final dataAsync = ref.watch(activeBusDataProvider);
+  return dataAsync.whenData((data) => data?['fullRouteJson'] as String?);
+});
+
 // Proveedor del estado actual de la ruta (idle, on_route)
 final busStatusProvider = Provider<AsyncValue<String>>((ref) {
   final dataAsync = ref.watch(activeBusDataProvider);

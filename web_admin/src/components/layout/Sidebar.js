@@ -8,7 +8,7 @@ import { signOut } from 'firebase/auth';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 
-const Sidebar = ({ profile, isOpen, setIsOpen }) => {
+const Sidebar = ({ profile, isOpen, setIsOpen, isCollapsed }) => {
   const { SCHOOL_CODE, setActiveUnitCode } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -81,16 +81,18 @@ const Sidebar = ({ profile, isOpen, setIsOpen }) => {
   ];
 
   return (
-    <aside className={`fixed left-0 top-0 h-screen w-[240px] bg-slate-50 flex flex-col py-6 border-r border-outline-variant/10 z-50 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
+    <aside className={`fixed left-0 top-0 h-screen ${isCollapsed ? 'w-[80px]' : 'w-[240px]'} bg-slate-50 flex flex-col py-6 border-r border-outline-variant/10 z-50 transform transition-all duration-300 ease-in-out md:translate-x-0 ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
       <button 
         onClick={() => setIsOpen(false)} 
         className="md:hidden absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
       >
         <span className="material-symbols-outlined text-xl">close</span>
       </button>
-      <div className="px-6 mb-10 mt-2 md:mt-0">
-        <h1 className="text-2xl font-bold tracking-tight text-primary font-headline italic">RutaSegura</h1>
-        <div className="mt-1 flex flex-col">
+      <div className={`px-4 mb-10 mt-2 md:mt-0 overflow-hidden ${isCollapsed ? 'text-center' : ''}`}>
+        <h1 className={`font-bold tracking-tight text-primary font-headline italic ${isCollapsed ? 'text-xl' : 'text-2xl'}`}>
+          {isCollapsed ? 'RS' : 'RutaSegura'}
+        </h1>
+        <div className={`mt-1 flex flex-col ${isCollapsed ? 'hidden' : ''}`}>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">
               {profile?.role === 'super_admin' ? 'Supervisión Global' : 'School Admin'}
             </p>
@@ -134,41 +136,47 @@ const Sidebar = ({ profile, isOpen, setIsOpen }) => {
               key={item.label}
               href={item.href}
               onClick={() => setIsOpen && setIsOpen(false)}
-              className={`flex items-center gap-3 px-5 py-3 transition-all duration-200 group ${
+              title={isCollapsed ? item.label : ""}
+              className={`relative flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-5'} py-3 transition-all duration-200 group ${
                 isActive 
-                  ? 'text-primary font-black border-r-4 border-primary bg-white shadow-sm translate-x-1' 
+                  ? `text-primary font-black border-r-4 border-primary bg-white shadow-sm ${!isCollapsed ? 'translate-x-1' : ''}` 
                   : 'text-slate-600 font-bold hover:bg-slate-200/50'
               }`}
             >
               <span className="material-symbols-outlined text-xl">{item.icon}</span>
-              <span className="font-body text-sm flex-1">{item.label}</span>
-              {item.badge && (
+              {!isCollapsed && <span className="font-body text-sm flex-1 whitespace-nowrap">{item.label}</span>}
+              {!isCollapsed && item.badge && (
                 <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
                   {item.badge}
                 </span>
+              )}
+              {isCollapsed && item.badge && (
+                <span className="absolute top-2 right-4 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-4 border-t border-outline-variant/10 pt-4 mt-2 flex flex-col gap-1">
+      <div className={`px-4 border-t border-outline-variant/10 pt-4 mt-2 flex flex-col gap-1 overflow-hidden`}>
         <Link 
           href="/dashboard/profile"
           onClick={() => setIsOpen && setIsOpen(false)}
-          className={`flex items-center gap-3 px-5 py-3 transition-colors rounded-xl ${
+          title={isCollapsed ? "Mi Perfil" : ""}
+          className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-5'} py-3 transition-colors rounded-xl ${
             pathname === '/dashboard/profile' ? 'text-primary font-black bg-primary/5' : 'text-slate-600 font-bold hover:bg-slate-200/50'
           }`}
         >
           <span className="material-symbols-outlined text-xl">account_circle</span>
-          <span className="font-body text-sm">Mi Perfil</span>
+          {!isCollapsed && <span className="font-body text-sm whitespace-nowrap">Mi Perfil</span>}
         </Link>
         <button 
           onClick={handleLogout}
-          className="flex items-center gap-3 px-5 py-3 w-full text-left transition-colors rounded-xl text-error font-black hover:bg-error/10"
+          title={isCollapsed ? "Cerrar Sesión" : ""}
+          className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-5'} py-3 w-full text-left transition-colors rounded-xl text-error font-black hover:bg-error/10`}
         >
           <span className="material-symbols-outlined text-xl">logout</span>
-          <span className="font-body text-sm">Cerrar Sesión</span>
+          {!isCollapsed && <span className="font-body text-sm whitespace-nowrap">Cerrar Sesión</span>}
         </button>
       </div>
     </aside>

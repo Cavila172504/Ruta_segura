@@ -977,107 +977,122 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Row(
-            children: [
-              const Icon(Icons.chat, color: Colors.green, size: 28),
-              const SizedBox(width: 12),
-              Expanded(child: Text('Contactar Soporte', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold))),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Cuéntanos brevemente qué sucede para poder ayudarte mejor:',
-                style: GoogleFonts.publicSans(fontSize: 13, color: Colors.grey.shade600),
+        bool isSubmitting = false;
+        
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Row(
+                children: [
+                  const Icon(Icons.chat, color: Colors.green, size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Contactar Soporte', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold))),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: messageController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Escribe tu mensaje aquí...',
-                  hintStyle: GoogleFonts.publicSans(fontSize: 13),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cuéntanos brevemente qué sucede para poder ayudarte mejor:',
+                      style: GoogleFonts.publicSans(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: messageController,
+                      maxLines: 4,
+                      enabled: !isSubmitting,
+                      decoration: InputDecoration(
+                        hintText: 'Escribe tu mensaje aquí...',
+                        hintStyle: GoogleFonts.publicSans(fontSize: 13),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text('CANCELAR', style: GoogleFonts.publicSans(color: Colors.grey, fontWeight: FontWeight.bold)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final message = messageController.text.trim();
-                if (message.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor, escribe un mensaje.')));
-                  return;
-                }
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.of(dialogContext).pop(),
+                  child: Text('CANCELAR', style: GoogleFonts.publicSans(color: Colors.grey, fontWeight: FontWeight.bold)),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting ? null : () async {
+                    final message = messageController.text.trim();
+                    if (message.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor, escribe un mensaje.')));
+                      return;
+                    }
 
-                  try {
-                    final authRepo = ref.read(authRepositoryProvider);
-                    final uid = await authRepo.getCurrentUserId();
-                    
-                    // Obtener datos del usuario actual para el ticket
-                  
-                  final parentQuery = await FirebaseFirestore.instance
-                      .collection('users').doc('parents').collection('members')
-                      .where('uid', isEqualTo: uid).limit(1).get();
-                  
-                  final parentName = parentQuery.docs.isNotEmpty 
-                      ? (parentQuery.docs.first.data()['name'] ?? 'Padre s/n')
-                      : 'Usuario Desconocido';
+                    setState(() => isSubmitting = true);
 
-                  await FirebaseFirestore.instance.collection('support_tickets').add({
-                    'parentId': uid,
-                    'parentName': parentName,
-                    'message': message,
-                    'timestamp': FieldValue.serverTimestamp(),
-                    'status': 'open',
-                    'type': 'support_request'
-                  });
+                    try {
+                      final authRepo = ref.read(authRepositoryProvider);
+                      final uid = await authRepo.getCurrentUserId();
+                      
+                      final parentQuery = await FirebaseFirestore.instance
+                          .collection('users').doc('parents').collection('members')
+                          .where('uid', isEqualTo: uid).limit(1).get();
+                      
+                      final parentName = parentQuery.docs.isNotEmpty 
+                          ? (parentQuery.docs.first.data()['name'] ?? 'Padre s/n')
+                          : 'Usuario Desconocido';
 
-                  // Añadir notificación local para el padre
-                  if (parentQuery.docs.isNotEmpty) {
-                    await parentQuery.docs.first.reference.collection('notifications').add({
-                      'title': 'Soporte enviado',
-                      'message': 'Tu mensaje ha sido recibido por el administrador.',
-                      'type': 'support',
-                      'timestamp': FieldValue.serverTimestamp(),
-                      'isRead': false
-                    });
-                  }
+                      await FirebaseFirestore.instance.collection('support_tickets').add({
+                        'parentId': uid,
+                        'parentName': parentName,
+                        'message': message,
+                        'timestamp': FieldValue.serverTimestamp(),
+                        'status': 'open',
+                        'type': 'support_request'
+                      });
 
-                  if (context.mounted) {
-                    Navigator.of(dialogContext).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Mensaje enviado a administración. Te contactaremos pronto.'),
-                        backgroundColor: Colors.blueAccent,
-                      )
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al enviar el mensaje.')));
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text('ENVIAR A ADMIN', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
-            ),
-          ],
+                      try {
+                        if (parentQuery.docs.isNotEmpty) {
+                          await parentQuery.docs.first.reference.collection('notifications').add({
+                            'title': 'Soporte enviado',
+                            'message': 'Tu mensaje ha sido recibido por el administrador.',
+                            'type': 'support',
+                            'timestamp': FieldValue.serverTimestamp(),
+                            'isRead': false
+                          });
+                        }
+                      } catch (e) {
+                        debugPrint('Ignorando error de notificación local: $e');
+                      }
+
+                      if (context.mounted) {
+                        Navigator.of(dialogContext).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Mensaje enviado a administración. Te contactaremos pronto.'),
+                            backgroundColor: Colors.blueAccent,
+                          )
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        setState(() => isSubmitting = false);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al enviar el mensaje.')));
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: isSubmitting 
+                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text('ENVIAR A ADMIN', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          }
         );
       },
     );
