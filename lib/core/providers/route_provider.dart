@@ -70,7 +70,7 @@ final activeBusDataProvider = StreamProvider<Map<String, dynamic>?>((ref) async*
           return activeDocs.first.data();
         }
         
-        return snap.docs.first.data();
+        return null; // Ocultar el bus si el conductor no ha iniciado la ruta (status != 'on_route')
       });
 });
 

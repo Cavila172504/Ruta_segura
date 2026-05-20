@@ -14,6 +14,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/map_provider.dart';
 import '../../../core/providers/route_provider.dart';
 import '../../../core/providers/navigation_provider.dart';
+import 'widgets/map_hud.dart';
 
 class DriverMapScreen extends ConsumerStatefulWidget {
   const DriverMapScreen({super.key});
@@ -28,7 +29,10 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
   double _speed = 0.0;
   List<LatLng> _routePoints = [];
   MapType _currentMapType = MapType.normal;
+  bool _trafficEnabled = false;
   bool _isCalculatingRoute = false;
+  bool _showHUD = true;
+  final Set<String> _presentIds = {};
   final LatLng _cadeLocation = const LatLng(-0.3485666414297856, -79.24772636139673);
   final String _googleApiKey = "AIzaSyBRXBhHluPGhrGNTc9cj03aGut7Q6jkd_U";
 
@@ -44,9 +48,9 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
   }
 
   Future<void> _loadIcons() async {
-    _busIcon = await _createMarkerImageFromAsset('assets/images/autobus-escolar.png', 100);
-    _schoolIcon = await _createMarkerImageFromAsset('assets/images/colegio.png', 100);
-    _houseIcon = await _createMarkerImageFromAsset('assets/images/casa.png', 80);
+    _busIcon = await _createMarkerImageFromAsset('assets/images/autobus-escolar.png', 40);
+    _schoolIcon = await _createMarkerImageFromAsset('assets/images/colegio.png', 45);
+    _houseIcon = await _createMarkerImageFromAsset('assets/images/casa.png', 30);
     if (mounted) setState(() {});
   }
 
@@ -55,7 +59,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: width);
     ui.FrameInfo fi = await codec.getNextFrame();
     final bytes = (await fi.image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
-    return BitmapDescriptor.fromBytes(bytes);
+    return BitmapDescriptor.bytes(bytes);
   }
 
   bool _hasCenteredInitially = false;
@@ -105,7 +109,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     }
 
     _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 10),
     ).listen((Position position) {
       if (mounted) {
         setState(() {
@@ -333,37 +337,81 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     return _buildMainMap();
   }
 
+  void _showToast(String icon, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: GoogleFonts.inter(fontWeight: FontWeight.w600))),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0D4D3A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      )
+    );
+  }
+
   Widget _buildMainMap() {
     final profile = ref.watch(userProfileProvider).value;
     final unitCode = profile?['unitCode'] ?? 'CAD31';
     final driverId = profile?['uid'] ?? 'UNKNOWN';
     final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
+    final students = studentsAsync.value ?? [];
     
     // Escuchamos reactivamente los cambios de estado del viaje
     ref.listen(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId)), (previous, next) {
       final wasActive = previous?.value?['status'] == 'on_route';
       final isActive = next.value?['status'] == 'on_route';
 
-      // Limpiar ruta si el viaje terminó
       if (wasActive && !isActive && _routePoints.isNotEmpty) {
         setState(() => _routePoints = []);
       }
       
-      // Trazar ruta si el viaje acaba de iniciar
       if (!wasActive && isActive && _routePoints.isEmpty && !_isCalculatingRoute && _currentPosition != null) {
         final startPos = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
-        _getPolyline(startPos, _cadeLocation, studentsAsync.value ?? []);
+        _getPolyline(startPos, _cadeLocation, students);
       }
     });
 
     final tripStatusAsync = ref.watch(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId)));
     final isTripActive = tripStatusAsync.value?['status'] == 'on_route';
+    final isModoIda = tripStatusAsync.value?['routeType'] == 'to_school';
+
+    // Determinar próxima parada
+    Map<String, dynamic>? nextStudent;
+    double distToNext = 0;
+    if (isTripActive && isModoIda) {
+      for (var s in students) {
+        if (!s.containsKey('stopLat') || s['status'] == 'absent') continue;
+        if (!_presentIds.contains(s['id'])) {
+          nextStudent = s;
+          if (_currentPosition != null) {
+            distToNext = Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, s['stopLat'], s['stopLng']);
+          }
+          break;
+        }
+      }
+    }
+
+    // Calcular progreso
+    double progress = 0;
+    if (isTripActive && students.isNotEmpty) {
+      int total = students.where((s) => s['status'] != 'absent').length;
+      if (total > 0) progress = _presentIds.length / total;
+    }
 
     return Scaffold(
       body: Stack(
         children: [
           GoogleMap(
             mapType: _currentMapType,
+            trafficEnabled: _trafficEnabled,
+            buildingsEnabled: true,
             zoomControlsEnabled: false,
             myLocationButtonEnabled: false,
             mapToolbarEnabled: false,
@@ -375,7 +423,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
                 _hasCenteredInitially = true;
               }
             },
-            markers: _buildMarkers(studentsAsync.value ?? [], isTripActive),
+            markers: _buildMarkers(students, isTripActive),
             polylines: {
               if (_routePoints.isNotEmpty && isTripActive)
                 Polyline(
@@ -383,7 +431,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
                   points: _currentPosition != null 
                       ? [LatLng(_currentPosition!.latitude, _currentPosition!.longitude), ..._routePoints]
                       : _routePoints, 
-                  color: const Color(0xFF2196F3), 
+                  color: const Color(0xFFFFD600), // Amarillo ruta
                   width: 6, 
                   jointType: JointType.round, 
                   startCap: Cap.roundCap, 
@@ -391,137 +439,91 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
                 ),
             },
           ),
-          Positioned(
-            top: 50, left: 16, right: 16,
-            child: Row(
-              children: [
-                _topBadge(isTripActive ? 'Wifi On' : 'Offline', isTripActive ? Colors.green.shade600 : Colors.grey, Icons.wifi),
-                const SizedBox(width: 8),
-                _topBadge('Ruta', isTripActive ? Colors.orange.shade700 : Colors.grey, Icons.directions_bus_rounded),
-                const SizedBox(width: 8),
-                _topBadge('UNIDAD $unitCode', const Color(0xFF0D4D3A), Icons.tag_rounded),
-              ],
+          
+          // 1. Header dinámico tipo HUD
+          if (isTripActive && _showHUD)
+            Positioned(
+              top: 50, left: 16, right: 16,
+              child: MapHUD(
+                speedKmh: _speed,
+                progressPercent: progress,
+                eta: '${((students.length - _presentIds.length) * 5) + 15} min', // ETA simulado
+                nextStopName: nextStudent?['studentName'],
+              )
             ),
-          ),
-          Positioned(top: 110, left: 16, child: _teleBox()),
-          if (isTripActive) ...[
-            Positioned(top: 110, right: 16, child: _novedadesBtn(() => _sendTrafficAlert(unitCode, studentsAsync.value ?? []))),
-            Positioned(bottom: 25, left: 50, right: 50, child: _finishBtn(() => _finishTrip(unitCode, profile?['uid']))),
-          ] else ...[
-            Positioned(bottom: 25, left: 50, right: 50, child: _goToDashboardBtn(context)),
-          ],
-          // Controles flotantes derechos agrupados (Evita solapamiento)
+
+          // Controles en modo inactivo
+          if (!isTripActive)
+            Positioned(
+              bottom: 40, left: 80, right: 80,
+              child: ElevatedButton(
+                onPressed: () => ref.read(driverNavigationProvider.notifier).setIndex(0),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D4D3A), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 8),
+                child: Text('IR AL INICIO', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
+              )
+            ),
+
+          // Botón para finalizar recorrido
+          if (isTripActive)
+            Positioned(
+              bottom: 40, left: 80, right: 80,
+              child: ElevatedButton(
+                onPressed: () => _finishTrip(unitCode, profile?['uid']),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 8),
+                child: Text('FINALIZAR VIAJE', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
+              )
+            ),
+
+
+
+          // Controles Flotantes (Derecha)
           Positioned(
-            bottom: isTripActive ? 105 : 45,
+            bottom: isTripActive ? 120 : 100,
             right: 16,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (isTripActive && _routePoints.isNotEmpty) ...[
-                  _fullRouteBtn(),
+                if (isTripActive) ...[
+                  _actionBtn(Icons.speed_rounded, () => setState(() => _showHUD = !_showHUD), isActive: _showHUD),
+                  const SizedBox(height: 12),
+                  _actionBtn(Icons.warning_amber_rounded, () {
+                     _sendTrafficAlert(unitCode, students);
+                     _showToast('⚠️', 'Tráfico reportado a los padres');
+                  }, color: Colors.orangeAccent),
                   const SizedBox(height: 12),
                 ],
-                _zoomButtons(),
+                _actionBtn(Icons.traffic_rounded, () => setState(() => _trafficEnabled = !_trafficEnabled), isActive: _trafficEnabled),
                 const SizedBox(height: 12),
-                _mapTypeBtn(),
+                _actionBtn(Icons.layers_rounded, () => setState(() => _currentMapType = _currentMapType == MapType.normal ? MapType.satellite : MapType.normal)),
                 const SizedBox(height: 12),
-                _gpsBtn(),
+                _actionBtn(Icons.my_location_rounded, () { 
+                  if (_currentPosition != null) {
+                    ref.read(mapControllerProvider)?.animateCamera(CameraUpdate.newLatLng(LatLng(_currentPosition!.latitude, _currentPosition!.longitude))); 
+                  }
+                }, color: const Color(0xFFFFD600)),
               ],
             ),
           ),
-          // D-Pad Control
-          Positioned(bottom: isTripActive ? 105 : 45, left: 16, child: _dpad()),
         ],
       ),
     );
   }
 
-  Widget _topBadge(String text, Color color, IconData icon) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 5)]),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: Colors.white, size: 12), const SizedBox(width: 4), Text(text.toUpperCase(), style: GoogleFonts.publicSans(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900))]),
-  );
-
-  Widget _novedadesBtn(VoidCallback onTap) => ElevatedButton(
-    onPressed: onTap,
-    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2196F3), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 4),
-    child: Text('Novedades', style: GoogleFonts.publicSans(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
-  );
-
-  Widget _finishBtn(VoidCallback onTap) => ElevatedButton(
-    onPressed: onTap,
-    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF44336), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), elevation: 8),
-    child: Center(child: Text('FINALIZAR RECORRIDO', style: GoogleFonts.publicSans(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5))),
-  );
-
-  Widget _goToDashboardBtn(BuildContext context) => ElevatedButton(
-    onPressed: () {
-      ref.read(driverNavigationProvider.notifier).setIndex(0);
-    },
-    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D4D3A), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), elevation: 8),
-    child: Center(child: Text('IR AL INICIO PARA EMPEZAR', style: GoogleFonts.publicSans(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))),
-  );
-
-  Widget _dpad() => Container(
-    padding: const EdgeInsets.all(2),
-    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(15), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)]),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(icon: const Icon(Icons.arrow_drop_up_rounded, color: Color(0xFF0D4D3A), size: 28), onPressed: () => _moveCamera(0, -150), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(icon: const Icon(Icons.arrow_left_rounded, color: Color(0xFF0D4D3A), size: 28), onPressed: () => _moveCamera(-150, 0), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-            const SizedBox(width: 15),
-            IconButton(icon: const Icon(Icons.arrow_right_rounded, color: Color(0xFF0D4D3A), size: 28), onPressed: () => _moveCamera(150, 0), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-          ],
+  Widget _actionBtn(IconData icon, VoidCallback onTap, {bool isActive = false, Color color = Colors.white}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 48, height: 48,
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF0D4D3A) : color,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))]
         ),
-        IconButton(icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF0D4D3A), size: 28), onPressed: () => _moveCamera(0, 150), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-      ],
-    ),
-  );
-
-  Widget _zoomButtons() => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _controlBtn(Icons.add_rounded, () => _zoomCamera(true)),
-      const SizedBox(height: 6),
-      _controlBtn(Icons.remove_rounded, () => _zoomCamera(false)),
-    ],
-  );
-
-  Widget _controlBtn(IconData icon, VoidCallback onTap) => GestureDetector(
-    onTap: onTap,
-    child: Container(width: 38, height: 38, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3)]), child: Icon(icon, color: const Color(0xFF0D4D3A), size: 22)),
-  );
-
-  /// Botón para ver toda la ruta completa en el mapa
-  Widget _fullRouteBtn() => GestureDetector(
-    onTap: _showFullRoute,
-    child: Container(
-      width: 45, height: 45,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D4D3A),
-        shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: const Color(0xFF0D4D3A).withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
+        child: Icon(icon, color: isActive ? Colors.white : const Color(0xFF0D4D3A), size: 24),
       ),
-      child: const Icon(Icons.route_rounded, color: Color(0xFFFFD600), size: 22),
-    ),
-  );
-
-  Widget _mapTypeBtn() => GestureDetector(
-    onTap: () => setState(() => _currentMapType = _currentMapType == MapType.normal ? MapType.satellite : (_currentMapType == MapType.satellite ? MapType.terrain : MapType.normal)),
-    child: Container(width: 45, height: 45, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFFD600), width: 1.5), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 5)]), child: const Icon(Icons.layers_rounded, color: Color(0xFF0D4D3A), size: 22)),
-  );
-
-  Widget _gpsBtn() => GestureDetector(
-    onTap: () { if (_currentPosition != null) ref.read(mapControllerProvider)?.animateCamera(CameraUpdate.newLatLng(LatLng(_currentPosition!.latitude, _currentPosition!.longitude))); },
-    child: Container(width: 45, height: 45, decoration: const BoxDecoration(color: Color(0xFFFFD600), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 5)]), child: const Icon(Icons.my_location, color: Color(0xFF0D4D3A), size: 22)),
-  );
-
-  Widget _teleBox() => Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Velocidad: ${_speed.toStringAsFixed(1)} km/h', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), Text('Altitud: ${_currentPosition?.altitude.toStringAsFixed(0) ?? "--"} m', style: const TextStyle(color: Colors.white, fontSize: 9))]));
+    );
+  }
 
   double _getBusHeading() {
     double heading = _currentPosition?.heading ?? 0;

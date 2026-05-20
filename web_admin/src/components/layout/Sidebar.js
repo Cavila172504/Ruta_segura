@@ -159,6 +159,16 @@ const Sidebar = ({ profile, isOpen, setIsOpen, isCollapsed }) => {
       </nav>
 
       <div className={`px-4 border-t border-outline-variant/10 pt-4 mt-2 flex flex-col gap-1 overflow-hidden`}>
+        <a 
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title={isCollapsed ? "Ver sitio web" : ""}
+          className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-5'} py-3 transition-colors rounded-xl text-slate-600 font-bold hover:bg-slate-200/50`}
+        >
+          <span className="material-symbols-outlined text-xl">language</span>
+          {!isCollapsed && <span className="font-body text-sm whitespace-nowrap">Ver sitio web</span>}
+        </a>
         <Link 
           href="/dashboard/profile"
           onClick={() => setIsOpen && setIsOpen(false)}

@@ -11,7 +11,6 @@ import '../../../core/services/notification_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:ui' as ui;
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/services.dart';
 
 class ParentMapScreen extends ConsumerStatefulWidget {
@@ -34,37 +33,6 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
   // Auto-centrado en el bus al iniciar la ruta
   bool _hasCenteredOnBus = false;
 
-  List<LatLng> _parentRoutePoints = [];
-  String? _lastRouteJson;
-
-  void _updateParentRouteProgress(LatLng busLocation) {
-    if (_parentRoutePoints.isEmpty) return;
-
-    int closestIndex = 0;
-    double minDistance = double.infinity;
-
-    // Buscar en toda la ruta sin límite para evitar problemas si el bus salta tramos
-    for (int i = 0; i < _parentRoutePoints.length; i++) {
-      double distance = Geolocator.distanceBetween(
-        busLocation.latitude, busLocation.longitude,
-        _parentRoutePoints[i].latitude, _parentRoutePoints[i].longitude
-      );
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = i;
-      }
-    }
-
-    if (minDistance < 60 && closestIndex > 0) {
-      // Llamada directa a setState más eficiente (se ejecuta desde ref.listen, no en build)
-      if (mounted) {
-        setState(() {
-          _parentRoutePoints.removeRange(0, closestIndex);
-        });
-      }
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -73,9 +41,9 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
 
   Future<void> _loadIcons() async {
     try {
-      _busIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/autobus-escolar.png', 130));
-      _houseIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/casa.png', 100));
-      _schoolIcon = BitmapDescriptor.fromBytes(await _getBytesFromAsset('assets/images/colegio.png', 120));
+      _busIcon = BitmapDescriptor.bytes(await _getBytesFromAsset('assets/images/autobus-escolar.png', 40));
+      _houseIcon = BitmapDescriptor.bytes(await _getBytesFromAsset('assets/images/casa.png', 30));
+      _schoolIcon = BitmapDescriptor.bytes(await _getBytesFromAsset('assets/images/colegio.png', 45));
       if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Error cargando iconos: $e');
@@ -99,7 +67,8 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(remoteNotificationsListenerProvider);
-    // 1. Lógica de Alerta de Proximidad (600 metros)
+    
+    // 1. Lógica de Alerta de Proximidad Inteligente (500 metros) con ETA
     ref.listen(liveBusLocationProvider, (previous, next) {
       final busLoc = next.value;
       final students = ref.read(parentStudentsProvider).value ?? [];
@@ -116,14 +85,19 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
               sLat, sLng,
             );
 
-            // Alerta si está a menos de 600 metros y aún no hemos avisado
-            if (distance < 600 && !_notifiedStudents.contains(sId)) {
+            // Alerta si está a 500 metros o menos y aún no hemos avisado
+            if (distance <= 500 && !_notifiedStudents.contains(sId)) {
               _notifiedStudents.add(sId); // Marcamos como avisado
               
+              // Cálculo del ETA (Asumiendo 25 km/h en ciudad = ~6.9 m/s)
+              // Tiempo (segundos) = distancia / velocidad
+              int etaMinutos = (distance / 6.9 / 60).ceil();
+              if (etaMinutos < 1) etaMinutos = 1;
+
               NotificationService().showLocalNotification(
                 id: student.hashCode,
-                title: '🚩 ¡El bus está cerca!',
-                body: 'Está a ${distance.toInt()}m de la parada de ${student['studentName']}. Es momento de salir.',
+                title: '🚩 ¡El bus se acerca!',
+                body: 'El bus está a ${distance.toInt()} metros. Llegará en aprox. $etaMinutos minuto(s).',
               );
             } 
             // Si el bus se aleja más de 2km, reseteamos para cuando vuelva en el siguiente turno (tarde)
@@ -144,29 +118,10 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
     final busStatus = ref.watch(busStatusProvider).value ?? 'idle';
     final isRouteActive = busStatus == 'on_route';
 
-    // ── ACTUALIZAR LA RUTA DEL PADRE ──
-    ref.listen<AsyncValue<String?>>(busRouteJsonProvider, (previous, next) {
-      if (next.value != null && next.value != _lastRouteJson) {
-        _lastRouteJson = next.value;
-        try {
-          List<dynamic> parsed = jsonDecode(next.value!);
-          if (mounted) {
-            setState(() {
-              _parentRoutePoints = parsed.map((e) => LatLng(e[0], e[1])).toList();
-            });
-          }
-        } catch (e) {
-          debugPrint("Error parsing parent route: $e");
-        }
-      }
-    });
-
-    // ── AUTO-CENTRAR en el bus y ACTUALIZAR PROGRESO ──
+    // ── AUTO-CENTRAR en el bus ──
     ref.listen<AsyncValue<LatLng?>>(liveBusLocationProvider, (previous, next) {
       final busLoc = next.value;
       if (busLoc != null && isRouteActive) {
-        _updateParentRouteProgress(busLoc);
-        
         if (_mapController != null && !_hasCenteredOnBus) {
           _hasCenteredOnBus = true;
           _mapController!.animateCamera(
@@ -272,7 +227,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
           Expanded(
             child: Stack(
               children: [
-                // Mapa Principal
+                // Mapa Principal (Optimizado sin rutas)
                 GoogleMap(
                   initialCameraPosition: CameraPosition(
                     target: liveBusLocation ?? homeLocation ?? const LatLng(-0.2298, -78.5249),
@@ -281,20 +236,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                   myLocationEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
-                  polylines: {
-                    if (_parentRoutePoints.isNotEmpty && isRouteActive)
-                      Polyline(
-                        polylineId: const PolylineId('route'),
-                        points: liveBusLocation != null 
-                            ? [liveBusLocation, ..._parentRoutePoints]
-                            : _parentRoutePoints,
-                        color: const Color(0xFF2196F3),
-                        width: 6,
-                        jointType: JointType.round,
-                        startCap: Cap.roundCap,
-                        endCap: Cap.roundCap,
-                      ),
-                  },
+                  // Se eliminó la propiedad polylines para mayor velocidad
                   markers: {
                     // Marcador Casa Estudiante
                     if (homeLocation != null)
@@ -306,7 +248,7 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
                         infoWindow: InfoWindow(title: 'Ubicación de $activeStudentName'),
                       ),
                     
-                    // Marcador Bus Real-time (solo cuando la ruta está activa)
+                    // Marcador Bus Real-time (solo cuando el driver está activo/on_route)
                     if (liveBusLocation != null && isRouteActive)
                       Marker(
                         markerId: const MarkerId('bus_marker'),

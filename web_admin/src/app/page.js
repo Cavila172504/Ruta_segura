@@ -1,25 +1,16 @@
-"use client";
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import LandingPage from '@/components/landing/LandingPage';
+
+export const metadata = {
+  title: "Ruta Segura | Plataforma de Gestión Escolar",
+  description: "Plataforma integral para colegios e instituciones. Controla rutas de transporte, monitoreo satelital en vivo y mejora la seguridad de tus estudiantes.",
+  keywords: "software educativo, gestión escolar, sistema para colegios, transporte escolar, monitoreo gps",
+  openGraph: {
+    title: "Ruta Segura | Plataforma de Gestión Escolar",
+    description: "Plataforma integral para colegios e instituciones. Control de rutas y monitoreo en tiempo real.",
+    type: "website",
+  }
+};
 
 export default function Home() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading) {
-      if (user) {
-        router.push('/dashboard');
-      } else {
-        router.push('/login');
-      }
-    }
-  }, [user, loading, router]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-    </div>
-  );
+  return <LandingPage />;
 }

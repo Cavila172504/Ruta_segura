@@ -22,14 +22,16 @@ export const AuthProvider = ({ children }) => {
 
     // --- SOPORTE PARA BYPASS QUEMADO (SINCRONICO) ---
     if (typeof window !== 'undefined' && localStorage.getItem('adminBypass') === 'true') {
-      setUser({ email: 'superuser@rutasegura.local', uid: 'bypass-id' });
-      setProfile({ 
-        name: "Súper Usuario (Bypass)", 
-        role: "super_admin",
-        unitCode: localStorage.getItem('activeUnitCode') || 'CAD31'
-      });
-      _setActiveUnitCode(localStorage.getItem('activeUnitCode') || 'CAD31');
-      setLoading(false);
+      setTimeout(() => {
+        setUser({ email: 'superuser@rutasegura.local', uid: 'bypass-id' });
+        setProfile({ 
+          name: "Súper Usuario (Bypass)", 
+          role: "super_admin",
+          unitCode: localStorage.getItem('activeUnitCode') || 'CAD31'
+        });
+        _setActiveUnitCode(localStorage.getItem('activeUnitCode') || 'CAD31');
+        setLoading(false);
+      }, 0);
       return; // No suscribimos a Firebase si hay bypass
     }
 
