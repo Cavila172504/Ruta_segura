@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/providers/parent_provider.dart';
+import '../../../core/providers/route_provider.dart';
 import '../../../core/services/notification_service.dart';
 import 'parent_map_picker_screen.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,7 +15,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 
 class AddStudentScreen extends ConsumerStatefulWidget {
-  const AddStudentScreen({super.key});
+  const AddStudentScreen({super.key, this.fixedUnitCode});
+
+  /// Si se pasa, el estudiante se registra solo en este colegio (dashboard activo).
+  final String? fixedUnitCode;
 
   @override
   ConsumerState<AddStudentScreen> createState() => _AddStudentScreenState();
@@ -54,6 +59,16 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.fixedUnitCode != null && widget.fixedUnitCode!.trim().isNotEmpty) {
+      final code = widget.fixedUnitCode!.trim().toUpperCase();
+      _unitCodeController.text = code;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _validateUnit(code));
+    }
+  }
+
+  @override
   void dispose() {
     _studentNameController.dispose();
     _cedulaController.dispose();
@@ -80,11 +95,19 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       final doc = await FirebaseFirestore.instance.collection('companies').doc(code.toUpperCase().trim()).get();
       if (!mounted) return;
       if (doc.exists) {
-        setState(() {
-          // Asumimos 'name' o similar. Para CADE forzamos CADE si el código coincide con el patrón esperado
-          _schoolName = doc.data()?['name'] ?? 'Colegio CADE';
-          _errorMessage = null;
-        });
+        final name = doc.data()?['name'] as String?;
+        if (name != null && name.trim().isNotEmpty) {
+          setState(() {
+            _schoolName = name.trim();
+            _errorMessage = null;
+          });
+        } else {
+          setState(() {
+            _schoolName = null;
+            _errorMessage =
+                'Este colegio no está configurado correctamente. Contacta a tu institución.';
+          });
+        }
       } else {
         setState(() {
           _schoolName = null;
@@ -151,6 +174,11 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       setState(() => _errorMessage = 'Debes ingresar el número de la unidad escolar');
       return;
     }
+    if (_schoolName == null) {
+      setState(() => _errorMessage =
+          _errorMessage ?? 'Debes ingresar un código de colegio válido y esperar la confirmación.');
+      return;
+    }
     if (_selectedLocation == null) {
       setState(() => _errorMessage = 'Debes fijar la ubicación de parada en el mapa');
       return;
@@ -194,8 +222,12 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         photoUrl: photoUrl,
         serviceType: _selectedServiceType,
       );
-      
-      // Suscribirse a los tópicos de notificación para este bus
+
+      ref.invalidate(linkedUnitCodesProvider);
+      ref.invalidate(activeUnitCodeProvider);
+      ref.invalidate(parentStudentsProvider);
+
+      // Suscribirse a los topicos de notificacion para este bus
       await NotificationService().subscribeToBus(unitCode);
 
       if (!mounted) return;
@@ -221,10 +253,12 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         if (code.startsWith('RUTASEGURA:UNIT:')) {
           code = code.replaceFirst('RUTASEGURA:UNIT:', '');
         }
-        
+        code = code.trim().toUpperCase();
+
         setState(() {
           _unitCodeController.text = code;
           _isScanning = false;
+          _schoolName = null;
         });
         _validateUnit(code);
       }
@@ -529,10 +563,21 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                   Expanded(
                     child: TextField(
                       controller: _unitCodeController,
+                      readOnly: widget.fixedUnitCode != null,
                       style: GoogleFonts.publicSans(),
                       onChanged: (val) {
-                        setState(() => _errorMessage = null);
-                        if (val.length >= 3) _validateUnit(val);
+                        final normalized = val.toUpperCase();
+                        if (normalized != val) {
+                          _unitCodeController.value = TextEditingValue(
+                            text: normalized,
+                            selection: TextSelection.collapsed(offset: normalized.length),
+                          );
+                        }
+                        setState(() {
+                          _errorMessage = null;
+                          _schoolName = null;
+                        });
+                        if (normalized.length >= 3) _validateUnit(normalized);
                       },
                       decoration: InputDecoration(
                         hintText: 'Ej. UNIDAD-42',

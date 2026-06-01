@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { collection, onSnapshot, query, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { authFetch } from '@/lib/api-client';
 
 const UsersManagementPage = () => {
     const { profile } = useAuth();
@@ -35,9 +36,8 @@ const UsersManagementPage = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await fetch('/api/users/create', {
+            const response = await authFetch('/api/users/create', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
 

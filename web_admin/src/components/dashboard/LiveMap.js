@@ -1,8 +1,9 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { decodePolyline } from '@/lib/polyline';
 
 // ── Íconos SVG inline (siempre cargan, sin depender de CDN externos) ─────────
 
@@ -75,11 +76,14 @@ function AutoCenter({ buses, defaultCenter }) {
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
-export default function LiveMap({ buses, students }) {
+const FALLBACK_CENTER = [-0.3485881, -79.2477156];
+
+export default function LiveMap({ buses, students, schoolCenter, schoolName, schoolAddress }) {
   const [isMounted, setIsMounted] = useState(false);
 
-  // Centro fijo: Colegio CADE – Km 14.5 vía Quevedo, Santo Domingo
-  const cadeCenter = [-0.3485881, -79.2477156];
+  const mapCenter = schoolCenter?.lat != null && schoolCenter?.lng != null
+    ? [schoolCenter.lat, schoolCenter.lng]
+    : FALLBACK_CENTER;
 
   useEffect(() => { 
     const timer = setTimeout(() => setIsMounted(true), 0);
@@ -103,7 +107,7 @@ export default function LiveMap({ buses, students }) {
   return (
     <div className="w-full h-[520px] rounded-2xl overflow-hidden border-2 border-slate-200 shadow-lg relative">
       <MapContainer
-        center={cadeCenter}
+        center={mapCenter}
         zoom={14}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
@@ -115,14 +119,14 @@ export default function LiveMap({ buses, students }) {
           url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
         />
 
-        <AutoCenter buses={buses} defaultCenter={cadeCenter} />
+        <AutoCenter buses={buses} defaultCenter={mapCenter} />
 
-        {/* ── Marcador del Colegio CADE ── */}
-        <Marker position={cadeCenter} icon={schoolIcon}>
+        {/* ── Marcador del colegio ── */}
+        <Marker position={mapCenter} icon={schoolIcon}>
           <Popup>
             <div className="text-center p-2 min-w-[160px]">
-              <p className="font-extrabold text-primary text-base">COLEGIO CADE</p>
-              <p className="text-xs text-slate-500 italic mt-1">Km 14½ vía Quevedo</p>
+              <p className="font-extrabold text-primary text-base">{schoolName || 'COLEGIO'}</p>
+              <p className="text-xs text-slate-500 italic mt-1">{schoolAddress || 'Sede educativa'}</p>
               <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-black mt-2 inline-block">
                 CENTRO DE OPERACIONES
               </span>
@@ -153,6 +157,21 @@ export default function LiveMap({ buses, students }) {
                 </div>
               </Popup>
             </Marker>
+          );
+        })}
+
+        {/* ── Rutas activas (polyline del conductor) ── */}
+        {buses.map((bus) => {
+          const routeJson = bus.fullRouteJson;
+          if (!routeJson || bus.status !== 'on_route') return null;
+          const points = decodePolyline(routeJson);
+          if (points.length < 2) return null;
+          return (
+            <Polyline
+              key={`route-${bus.id}`}
+              positions={points}
+              pathOptions={{ color: '#4361ee', weight: 5, opacity: 0.85 }}
+            />
           );
         })}
 

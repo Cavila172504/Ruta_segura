@@ -211,15 +211,16 @@ const RepresentativesPage = () => {
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Representante</th>
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Estudiante</th>
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Servicio</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Conductor</th>
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estado</th>
                 {profile?.role !== 'viewer' && <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Opciones</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
-                <tr><td colSpan="7" className="py-6 text-center text-slate-400 text-sm">Cargando datos...</td></tr>
+                <tr><td colSpan="8" className="py-6 text-center text-slate-400 text-sm">Cargando datos...</td></tr>
               ) : filteredReps.length === 0 ? (
-                <tr><td colSpan="7" className="py-6 text-center text-slate-400 text-sm">No hay registros con los criterios.</td></tr>
+                <tr><td colSpan="8" className="py-6 text-center text-slate-400 text-sm">No hay registros con los criterios.</td></tr>
               ) : filteredReps.map((rep, idx) => (
                 <tr key={rep.id} className="hover:bg-slate-50/80 transition-all group">
                   <td className="px-4 py-3 text-center text-xs font-bold text-slate-400">{idx + 1}</td>
@@ -230,6 +231,13 @@ const RepresentativesPage = () => {
                   </td>
                   <td className="px-4 py-3 text-left text-xs md:text-sm font-black text-primary uppercase">{rep.studentName || '---'}</td>
                   <td className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase">{rep.serviceType || '---'}</td>
+                  <td className="px-4 py-3 text-center">
+                    {rep.driverId ? (
+                      <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-1 rounded text-[9px] font-black uppercase">Asignado</span>
+                    ) : (
+                      <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2 py-1 rounded text-[9px] font-black uppercase">Sin ruta</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     {rep.status === 'active' ? (
                       <div className="flex flex-col items-center gap-1">

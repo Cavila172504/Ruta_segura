@@ -26,9 +26,6 @@ export default function LandingPage() {
   const handleLoginClick = async () => {
     if (user) {
       try {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('adminBypass');
-        }
         await signOut(auth);
       } catch (error) {
         console.error('Error signing out', error);

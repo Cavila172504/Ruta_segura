@@ -11,6 +11,8 @@ import '../../../core/providers/notification_provider.dart';
 import '../../../core/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/providers/route_provider.dart';
+import '../../../core/providers/parent_provider.dart';
+import 'parent_schools_screen.dart';
 
 class ParentDashboardScreen extends ConsumerStatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -30,6 +32,24 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
 
   // Bandera para evitar doble navegación
   bool _hasNavigatedToMap = false;
+  bool _didBootstrap = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (_didBootstrap) return;
+      _didBootstrap = true;
+      await subscribeParentToAllLinkedBuses(ref);
+      final linked = await ref.read(linkedUnitCodesProvider.future);
+      if (!mounted) return;
+      if (linked.isEmpty) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ParentSchoolsScreen()),
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,15 +77,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
 
     // Auto-suscribir al topic FCM del bus cuando carguen los estudiantes.
     // Así el padre recibe push incluso si la app estuvo cerrada un tiempo.
-    ref.listen(parentStudentsProvider, (_, next) {
-      next.whenData((students) {
-        final subscribedCodes = <String>{};
-        for (final student in students) {
-          final unitCode = student['unitCode'] as String?;
-          if (unitCode != null && !subscribedCodes.contains(unitCode)) {
-            subscribedCodes.add(unitCode);
-            NotificationService().subscribeToBus(unitCode);
-          }
+    ref.listen(linkedUnitCodesProvider, (_, next) {
+      next.whenData((codes) {
+        for (final code in codes) {
+          NotificationService().subscribeToBus(code);
         }
       });
     });
@@ -169,7 +184,15 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                       color: _onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
+                  _SchoolSelectorBar(
+                    onManageSchools: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ParentSchoolsScreen(selectOnly: true)),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
 
                   // Sección Mis Estudiantes (dinámica desde Firestore)
                   Consumer(
@@ -232,8 +255,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                   ),
                                   const SizedBox(height: 20),
                                   ElevatedButton.icon(
-                                    onPressed: () => Navigator.push(context,
-                                        MaterialPageRoute(builder: (_) => const AddStudentScreen())),
+                                    onPressed: _openAddStudent,
                                     icon: const Icon(Icons.add),
                                     label: Text(
                                       'AÑADIR ESTUDIANTE',
@@ -618,6 +640,21 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     ));
   }
 
+  void _openAddStudent() async {
+    final active = await ref.read(activeUnitCodeProvider.future);
+    if (!mounted) return;
+    if (active == null || active.isEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ParentSchoolsScreen()),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AddStudentScreen(fixedUnitCode: active)),
+    );
+  }
+
   void _showAddStudentWarning(BuildContext context) {
     showDialog(
       context: context,
@@ -632,7 +669,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             ],
           ),
           content: Text(
-            'Para registrar un nuevo alumno es necesario ingresar el código de la unidad educativa o del transporte asignado a la que quiere ingresar.\n\n¿Desea continuar?',
+            'Registrarás un alumno en el colegio activo. El código ya viene precargado.\n\n¿Desea continuar?',
             style: GoogleFonts.publicSans(fontSize: 15),
           ),
           actions: [
@@ -642,8 +679,8 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Ocultar el diálogo
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddStudentScreen())); // Ir a la pantalla
+                Navigator.of(dialogContext).pop();
+                _openAddStudent();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryContainer,
@@ -1093,6 +1130,79 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               ],
             );
           }
+        );
+      },
+    );
+  }
+}
+
+class _SchoolSelectorBar extends ConsumerWidget {
+  const _SchoolSelectorBar({required this.onManageSchools});
+
+  final VoidCallback onManageSchools;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeAsync = ref.watch(activeUnitCodeProvider);
+    final linkedAsync = ref.watch(linkedUnitCodesProvider);
+
+    return linkedAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (codes) {
+        if (codes.isEmpty) {
+          return OutlinedButton.icon(
+            onPressed: onManageSchools,
+            icon: const Icon(Icons.school),
+            label: const Text('Vincular primer colegio'),
+          );
+        }
+
+        return activeAsync.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (active) {
+            final current = active ?? codes.first;
+            return FutureBuilder<Map<String, dynamic>?>(
+              future: ref.read(companyByUnitProvider(current).future),
+              builder: (context, snap) {
+                final schoolName = snap.data?['name'] as String? ?? current;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF004782).withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.school, color: Color(0xFF004782)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Colegio activo',
+                              style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+                            ),
+                            Text(
+                              '$schoolName ($current)',
+                              style: GoogleFonts.publicSans(fontSize: 13, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: onManageSchools,
+                        child: const Text('Cambiar'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -50,7 +51,7 @@ class DriverProfileScreen extends ConsumerWidget {
                           await ref.read(authRepositoryProvider).signOut();
                           if (context.mounted) {
                             Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              MaterialPageRoute(builder: (_) => const LoginScreen(isDriverApp: true)),
                               (route) => false,
                             );
                           }
@@ -87,8 +88,23 @@ class DriverProfileScreen extends ConsumerWidget {
                       final name = profile?['name'] as String? ?? 'Conductor';
                       final email = profile?['email'] as String? ?? 'No disponible';
                       final unitCode = profile?['unitCode'] as String? ?? 'SIN ASIGNAR';
-                      
-                      return Column(
+                      final uid = profile?['uid'] as String?;
+
+                      return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>?>(
+                        future: uid != null && unitCode != 'SIN ASIGNAR'
+                            ? FirebaseFirestore.instance
+                                .collection('companies')
+                                .doc(unitCode)
+                                .collection('drivers')
+                                .doc(uid)
+                                .get()
+                            : Future<DocumentSnapshot<Map<String, dynamic>>?>.value(null),
+                        builder: (context, driverSnap) {
+                          final driverData = driverSnap.data?.data();
+                          final cooperative = (driverData?['cooperative'] as String?)?.trim();
+                          final phone = (driverData?['phoneCell'] as String?)?.trim();
+
+                          return Column(
                         children: [
                           Text(name.toUpperCase(), style: GoogleFonts.publicSans(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.onSurface)),
                           Text(email, style: GoogleFonts.publicSans(fontSize: 14, color: AppColors.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
@@ -100,9 +116,19 @@ class DriverProfileScreen extends ConsumerWidget {
                             value: unitCode,
                           ),
                           const SizedBox(height: 16),
-                          _buildInfoCard(icon: Icons.business, title: 'COOPERATIVA / COMPAÑÍA', value: 'Colorado Express S.A.'),
+                          _buildInfoCard(
+                            icon: Icons.business,
+                            title: 'COOPERATIVA / COMPAÑÍA',
+                            value: cooperative != null && cooperative.isNotEmpty
+                                ? cooperative
+                                : 'No registrada',
+                          ),
                           const SizedBox(height: 16),
-                          _buildInfoCard(icon: Icons.phone, title: 'TELÉFONO DE CONTACTO', value: '+593 98 765 4321'),
+                          _buildInfoCard(
+                            icon: Icons.phone,
+                            title: 'TELÉFONO DE CONTACTO',
+                            value: phone != null && phone.isNotEmpty ? phone : 'No registrado',
+                          ),
 
                           const SizedBox(height: 40),
 
@@ -110,7 +136,7 @@ class DriverProfileScreen extends ConsumerWidget {
                             onPressed: () async {
                               await ref.read(authRepositoryProvider).signOut();
                               if (context.mounted) {
-                                Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+                                Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen(isDriverApp: true)), (route) => false);
                               }
                             },
                             style: ElevatedButton.styleFrom(
@@ -124,6 +150,8 @@ class DriverProfileScreen extends ConsumerWidget {
                             label: Text('CERRAR SESIÓN', style: GoogleFonts.publicSans(fontWeight: FontWeight.w900, letterSpacing: 1)),
                           ),
                         ],
+                      );
+                        },
                       );
                     },
                     loading: () => const Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: Colors.white)),

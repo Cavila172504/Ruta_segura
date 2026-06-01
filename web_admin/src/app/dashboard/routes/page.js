@@ -129,12 +129,28 @@ export default function RoutesPage() {
 
   const handleSync = async (routeId) => {
     try {
+      const route = routes.find((r) => r.id === routeId);
+      if (!route) return;
+
+      // Asegurar driverId en todos los estudiantes asignados a la ruta.
+      if (route.driverId && route.assignedStudents?.length) {
+        await Promise.all(
+          route.assignedStudents.map((s) =>
+            updateDoc(doc(db, 'companies', SCHOOL_CODE, 'students', s.id), {
+              driverId: route.driverId,
+              assignedRoute: route.name,
+              status: 'active',
+            })
+          )
+        );
+      }
+
       const routeRef = doc(db, 'companies', SCHOOL_CODE, 'routes', routeId);
-      await updateDoc(routeRef, { 
+      await updateDoc(routeRef, {
         lastSync: serverTimestamp(),
-        status: 'active' 
+        status: 'active',
       });
-      setSyncStatus(prev => ({ ...prev, [routeId]: 'synced' }));
+      setSyncStatus((prev) => ({ ...prev, [routeId]: 'synced' }));
       alert('🚀 ¡HOJA DE RUTA SINCRONIZADA! El conductor ya puede ver los cambios.');
     } catch (e) {
       alert('Error en la sincronización: ' + e.message);

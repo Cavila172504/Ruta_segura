@@ -28,6 +28,16 @@ body {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
+/* Login: evitar fondo amarillo de autofill del navegador */
+.login-field:-webkit-autofill,
+.login-field:-webkit-autofill:hover,
+.login-field:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #f1f5f9 inset !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: #1a1c1f;
+  transition: background-color 99999s ease-out;
+}
+
 /* Glass panel style from design */
 .glass-panel {
   background: rgba(255, 255, 255, 0.8);

@@ -23,13 +23,20 @@ class FirebaseStudentRepository implements StudentRepository {
       if (docId.isEmpty) throw Exception("El código de unidad no puede estar vacío.");
 
       final companyDocRef = _firestore.collection('companies').doc(docId);
-      
-      // Aseguramos que el documento de la unidad exista (lo creamos si no existe)
-      await companyDocRef.set({
-        'unitCode': docId,
-        'lastUpdate': FieldValue.serverTimestamp(),
-        'status': 'active',
-      }, SetOptions(merge: true));
+      final companySnap = await companyDocRef.get();
+
+      if (!companySnap.exists) {
+        throw Exception(
+          'El código de colegio no está registrado. Verifica el código con tu institución.',
+        );
+      }
+
+      final companyName = companySnap.data()?['name'] as String?;
+      if (companyName == null || companyName.trim().isEmpty) {
+        throw Exception(
+          'Este colegio aún no está configurado correctamente. Contacta a soporte.',
+        );
+      }
 
 
       final newStudentRef = _firestore.collection('companies').doc(docId).collection('students').doc();
@@ -51,21 +58,27 @@ class FirebaseStudentRepository implements StudentRepository {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Actualizar perfil del padre: guardar activeUnitCode para el mapa
-      final parentDocQuery = await _firestore
+      // Perfil del padre indexado por uid (reglas Firestore + FCM)
+      final parentMembers = _firestore
           .collection('users')
           .doc('parents')
-          .collection('members')
-          .where('uid', isEqualTo: parentId)
-          .limit(1)
-          .get();
+          .collection('members');
 
-      if (parentDocQuery.docs.isNotEmpty) {
-        final parentDocRef = parentDocQuery.docs.first.reference;
-        // Guardar unitCode activo y referencia al estudiante
-        await parentDocRef.update({'activeUnitCode': docId});
-        // Sub-colección de estudiantes bajo el perfil del padre
-        await parentDocRef.collection('students').doc(newStudentRef.id).set({
+      final uidDocRef = parentMembers.doc(parentId);
+      final existingParent = await uidDocRef.get();
+      final existingActive = existingParent.data()?['activeUnitCode'] as String?;
+      final parentUpdates = <String, dynamic>{
+        'uid': parentId,
+        'linkedUnitCodes': FieldValue.arrayUnion([docId]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      // No pisar el colegio activo al registrar un hijo en otro código.
+      if (existingActive == null || existingActive.trim().isEmpty) {
+        parentUpdates['activeUnitCode'] = docId;
+      }
+      await uidDocRef.set(parentUpdates, SetOptions(merge: true));
+
+      await uidDocRef.collection('students').doc(newStudentRef.id).set({
           'studentId': newStudentRef.id,
           'studentName': studentName,
           'stopLat': stopLat,
@@ -76,7 +89,16 @@ class FirebaseStudentRepository implements StudentRepository {
           'serviceType': serviceType,
           'status': 'pending',
           'createdAt': FieldValue.serverTimestamp(),
-        });
+      });
+
+      // Limpiar posible doc legacy (id = nombre) si existe
+      final legacyQuery = await parentMembers
+          .where('uid', isEqualTo: parentId)
+          .get();
+      for (final legacy in legacyQuery.docs) {
+        if (legacy.id != parentId) {
+          await legacy.reference.delete();
+        }
       }
 
       await _firestore

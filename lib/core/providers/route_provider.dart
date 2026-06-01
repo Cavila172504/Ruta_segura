@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'app_providers.dart';
+import '../utils/polyline_utils.dart';
 
 // Proveedor para obtener el unitCode activo del padre
 final activeUnitCodeProvider = FutureProvider<String?>((ref) async {
@@ -95,6 +96,12 @@ final busRouteJsonProvider = Provider<AsyncValue<String?>>((ref) {
   return dataAsync.whenData((data) => data?['fullRouteJson'] as String?);
 });
 
+// Proveedor del tipo de ruta (to_school / from_school)
+final busRouteTypeProvider = Provider<AsyncValue<String?>>((ref) {
+  final dataAsync = ref.watch(activeBusDataProvider);
+  return dataAsync.whenData((data) => data?['routeType'] as String?);
+});
+
 // Proveedor del estado actual de la ruta (idle, on_route)
 final busStatusProvider = Provider<AsyncValue<String>>((ref) {
   final dataAsync = ref.watch(activeBusDataProvider);
@@ -164,12 +171,29 @@ final busRouteProvider = Provider<List<LatLng>>((ref) {
 });
 
 final activePolylinesProvider = Provider<Set<Polyline>>((ref) {
-  final points = ref.watch(busRouteProvider);
-  
+  final routeJson = ref.watch(busRouteJsonProvider).asData?.value;
+  if (routeJson != null && routeJson.isNotEmpty) {
+    final points = decodePolyline(routeJson);
+    if (points.isNotEmpty) {
+      return {
+        Polyline(
+          polylineId: const PolylineId('live_bus_route'),
+          points: points,
+          color: const Color(0xFF004782),
+          width: 5,
+          jointType: JointType.round,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+      };
+    }
+  }
+
+  final fallback = ref.watch(busRouteProvider);
   return {
     Polyline(
       polylineId: const PolylineId('bus_route'),
-      points: points,
+      points: fallback,
       color: const Color(0xFF004782),
       width: 5,
       jointType: JointType.round,

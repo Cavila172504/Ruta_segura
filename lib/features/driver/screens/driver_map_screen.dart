@@ -14,6 +14,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/map_provider.dart';
 import '../../../core/providers/route_provider.dart';
 import '../../../core/providers/navigation_provider.dart';
+import '../../../core/providers/parent_provider.dart';
 import 'widgets/map_hud.dart';
 
 class DriverMapScreen extends ConsumerStatefulWidget {
@@ -33,7 +34,8 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
   bool _isCalculatingRoute = false;
   bool _showHUD = true;
   final Set<String> _presentIds = {};
-  final LatLng _cadeLocation = const LatLng(-0.3485666414297856, -79.24772636139673);
+  static const LatLng _fallbackSchool = LatLng(-0.3485666414297856, -79.24772636139673);
+  LatLng _schoolLocation = _fallbackSchool;
   final String _googleApiKey = "AIzaSyBRXBhHluPGhrGNTc9cj03aGut7Q6jkd_U";
 
   BitmapDescriptor? _busIcon;
@@ -126,7 +128,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
           final tripStatus = ref.read(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId))).value;
           if (tripStatus?['status'] == 'on_route' && _routePoints.isEmpty && !_isCalculatingRoute) {
             final students = ref.read(driverStudentsProvider(unitCode)).value ?? [];
-            _getPolyline(LatLng(position.latitude, position.longitude), _cadeLocation, students);
+            _getPolyline(LatLng(position.latitude, position.longitude), _schoolLocation, students);
           }
         }
 
@@ -243,7 +245,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     if (_currentPosition != null) {
       allPoints.add(LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
     }
-    allPoints.add(_cadeLocation);
+    allPoints.add(_schoolLocation);
 
     double minLat = allPoints.first.latitude;
     double maxLat = allPoints.first.latitude;
@@ -358,7 +360,13 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Widget _buildMainMap() {
     final profile = ref.watch(userProfileProvider).value;
-    final unitCode = profile?['unitCode'] ?? 'CAD31';
+    final unitCode = profile?['unitCode']?.toString() ?? 'CAD31';
+    final company = ref.watch(companyByUnitProvider(unitCode)).asData?.value;
+    final lat = company?['schoolLat'];
+    final lng = company?['schoolLng'];
+    if (lat is num && lng is num) {
+      _schoolLocation = LatLng(lat.toDouble(), lng.toDouble());
+    }
     final driverId = profile?['uid'] ?? 'UNKNOWN';
     final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
     final students = studentsAsync.value ?? [];
@@ -374,7 +382,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
       
       if (!wasActive && isActive && _routePoints.isEmpty && !_isCalculatingRoute && _currentPosition != null) {
         final startPos = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
-        _getPolyline(startPos, _cadeLocation, students);
+        _getPolyline(startPos, _schoolLocation, students);
       }
     });
 
@@ -405,6 +413,8 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
       if (total > 0) progress = _presentIds.length / total;
     }
 
+    final schoolTitle = company?['name'] as String? ?? 'Colegio';
+
     return Scaffold(
       body: Stack(
         children: [
@@ -415,7 +425,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
             zoomControlsEnabled: false,
             myLocationButtonEnabled: false,
             mapToolbarEnabled: false,
-            initialCameraPosition: CameraPosition(target: _currentPosition != null ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude) : _cadeLocation, zoom: 15),
+            initialCameraPosition: CameraPosition(target: _currentPosition != null ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude) : _schoolLocation, zoom: 15),
             onMapCreated: (c) {
               ref.read(mapControllerProvider.notifier).setController(c);
               if (_currentPosition != null) {
@@ -423,7 +433,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
                 _hasCenteredInitially = true;
               }
             },
-            markers: _buildMarkers(students, isTripActive),
+                  markers: _buildMarkers(students, isTripActive, schoolTitle),
             polylines: {
               if (_routePoints.isNotEmpty && isTripActive)
                 Polyline(
@@ -548,15 +558,14 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
     return heading;
   }
 
-  Set<Marker> _buildMarkers(List<Map<String, dynamic>> students, bool isTripActive) {
+  Set<Marker> _buildMarkers(List<Map<String, dynamic>> students, bool isTripActive, String schoolTitle) {
     Set<Marker> markers = {};
 
-    // Siempre mostrar el colegio como destino
     markers.add(Marker(
       markerId: const MarkerId('school'),
-      position: _cadeLocation,
+      position: _schoolLocation,
       icon: _schoolIcon ?? BitmapDescriptor.defaultMarker,
-      infoWindow: const InfoWindow(title: 'Colegio CADE', snippet: 'Destino'),
+      infoWindow: InfoWindow(title: schoolTitle, snippet: 'Destino'),
     ));
 
     // Siempre mostrar la ubicación del bus (conductor) si tenemos posición

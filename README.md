@@ -1,17 +1,15 @@
-# ruta_segura
+# RutaSegura
 
-A new Flutter project.
+Sistema de transporte escolar: app Flutter (padres, conductores, admin móvil) y panel web Next.js.
 
-## Getting Started
+## Apps Flutter
 
-This project is a starting point for a Flutter application.
+| Target | Entry point |
+|--------|-------------|
+| Padres | `lib/main_parent.dart` |
+| Conductores | `lib/main_driver.dart` |
+| Admin móvil | `lib/main_admin.dart` |
 
-A few resources to get you started if this is your first Flutter project:
+## Despliegue y seguridad
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Ver [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) para variables de entorno, reglas Firestore, builds release y checklist de producción.

@@ -26,6 +26,19 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RutaSegura necesita tu ubicación para mostrar el recorrido del bus y registrar paradas.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>RutaSegura usa tu ubicación en segundo plano para el seguimiento del transporte escolar durante el recorrido activo.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>RutaSegura necesita la cámara para escanear códigos QR de asistencia.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RutaSegura necesita acceso a fotos para registrar la imagen del estudiante.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

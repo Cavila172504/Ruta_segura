@@ -11,36 +11,39 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeUnitCode, _setActiveUnitCode] = useState(null);
+  const [activeUnitName, _setActiveUnitName] = useState(null);
 
-  const setActiveUnitCode = (code) => {
-    _setActiveUnitCode(code);
-    localStorage.setItem('activeUnitCode', code);
+  const setActiveUnitCode = (code, name = null) => {
+    const normalized = code?.trim().toUpperCase() || null;
+    _setActiveUnitCode(normalized);
+    if (typeof window !== "undefined") {
+      if (normalized) {
+        localStorage.setItem("activeUnitCode", normalized);
+      } else {
+        localStorage.removeItem("activeUnitCode");
+      }
+      if (name) {
+        localStorage.setItem("activeUnitName", name);
+        _setActiveUnitName(name);
+      }
+    }
+  };
+
+  const clearSupportContext = () => {
+    _setActiveUnitCode(null);
+    _setActiveUnitName(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("activeUnitCode");
+      localStorage.removeItem("activeUnitName");
+    }
   };
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
 
-
-    // --- SOPORTE PARA BYPASS QUEMADO (SINCRONICO) ---
-    if (typeof window !== 'undefined' && localStorage.getItem('adminBypass') === 'true') {
-      setTimeout(() => {
-        setUser({ email: 'superuser@rutasegura.local', uid: 'bypass-id' });
-        setProfile({ 
-          name: "Súper Usuario (Bypass)", 
-          role: "super_admin",
-          unitCode: localStorage.getItem('activeUnitCode') || 'CAD31'
-        });
-        _setActiveUnitCode(localStorage.getItem('activeUnitCode') || 'CAD31');
-        setLoading(false);
-      }, 0);
-      return; // No suscribimos a Firebase si hay bypass
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-
-      if (user) {
-        setUser(user);
-        // Buscar perfil en Firestore (admins, drivers, parents)
-        const adminRef = doc(db, "users", "admins", "members", user.uid);
+        const adminRef = doc(db, "users", "admins", "members", firebaseUser.uid);
         const adminSnap = await getDoc(adminRef);
 
         if (adminSnap.exists()) {
@@ -48,13 +51,22 @@ export const AuthProvider = ({ children }) => {
           setProfile({ ...data, role: data.role || "admin" });
           _setActiveUnitCode(data.unitCode);
         } else {
-          // Si no es admin, quizás es un super_admin
-          const superAdminRef = doc(db, "users", "super_admins", "members", user.uid);
+          const superAdminRef = doc(
+            db,
+            "users",
+            "super_admins",
+            "members",
+            firebaseUser.uid
+          );
           const superSnap = await getDoc(superAdminRef);
           if (superSnap.exists()) {
             setProfile({ ...superSnap.data(), role: "super_admin" });
-            const saved = localStorage.getItem('activeUnitCode');
-            _setActiveUnitCode(saved || 'CAD31'); // Default al primer colegio o global
+            if (typeof window !== "undefined") {
+              const savedCode = localStorage.getItem("activeUnitCode");
+              const savedName = localStorage.getItem("activeUnitName");
+              if (savedCode) _setActiveUnitCode(savedCode);
+              if (savedName) _setActiveUnitName(savedName);
+            }
           } else {
             setProfile(null);
           }
@@ -63,6 +75,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setProfile(null);
         _setActiveUnitCode(null);
+        _setActiveUnitName(null);
       }
       setLoading(false);
     });
@@ -70,10 +83,22 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  const SCHOOL_CODE = profile?.role === 'super_admin' ? activeUnitCode : profile?.unitCode;
+  const SCHOOL_CODE =
+    profile?.role === "super_admin" ? activeUnitCode : profile?.unitCode;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, activeUnitCode, setActiveUnitCode, SCHOOL_CODE }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        activeUnitCode,
+        activeUnitName,
+        setActiveUnitCode,
+        clearSupportContext,
+        SCHOOL_CODE,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

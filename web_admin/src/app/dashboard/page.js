@@ -24,9 +24,22 @@ const DashboardPage = () => {
   const [routes, setRoutes]     = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [showStudents, setShowStudents] = useState(true);
+  const [schoolInfo, setSchoolInfo] = useState(null);
 
   useEffect(() => {
     if (authLoading || !SCHOOL_CODE) return;
+
+    const companyUnsub = onSnapshot(doc(db, 'companies', SCHOOL_CODE), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setSchoolInfo({
+          name: d.name || SCHOOL_CODE,
+          address: d.schoolAddress || '',
+          lat: d.schoolLat ?? null,
+          lng: d.schoolLng ?? null,
+        });
+      }
+    });
 
     // 1. Buses / live_tracking  (solo los que tengan GPS real)
     const busUnsub = onSnapshot(
@@ -63,7 +76,14 @@ const DashboardPage = () => {
       (snap) => setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
-    return () => { busUnsub(); driverUnsub(); stuUnsub(); routesUnsub(); incUnsub(); };
+    return () => {
+      companyUnsub();
+      busUnsub();
+      driverUnsub();
+      stuUnsub();
+      routesUnsub();
+      incUnsub();
+    };
   }, [SCHOOL_CODE, authLoading]);
 
   // Métricas derivadas en tiempo real
@@ -201,7 +221,13 @@ const DashboardPage = () => {
           </div>
 
           {/* MAPA */}
-          <LiveMap buses={getFilteredActiveBuses(buses)} students={showStudents ? students : []} />
+          <LiveMap
+            buses={getFilteredActiveBuses(buses)}
+            students={showStudents ? students : []}
+            schoolCenter={{ lat: schoolInfo?.lat, lng: schoolInfo?.lng }}
+            schoolName={schoolInfo?.name}
+            schoolAddress={schoolInfo?.address}
+          />
 
           {/* ── TABLA ESTADO DE FLOTA ── */}
           <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 mt-6">

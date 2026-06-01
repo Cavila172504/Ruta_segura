@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { authFetch } from '@/lib/api-client';
 
 const DriversPage = () => {
   const [drivers, setDrivers] = useState([]);
@@ -27,9 +28,29 @@ const DriversPage = () => {
     names: '',
     lastNames: '',
     email: '',
+    phoneCell: '',
     address: '',
-    cooperative: 'Colorado Express S.A'
+    cooperative: ''
   });
+
+  const emptyForm = {
+    docType: 'Cédula',
+    idNumber: '',
+    names: '',
+    lastNames: '',
+    email: '',
+    phoneCell: '',
+    address: '',
+    cooperative: '',
+  };
+
+  const fetchSchoolTransportCompany = async () => {
+    if (!SCHOOL_CODE) return '';
+    const snap = await getDoc(doc(db, 'companies', SCHOOL_CODE));
+    if (!snap.exists()) return '';
+    const data = snap.data();
+    return data.transportCompany || data.cooperative || '';
+  };
 
   useEffect(() => {
     if (authLoading || !SCHOOL_CODE) return;
@@ -49,13 +70,15 @@ const DriversPage = () => {
     return () => unsubscribe();
   }, [SCHOOL_CODE, authLoading]);
 
-  const handleOpenCreateModal = () => {
-    setFormData({ docType: 'Cédula', idNumber: '', names: '', lastNames: '', email: '', phoneCell: '', address: '', cooperative: 'Colorado Express S.A' });
+  const handleOpenCreateModal = async () => {
+    const cooperative = await fetchSchoolTransportCompany();
+    setFormData({ ...emptyForm, cooperative });
     setIsEditMode(false);
     setShowModal(true);
   };
 
-  const handleOpenEditModal = (driver) => {
+  const handleOpenEditModal = async (driver) => {
+    const schoolCoop = await fetchSchoolTransportCompany();
     setFormData({
       docType: driver.docType || 'Cédula',
       idNumber: driver.idNumber || '',
@@ -64,7 +87,7 @@ const DriversPage = () => {
       email: driver.email || '',
       phoneCell: driver.phoneCell || '',
       address: driver.address || '',
-      cooperative: driver.cooperative || 'Colorado Express S.A'
+      cooperative: driver.cooperative || schoolCoop || '',
     });
     setSelectedDriverId(driver.id);
     setIsEditMode(true);
@@ -79,14 +102,20 @@ const DriversPage = () => {
       const url = isEditMode ? `/api/drivers?id=${selectedDriverId}&unitCode=${SCHOOL_CODE}` : '/api/drivers';
       const method = isEditMode ? 'PATCH' : 'POST';
 
-      const response = await fetch(url, {
+      const idNumber = formData.idNumber?.trim() || '';
+      if (idNumber.length < 6) {
+        alert('La cédula debe tener al menos 6 dígitos (es la contraseña de acceso en la app del conductor).');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const response = await authFetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          idNumber,
           name: `${formData.names} ${formData.lastNames}`,
           unitCode: SCHOOL_CODE,
-          accessKey: formData.idNumber
         })
       });
 
@@ -109,7 +138,7 @@ const DriversPage = () => {
     
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/drivers?id=${driverToDelete.id}&unitCode=${SCHOOL_CODE}`, {
+      const response = await authFetch(`/api/drivers?id=${driverToDelete.id}&unitCode=${SCHOOL_CODE}`, {
         method: 'DELETE',
       });
 
@@ -309,9 +338,22 @@ const DriversPage = () => {
                   <input required type="tel" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-primary transition-colors" value={formData.phoneCell} onChange={(e) => setFormData({...formData, phoneCell: e.target.value})} />
                 </div>
 
+                <div className="md:col-span-2 rounded-xl bg-primary/5 border border-primary/10 px-4 py-3">
+                  <p className="text-[10px] font-bold text-primary leading-relaxed">
+                    La app del conductor usa la <span className="uppercase">cédula</span> como contraseña de ingreso (mín. 6 caracteres).
+                  </p>
+                </div>
+
                 <div className="space-y-1 md:col-span-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Compañía / Cooperativa</label>
-                    <input readOnly type="text" className="w-full px-4 py-2 bg-slate-100 border border-slate-100 rounded-xl text-xs font-black text-slate-400 outline-none cursor-not-allowed italic" value={formData.cooperative} />
+                    <input
+                      type="text"
+                      placeholder="Cooperativa de transporte de esta sede"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-primary transition-colors"
+                      value={formData.cooperative}
+                      onChange={(e) => setFormData({ ...formData, cooperative: e.target.value })}
+                    />
+                    <p className="text-[9px] text-slate-400 font-medium pl-1">Por defecto se usa la cooperativa configurada en la institución.</p>
                 </div>
 
                 <div className="md:col-span-2 space-y-1">

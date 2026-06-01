@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
+import '../../../core/providers/parent_provider.dart';
 import '../../../core/providers/map_provider.dart';
 
 class DriverRouteCreatorScreen extends ConsumerStatefulWidget {
@@ -28,7 +29,7 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
   BitmapDescriptor? _busIcon;
   BitmapDescriptor? _houseIcon;
   BitmapDescriptor? _schoolIcon;
-  final LatLng _cadeLocation = const LatLng(-0.3485666414297856, -79.24772636139673);
+  static const LatLng _fallbackSchool = LatLng(-0.3485666414297856, -79.24772636139673);
 
   @override
   void initState() {
@@ -58,6 +59,13 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
     final unitCode = profileAsync.value?['unitCode'] as String? ?? 'CAD31';
+    final company = ref.watch(companyByUnitProvider(unitCode)).asData?.value;
+    final sLat = company?['schoolLat'];
+    final sLng = company?['schoolLng'];
+    final schoolLoc = (sLat is num && sLng is num)
+        ? LatLng(sLat.toDouble(), sLng.toDouble())
+        : _fallbackSchool;
+    final schoolName = company?['name'] as String? ?? 'Colegio';
     final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
     final locationAsync = ref.watch(currentLocationStreamProvider);
 
@@ -68,7 +76,7 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
           Positioned.fill(
             child: studentsAsync.when(
               data: (students) {
-                _updateMarkers(students, locationAsync.value);
+                _updateMarkers(students, locationAsync.value, schoolLoc, schoolName);
                 return GoogleMap(
                   initialCameraPosition: CameraPosition(
                     target: locationAsync.value != null 
@@ -131,15 +139,15 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
     );
   }
 
-  void _updateMarkers(List<dynamic> students, dynamic myPos) {
+  void _updateMarkers(List<dynamic> students, dynamic myPos, LatLng schoolLoc, String schoolName) {
     final Set<Marker> newMarkers = {};
     
     // Icono Colegio
     newMarkers.add(Marker(
       markerId: const MarkerId('school_marker'),
-      position: _cadeLocation,
+      position: schoolLoc,
       icon: _schoolIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      infoWindow: const InfoWindow(title: 'Unidad Educativa CADE'),
+      infoWindow: InfoWindow(title: schoolName),
     ));
 
     // Icono para estudiantes disponibles (Casitas)

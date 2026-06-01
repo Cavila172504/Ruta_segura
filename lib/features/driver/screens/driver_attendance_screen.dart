@@ -70,15 +70,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
         final driverId = profile['uid'];
         
         if (driverId != null) {
-          FirebaseFirestore.instance.collection('companies').doc(unitCode).collection('live_tracking').doc(driverId).set({
-            'driverName': profile['name'] ?? 'Conductor',
-            'lat': position.latitude,
-            'lng': position.longitude,
-            'speed': position.speed,
-            'heading': position.heading,
-            'lastUpdated': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true)).catchError((e) => debugPrint('Error updating live_tracking: $e'));
-          
+          // GPS en live_tracking lo escribe solo driver_map_screen (evita duplicados).
           // Verificar aproximación (600m) en MODO IDA para notificar a los padres
           final routeStatusAsync = ref.read(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId)));
           final routeData = routeStatusAsync.value;
@@ -262,7 +254,7 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                             onPressed: () async {
                               await ref.read(authRepositoryProvider).signOut();
                               if (context.mounted) {
-                                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
+                                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen(isDriverApp: true)), (r) => false);
                               }
                             },
                           ),

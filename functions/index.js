@@ -1,4 +1,4 @@
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { logger } = require("firebase-functions");
 const admin = require("firebase-admin");
@@ -7,9 +7,8 @@ admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER: Enviar push a un token FCM individual
-// ─────────────────────────────────────────────────────────────────────────────
+const FCM_CHANNEL_ID = "ruta_segura_alerts_high_v2";
+
 async function sendPushToToken(token, title, body, data = {}) {
   try {
     await messaging.send({
@@ -19,22 +18,19 @@ async function sendPushToToken(token, title, body, data = {}) {
         priority: "high",
         notification: {
           sound: "default",
-          channelId: "ruta_segura_alerts",
+          channelId: FCM_CHANNEL_ID,
           priority: "max",
           defaultVibrateTimings: true,
         },
       },
       data: { ...data, click_action: "FLUTTER_NOTIFICATION_CLICK" },
     });
-    logger.info(`✅ Push enviado a token: ${token.slice(0, 20)}...`);
+    logger.info(`Push enviado a token: ${token.slice(0, 20)}...`);
   } catch (e) {
-    logger.warn(`⚠️ Error enviando push: ${e.message}`);
+    logger.warn(`Error enviando push: ${e.message}`);
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER: Enviar push a un Topic FCM (todos los suscritos al bus)
-// ─────────────────────────────────────────────────────────────────────────────
 async function sendPushToTopic(topic, title, body, data = {}) {
   try {
     await messaging.send({
@@ -44,24 +40,19 @@ async function sendPushToTopic(topic, title, body, data = {}) {
         priority: "high",
         notification: {
           sound: "default",
-          channelId: "ruta_segura_alerts",
+          channelId: FCM_CHANNEL_ID,
           priority: "max",
           defaultVibrateTimings: true,
         },
       },
       data: { ...data, click_action: "FLUTTER_NOTIFICATION_CLICK" },
     });
-    logger.info(`✅ Push enviado al topic: ${topic}`);
+    logger.info(`Push enviado al topic: ${topic}`);
   } catch (e) {
-    logger.warn(`⚠️ Error enviando push al topic: ${e.message}`);
+    logger.warn(`Error enviando push al topic: ${e.message}`);
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FUNCIÓN 1: Cuando se crea una notificación en Firestore para un padre
-// Ruta: users/parents/members/{parentId}/notifications/{notifId}
-// Dispara un push al dispositivo del padre aunque la app esté cerrada.
-// ─────────────────────────────────────────────────────────────────────────────
 exports.onNewParentNotification = onDocumentCreated(
   "users/parents/members/{parentId}/notifications/{notifId}",
   async (event) => {
@@ -73,7 +64,6 @@ exports.onNewParentNotification = onDocumentCreated(
     const title = notif.title || "RutaSegura";
     const body = notif.message || notif.body || "";
 
-    // Obtener el token FCM del padre desde su documento de perfil
     const parentRef = db
       .collection("users")
       .doc("parents")
@@ -96,29 +86,23 @@ exports.onNewParentNotification = onDocumentCreated(
   }
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FUNCIÓN 2: Cuando el conductor cambia el estado de la ruta a "on_route"
-// Ruta: companies/{unitCode}/live_tracking/{driverId}
-// Envía un push al topic del bus para que TODOS los padres lo reciban.
-// ─────────────────────────────────────────────────────────────────────────────
-exports.onRouteStatusChange = onDocumentCreated(
+exports.onRouteStatusChange = onDocumentUpdated(
   "companies/{unitCode}/live_tracking/{driverId}",
   async (event) => {
-    const snap = event.data;
-    if (!snap) return;
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+
+    if (before.status === after.status) return;
+    if (after.status !== "on_route") return;
 
     const { unitCode } = event.params;
-    const data = snap.data();
-
-    if (data?.status !== "on_route") return; // Solo nos interesa cuando inicia
-
-    const routeType = data?.routeType;
+    const routeType = after.routeType;
     const directionText =
       routeType === "to_school" ? "hacia el colegio 🏫" : "de retorno a casa 🏠";
     const title = "🚌 ¡El bus ha iniciado su recorrido!";
     const body = `Tu transporte escolar ha comenzado su recorrido ${directionText}. Mantente pendiente.`;
 
-    // Enviar push a todos los padres suscritos al topic de esta unidad
     await sendPushToTopic(`bus_${unitCode}`, title, body, {
       type: "trip_started",
       unitCode,
@@ -126,41 +110,17 @@ exports.onRouteStatusChange = onDocumentCreated(
   }
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FUNCIÓN 3: Guardar el token FCM del padre cuando se actualiza su perfil
-// Dispara cuando un padre guarda su token en Firestore.
-// (La app flutter debe llamar updateFcmToken al iniciar sesión)
-// ─────────────────────────────────────────────────────────────────────────────
-exports.onLiveTrackingUpdate = onDocumentCreated(
-  "companies/{unitCode}/live_tracking/{driverId}",
-  async (event) => {
-    // Esta función complementa la anterior para rastrear cambios de posición
-    // y guardar el estado del conductor en Firestore para propósitos de auditoría.
-    const snap = event.data;
-    if (!snap) return;
-
-    const { unitCode, driverId } = event.params;
-    logger.info(
-      `Tracking actualizado: unitCode=${unitCode}, driverId=${driverId}`
-    );
-  }
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FUNCIÓN 4: CRON JOB DIARIO para reiniciar asistencias
-// Se ejecuta todos los días a la 1:00 AM (Hora Local de EC, America/Guayaquil)
-// ─────────────────────────────────────────────────────────────────────────────
 exports.resetDailyAttendance = onSchedule(
   {
     schedule: "0 1 * * *",
-    timeZone: "America/Guayaquil"
+    timeZone: "America/Guayaquil",
   },
-  async (event) => {
-    logger.info("🕒 Iniciando reinicio diario de asistencias...");
-    
+  async () => {
+    logger.info("Iniciando reinicio diario de asistencias...");
+
     try {
       const studentsSnap = await db.collectionGroup("students").get();
-      
+
       let batch = db.batch();
       let batchCount = 0;
       let resetCount = 0;
@@ -186,9 +146,9 @@ exports.resetDailyAttendance = onSchedule(
         await batch.commit();
       }
 
-      logger.info(`✅ Reinicio completado. Se limpiaron ${resetCount} registros.`);
+      logger.info(`Reinicio completado. Se limpiaron ${resetCount} registros.`);
     } catch (error) {
-      logger.error("❌ Error en el cron job de reinicio:", error);
+      logger.error("Error en el cron job de reinicio:", error);
     }
   }
 );

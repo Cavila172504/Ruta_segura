@@ -50,15 +50,12 @@ class FirebaseAuthRepository implements AuthRepository {
           default:       roleCollection = 'parents'; break;
         }
 
-        // ID del documento = nombre limpio (sin espacios duplicados, en minúsculas)
-        final docId = fullName.trim().replaceAll(RegExp(r'\s+'), '_').toLowerCase();
-
-        // 1. Guardamos en subcoleccion por rol: users/{rol}/{nombre}
+        // Documento de perfil indexado por uid (alineado con reglas y FCM)
         await _firestore
             .collection('users')
             .doc(roleCollection)
             .collection('members')
-            .doc(docId)
+            .doc(uid)
             .set({
               'uid': uid,
               'name': fullName,

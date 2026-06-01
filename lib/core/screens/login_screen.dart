@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -46,15 +47,79 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
   }
 
+  /// Busca el correo del conductor registrado en el panel (contraseña = cédula).
+  Future<String?> _resolveDriverEmailByCedula(String cedula) async {
+    final normalized = cedula.trim();
+    final byCompany = await FirebaseFirestore.instance
+        .collectionGroup('drivers')
+        .where('idNumber', isEqualTo: normalized)
+        .limit(1)
+        .get()
+        .timeout(const Duration(seconds: 15));
+    if (byCompany.docs.isNotEmpty) {
+      return byCompany.docs.first.data()['email'] as String?;
+    }
+
+    final byMember = await FirebaseFirestore.instance
+        .collection('users')
+        .doc('drivers')
+        .collection('members')
+        .where('idNumber', isEqualTo: normalized)
+        .limit(1)
+        .get()
+        .timeout(const Duration(seconds: 15));
+    if (byMember.docs.isNotEmpty) {
+      return byMember.docs.first.data()['email'] as String?;
+    }
+    return null;
+  }
+
   Future<void> _handleAuth() async {
+    final name = _nameController.text.trim();
+
+    // App chofer: solo cédula (misma cédula = contraseña en Firebase Auth)
+    if (widget.isDriverApp && _authMode == AuthMode.login) {
+      final cedula = _emailController.text.trim();
+      if (cedula.length < 6) {
+        setState(() => _errorMessage = 'Ingrese su número de cédula (mín. 6 dígitos).');
+        return;
+      }
+
+      setState(() {
+        _errorMessage = null;
+        _isLoading = true;
+      });
+
+      try {
+        final email = await _resolveDriverEmailByCedula(cedula);
+        if (email == null || email.isEmpty) {
+          setState(() => _errorMessage = 'Cédula no registrada. Solicite acceso al administrador.');
+          return;
+        }
+        await _doAuth(email, cedula, '', name)
+            .timeout(const Duration(seconds: 20));
+      } on TimeoutException {
+        if (mounted) {
+          setState(() => _errorMessage = 'La conexión tardó demasiado. Verifica tu internet.');
+        }
+      } on FirebaseAuthException {
+        if (mounted) {
+          setState(() => _errorMessage = 'Cédula o datos incorrectos.');
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _errorMessage = 'No se pudo iniciar sesión. Intente de nuevo.');
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+      return;
+    }
+
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
-    final name = _nameController.text.trim(); // Nombre
 
-
-
-    // Validaciones de Formato
     if (email.isEmpty) {
       setState(() => _errorMessage = 'Por favor ingrese su correo electrónico o usuario');
       return;
@@ -344,7 +409,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           children: [
                             // Input de Correo o Usuario
                             Text(
-                              'CORREO O USUARIO',
+                              widget.isDriverApp ? 'NÚMERO DE CÉDULA' : 'CORREO O USUARIO',
                               style: GoogleFonts.publicSans(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -355,13 +420,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             const SizedBox(height: 8),
                             TextField(
                               controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
+                              keyboardType: widget.isDriverApp
+                                  ? TextInputType.number
+                                  : TextInputType.emailAddress,
                               onChanged: (_) {
                                 if (_errorMessage != null) setState(() => _errorMessage = null);
                               },
                               style: GoogleFonts.publicSans(color: AppColors.onSurface),
                               decoration: InputDecoration(
-                                hintText: 'usuario@rutasegura.com o Cédula',
+                                hintText: widget.isDriverApp
+                                    ? 'Ej: 1725049827'
+                                    : 'usuario@rutasegura.com',
                                 hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.5)),
                                 prefixIcon: const Icon(Icons.person, color: Colors.grey),
                                 filled: true,
@@ -374,8 +443,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             const SizedBox(height: 24),
 
-                            // Input de Contraseña
-                            if (_authMode != AuthMode.forgotPassword) ...[
+                            if (widget.isDriverApp && _authMode == AuthMode.login)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  'Use su cédula como usuario. La contraseña es la misma cédula registrada por el administrador.',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.publicSans(
+                                    fontSize: 11,
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+
+                            // Input de Contraseña (no aplica en app chofer)
+                            if (_authMode != AuthMode.forgotPassword &&
+                                !(widget.isDriverApp && _authMode == AuthMode.login)) ...[
                               Text(
                                 'CONTRASEÑA',
                                 style: GoogleFonts.publicSans(
@@ -487,7 +570,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-                            ] else if (_authMode == AuthMode.login) ...[
+                            ] else if (_authMode == AuthMode.login &&
+                                !widget.isDriverApp) ...[
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
@@ -563,8 +647,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             const SizedBox(height: 16),
                             
-                            // Toggle Mode
-                            if (_authMode == AuthMode.login)
+                            // Toggle Mode (solo padres / registro público)
+                            if (_authMode == AuthMode.login && !widget.isDriverApp)
                               TextButton(
                                 onPressed: () {
                                   setState(() {
