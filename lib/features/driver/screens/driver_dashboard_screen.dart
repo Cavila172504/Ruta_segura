@@ -527,6 +527,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         // Guardar el tipo de ruta también
         await FirebaseFirestore.instance.collection('companies').doc(unitCode).collection('live_tracking').doc(driverId).set({
           'routeType': routeType,
+          'startedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
         // 2. Notificar a todos los padres de la ruta que el bus ha iniciado
