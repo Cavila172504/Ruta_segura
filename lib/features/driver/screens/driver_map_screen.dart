@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/map_provider.dart';
 import '../../../core/providers/route_provider.dart';
@@ -36,7 +37,8 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
   final Set<String> _presentIds = {};
   static const LatLng _fallbackSchool = LatLng(-0.3485666414297856, -79.24772636139673);
   LatLng _schoolLocation = _fallbackSchool;
-  final String _googleApiKey = "AIzaSyBRXBhHluPGhrGNTc9cj03aGut7Q6jkd_U";
+
+  String get _googleApiKey => AppConfig.googleMapsApiKey;
 
   BitmapDescriptor? _busIcon;
   BitmapDescriptor? _schoolIcon;
@@ -162,7 +164,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
   }
 
   Future<void> _getPolyline(LatLng origin, LatLng destination, List<dynamic> students) async {
-    if (_isCalculatingRoute) return;
+    if (_isCalculatingRoute || !AppConfig.hasGoogleMapsApiKey) return;
     _isCalculatingRoute = true;
     
     try {

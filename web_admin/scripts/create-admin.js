@@ -1,15 +1,12 @@
 const { initializeApp } = require("firebase/app");
 const { getAuth, createUserWithEmailAndPassword } = require("firebase/auth");
 const { getFirestore, doc, setDoc } = require("firebase/firestore");
+const firebaseConfig = require("./firebase-client-config");
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD8V9qrjc4oXPHN5fO1_r1ieSAKDp0S_KY",
-  authDomain: "rutasegura-a74f7.firebaseapp.com",
-  projectId: "rutasegura-a74f7",
-  storageBucket: "rutasegura-a74f7.firebasestorage.app",
-  messagingSenderId: "706491407166",
-  appId: "1:706491407166:web:f1e908d7d3406570036a6f"
-};
+if (!firebaseConfig.apiKey) {
+  console.error("Falta NEXT_PUBLIC_FIREBASE_API_KEY en web_admin/.env.local");
+  process.exit(1);
+}
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
