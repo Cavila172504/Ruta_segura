@@ -61,3 +61,7 @@ python3 scripts/generate_placeholder_assets.py
 ```
 
 Sustituir por diseño final antes de publicar en tiendas.
+
+## Monitoreo (Crashlytics)
+
+Ver [docs/MONITORING.md](MONITORING.md). Los crashes de las apps Flutter se reportan a Firebase Crashlytics con contexto de rol (`parent`, `driver`, `admin`).

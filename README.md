@@ -68,6 +68,17 @@ npm run dev
 
 `lib/firebase_options.dart` y `android/app/google-services.json` son generados por FlutterFire. Restringe las claves en Google Cloud Console por package/bundle ID.
 
+### 5. Monitoreo (Crashlytics)
+
+Las apps envían crashes a Firebase Crashlytics. Actívalo en Firebase Console y revisa `docs/MONITORING.md`.
+
+```bash
+# Forzar reportes en debug (solo pruebas)
+flutter run --flavor parent --target lib/main_parent.dart \
+  --dart-define-from-file=env.json \
+  --dart-define=FORCE_CRASHLYTICS=true
+```
+
 ## Despliegue y seguridad
 
 Ver [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) para builds release, reglas Firestore y checklist de producción.

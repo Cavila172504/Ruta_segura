@@ -1,15 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'core/bootstrap/app_bootstrap.dart';
+import 'core/bootstrap/crashlytics_scope.dart';
 import 'core/config/firebase_app_options.dart';
 import 'core/screens/login_screen.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: FirebaseAppOptions.admin,
+
+  try {
+    await AppBootstrap.initialize(
+      firebaseOptions: FirebaseAppOptions.admin,
+      appRole: 'admin',
+    );
+  } catch (e, stack) {
+    await CrashlyticsService.recordError(
+      e,
+      stack,
+      reason: 'main_admin.init',
+    );
+  }
+
+  AppBootstrap.runGuarded(
+    () => runApp(
+      const ProviderScope(
+        observers: [CrashlyticsProviderObserver()],
+        child: CrashlyticsScope(child: AdminApp()),
+      ),
+    ),
   );
-  runApp(const ProviderScope(child: AdminApp()));
 }
 
 class AdminApp extends StatelessWidget {
