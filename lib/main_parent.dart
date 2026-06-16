@@ -1,8 +1,9 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'core/bootstrap/app_bootstrap.dart';
+import 'core/bootstrap/crashlytics_scope.dart';
+import 'core/config/firebase_app_options.dart';
 import 'core/screens/login_screen.dart';
 import 'core/services/notification_service.dart';
 import 'core/providers/app_providers.dart';
@@ -10,31 +11,33 @@ import 'features/driver/screens/driver_main_shell.dart';
 import 'features/admin/screens/admin_dashboard_screen.dart';
 import 'features/parent/screens/parent_dashboard_screen.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print('--- ARRANCANDO APLICACIÓN ---');
 
   try {
-    print('Iniciando Firebase...');
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+    await AppBootstrap.initialize(
+      firebaseOptions: FirebaseAppOptions.parent,
+      appRole: 'parent',
     ).timeout(const Duration(seconds: 10));
-    print('Firebase listo.');
 
-    // ── REGISTRO DE BACKGROUND HANDLER ─────────────────────────────────────
-    // Debe registrarse ANTES de runApp para que Firebase lo pueda llamar
-    // cuando la app está cerrada o en segundo plano (background / terminated).
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    // Inicializar notificaciones locales (foreground + canal)
-    print('Iniciando NotificationService...');
     await NotificationService().init().timeout(const Duration(seconds: 5));
-    print('NotificationService listo.');
-  } catch (e) {
-    print('Error o Timeout durante la inicialización: $e');
+  } catch (e, stack) {
+    await CrashlyticsService.recordError(
+      e,
+      stack,
+      reason: 'main_parent.init',
+    );
   }
 
-  runApp(const ProviderScope(child: ParentApp()));
+  AppBootstrap.runGuarded(
+    () => runApp(
+      const ProviderScope(
+        observers: [CrashlyticsProviderObserver()],
+        child: CrashlyticsScope(child: ParentApp()),
+      ),
+    ),
+  );
 }
 
 class ParentApp extends StatelessWidget {
@@ -65,7 +68,6 @@ class RootAuthWrapper extends ConsumerWidget {
           return LoginScreen(isDriverApp: isDriverApp);
         }
 
-        // El usuario está logueado, determinar su dashboard
         return FutureBuilder<String?>(
           future: ref.read(authRepositoryProvider).getUserRole(user.uid),
           builder: (context, snapshot) {
@@ -81,7 +83,6 @@ class RootAuthWrapper extends ConsumerWidget {
             } else if (role == 'admin' || role == 'super_admin') {
               return const AdminDashboardScreen();
             } else {
-              // Validar verificación para padres
               if (!user.emailVerified) {
                 return const LoginScreen(isDriverApp: false);
               }

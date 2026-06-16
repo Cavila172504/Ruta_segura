@@ -85,6 +85,9 @@ app.*.map.json
 # Secrets
 web_admin/scripts/serviceAccountKey.json
 android/key.properties
+android/secrets.properties
+ios/Flutter/Secrets.xcconfig
+env.json
 android/keystore/
 *.jks
 *.keystore
@@ -93,4 +96,5 @@ web_admin/node_modules
 functions/node_modules
 .firebase
 .next
+web_admin/.env.local
 web_admin/.next

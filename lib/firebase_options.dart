@@ -55,7 +55,10 @@ class DefaultFirebaseOptions {
     storageBucket: 'rutasegura-a74f7.firebasestorage.app',
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
+  static const FirebaseOptions android = androidParent;
+
+  /// App Android — Padres (`com.rutasegura.parent`)
+  static const FirebaseOptions androidParent = FirebaseOptions(
     apiKey: 'AIzaSyCdvkAygHbD0LlsX2WIjwii26iLUWDX0iw',
     appId: '1:706491407166:android:01fedb49515310b2036a6f',
     messagingSenderId: '706491407166',
@@ -63,12 +66,54 @@ class DefaultFirebaseOptions {
     storageBucket: 'rutasegura-a74f7.firebasestorage.app',
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
+  /// App Android — Conductores (`com.rutasegura.driver`)
+  /// Actualiza appId tras registrar la app en Firebase Console.
+  static const FirebaseOptions androidDriver = FirebaseOptions(
+    apiKey: 'AIzaSyCdvkAygHbD0LlsX2WIjwii26iLUWDX0iw',
+    appId: '1:706491407166:android:01fedb49515310b2036a6f',
+    messagingSenderId: '706491407166',
+    projectId: 'rutasegura-a74f7',
+    storageBucket: 'rutasegura-a74f7.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = iosParent;
+
+  /// iOS — Padres (actualiza bundle ID al publicar flavor en App Store)
+  static const FirebaseOptions iosParent = FirebaseOptions(
     apiKey: 'AIzaSyDGYVUsw033XbCn2f5EEEd3LumOCkJQTdM',
     appId: '1:706491407166:ios:71b936c1ce94a78c036a6f',
     messagingSenderId: '706491407166',
     projectId: 'rutasegura-a74f7',
     storageBucket: 'rutasegura-a74f7.firebasestorage.app',
-    iosBundleId: 'com.rutasegura.rutaSegura',
+    iosBundleId: 'com.rutasegura.parent',
+  );
+
+  /// iOS — Conductores
+  static const FirebaseOptions iosDriver = FirebaseOptions(
+    apiKey: 'AIzaSyDGYVUsw033XbCn2f5EEEd3LumOCkJQTdM',
+    appId: '1:706491407166:ios:71b936c1ce94a78c036a6f',
+    messagingSenderId: '706491407166',
+    projectId: 'rutasegura-a74f7',
+    storageBucket: 'rutasegura-a74f7.firebasestorage.app',
+    iosBundleId: 'com.rutasegura.driver',
+  );
+
+  /// App Android — Admin móvil interno (`com.rutasegura.admin`)
+  static const FirebaseOptions androidAdmin = FirebaseOptions(
+    apiKey: 'AIzaSyCdvkAygHbD0LlsX2WIjwii26iLUWDX0iw',
+    appId: '1:706491407166:android:01fedb49515310b2036a6f',
+    messagingSenderId: '706491407166',
+    projectId: 'rutasegura-a74f7',
+    storageBucket: 'rutasegura-a74f7.firebasestorage.app',
+  );
+
+  /// iOS — Admin móvil interno
+  static const FirebaseOptions iosAdmin = FirebaseOptions(
+    apiKey: 'AIzaSyDGYVUsw033XbCn2f5EEEd3LumOCkJQTdM',
+    appId: '1:706491407166:ios:71b936c1ce94a78c036a6f',
+    messagingSenderId: '706491407166',
+    projectId: 'rutasegura-a74f7',
+    storageBucket: 'rutasegura-a74f7.firebasestorage.app',
+    iosBundleId: 'com.rutasegura.admin',
   );
 }
