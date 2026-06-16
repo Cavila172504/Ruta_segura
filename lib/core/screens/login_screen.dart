@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/driver/screens/driver_main_shell.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
+import 'legal_document_screen.dart';
 
 enum AuthMode { login, register, forgotPassword }
 
@@ -31,6 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   AuthMode _authMode = AuthMode.login;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true; // Nuevo
+  bool _acceptedTerms = false;
   final String _selectedRole = 'parent';
 
   @override
@@ -147,6 +149,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       if (name.isEmpty) {
         setState(() => _errorMessage = 'Debe ingresar sus nombres completos');
+        return;
+      }
+      if (!_acceptedTerms) {
+        setState(() => _errorMessage = 'Debe aceptar los Términos y la Política de Privacidad');
         return;
       }
     }
@@ -595,6 +601,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                             ],
+                            if (_authMode == AuthMode.register) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Checkbox(
+                                      value: _acceptedTerms,
+                                      activeColor: AppColors.primary,
+                                      onChanged: (value) {
+                                        setState(() => _acceptedTerms = value ?? false);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Wrap(
+                                      children: [
+                                        Text(
+                                          'Acepto los ',
+                                          style: GoogleFonts.publicSans(fontSize: 12, color: AppColors.onSurfaceVariant),
+                                        ),
+                                        _legalLink(
+                                          context,
+                                          'Términos de Uso',
+                                          LegalDocumentType.terms,
+                                        ),
+                                        Text(
+                                          ' y la ',
+                                          style: GoogleFonts.publicSans(fontSize: 12, color: AppColors.onSurfaceVariant),
+                                        ),
+                                        _legalLink(
+                                          context,
+                                          'Política de Privacidad',
+                                          LegalDocumentType.privacy,
+                                        ),
+                                        Text(
+                                          '.',
+                                          style: GoogleFonts.publicSans(fontSize: 12, color: AppColors.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                             const SizedBox(height: 24),
 
                             // Botón Ingresar / Registrar
@@ -687,15 +741,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 48),
 
-                    // Copyright Footer
+                    // Aviso legal
                     Text(
-                      'Al ingresar, usted acepta los términos de seguridad vial y monitoreo satelital en tiempo real de la plataforma RutaSegura.',
+                      'Al ingresar, usted acepta los términos de seguridad vial y monitoreo satelital de RutaSegura.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.publicSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _legalLink(context, 'Política de Privacidad', LegalDocumentType.privacy),
+                        Text(
+                          ' · ',
+                          style: GoogleFonts.publicSans(fontSize: 12, color: AppColors.onSurfaceVariant),
+                        ),
+                        _legalLink(context, 'Términos de Uso', LegalDocumentType.terms),
+                      ],
                     ),
                     const SizedBox(height: 32),
                     Row(
@@ -726,6 +793,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _legalLink(BuildContext context, String label, LegalDocumentType type) {
+    return GestureDetector(
+      onTap: () => openLegalDocument(context, type),
+      child: Text(
+        label,
+        style: GoogleFonts.publicSans(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: AppColors.primary,
+          decoration: TextDecoration.underline,
+        ),
       ),
     );
   }

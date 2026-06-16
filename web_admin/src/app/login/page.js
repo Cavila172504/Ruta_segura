@@ -166,8 +166,14 @@ const LoginPage = () => {
           </button>
         </form>
 
-        <div className="mt-10 pt-10 border-t border-outline-variant/10 w-full text-center">
+        <div className="mt-10 pt-10 border-t border-outline-variant/10 w-full text-center space-y-3">
           <p className="text-[10px] text-slate-400 font-medium">¿Olvidaste tu acceso? Contacta a Soporte Técnico</p>
+          <p className="text-[10px] text-slate-400">
+            Al ingresar aceptas los{' '}
+            <a href="/terminos" className="text-primary font-semibold hover:underline">Términos de Uso</a>
+            {' '}y la{' '}
+            <a href="/privacidad" className="text-primary font-semibold hover:underline">Política de Privacidad</a>.
+          </p>
         </div>
       </div>
     </div>

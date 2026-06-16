@@ -72,12 +72,11 @@ npm run dev
 
 Las apps envían crashes a Firebase Crashlytics. Actívalo en Firebase Console y revisa `docs/MONITORING.md`.
 
-```bash
-# Forzar reportes en debug (solo pruebas)
-flutter run --flavor parent --target lib/main_parent.dart \
-  --dart-define-from-file=env.json \
-  --dart-define=FORCE_CRASHLYTICS=true
-```
+### 6. Páginas legales
+
+- Web: `/privacidad` y `/terminos`
+- Flutter: enlaces en login; checkbox obligatorio al registrarse
+- Guía: `docs/LEGAL.md`
 
 ## Despliegue y seguridad
 

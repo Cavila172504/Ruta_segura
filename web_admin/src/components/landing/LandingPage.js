@@ -327,10 +327,10 @@ export default function LandingPage() {
           </div>
           
           <div>
-            <h4 className="text-white font-bold mb-4">Enlaces Rápidos</h4>
+            <h4 className="text-white font-bold mb-4">Legal</h4>
             <ul className="space-y-2 text-sm">
-              <li><button onClick={() => scrollToSection('ecosistema')} className="hover:text-white transition-colors">Nuestro Ecosistema</button></li>
-              <li><button onClick={() => scrollToSection('audiencia')} className="hover:text-white transition-colors">¿Para quién es?</button></li>
+              <li><a href="/privacidad" className="hover:text-white transition-colors">Política de Privacidad</a></li>
+              <li><a href="/terminos" className="hover:text-white transition-colors">Términos de Uso</a></li>
               <li><a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Contactar</a></li>
             </ul>
           </div>
@@ -349,6 +349,10 @@ export default function LandingPage() {
         </div>
         <div className="max-w-7xl mx-auto px-6 md:px-12 mt-12 pt-8 border-t border-white/5 text-xs flex flex-col md:flex-row justify-between items-center gap-4">
           <p>© {new Date().getFullYear()} RutaSegura. Todos los derechos reservados.</p>
+          <div className="flex gap-4">
+            <a href="/privacidad" className="hover:text-white transition-colors">Privacidad</a>
+            <a href="/terminos" className="hover:text-white transition-colors">Términos</a>
+          </div>
         </div>
       </footer>
     </div>
