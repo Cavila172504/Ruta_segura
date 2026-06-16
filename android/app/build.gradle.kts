@@ -47,13 +47,32 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.rutasegura.ruta_segura"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
             secretsProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+    }
+
+    flavorDimensions += "role"
+
+    productFlavors {
+        create("parent") {
+            dimension = "role"
+            applicationId = "com.rutasegura.parent"
+            resValue("string", "app_name", "RutaSegura Padres")
+        }
+        create("driver") {
+            dimension = "role"
+            applicationId = "com.rutasegura.driver"
+            resValue("string", "app_name", "RutaSegura Conductor")
+        }
+        create("admin") {
+            dimension = "role"
+            applicationId = "com.rutasegura.admin"
+            resValue("string", "app_name", "RutaSegura Admin")
+        }
     }
 
     buildTypes {

@@ -19,8 +19,8 @@
 1. Crear clave en [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 2. Habilitar: Maps SDK for Android, Maps SDK for iOS, Directions API
 3. Restringir por:
-   - Android: `com.rutasegura.ruta_segura` + SHA-1 del keystore
-   - iOS: bundle ID del proyecto
+   - Android: `com.rutasegura.parent`, `com.rutasegura.driver` (+ SHA-1 del keystore)
+   - iOS: bundle IDs por app (`com.rutasegura.parent`, `com.rutasegura.driver`)
    - API: solo las APIs necesarias
 
 ### Panel web en Firebase Hosting
@@ -40,9 +40,12 @@ Ver `android/key.properties.example`.
 
 ## Build release Flutter
 
+Ver [ANDROID_FLAVORS.md](ANDROID_FLAVORS.md).
+
 ```bash
 cp env.example.json env.json   # con clave real
-flutter build apk --target lib/main_driver.dart --dart-define-from-file=env.json
+./scripts/build-android-apk.sh parent release
+./scripts/build-android-apk.sh driver release
 ```
 
 ## Migración padres

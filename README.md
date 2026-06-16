@@ -4,11 +4,13 @@ Sistema de transporte escolar: app Flutter (padres, conductores, admin móvil) y
 
 ## Apps Flutter
 
-| Target | Entry point |
-|--------|-------------|
-| Padres | `lib/main_parent.dart` |
-| Conductores | `lib/main_driver.dart` |
-| Admin móvil | `lib/main_admin.dart` |
+| Target | Entry point | Flavor Android | Package |
+|--------|-------------|----------------|---------|
+| Padres | `lib/main_parent.dart` | `parent` | `com.rutasegura.parent` |
+| Conductores | `lib/main_driver.dart` | `driver` | `com.rutasegura.driver` |
+| Admin móvil (interno) | `lib/main_admin.dart` | `admin` | `com.rutasegura.admin` |
+
+Ver [docs/ANDROID_FLAVORS.md](docs/ANDROID_FLAVORS.md) para builds y Firebase.
 
 ## Configuración inicial
 
@@ -36,10 +38,18 @@ cp ios/Flutter/Secrets.xcconfig.example ios/Flutter/Secrets.xcconfig
 # Misma clave para iOS nativo
 ```
 
-Ejecutar con claves:
+Ejecutar con claves (siempre indicar `--flavor` en Android):
 
 ```bash
-flutter run --target lib/main_parent.dart --dart-define-from-file=env.json
+flutter run --flavor parent --target lib/main_parent.dart --dart-define-from-file=env.json
+flutter run --flavor driver --target lib/main_driver.dart --dart-define-from-file=env.json
+```
+
+Build release:
+
+```bash
+./scripts/build-android-apk.sh parent release
+./scripts/build-android-apk.sh driver release
 ```
 
 En VS Code/Cursor usa las configuraciones de `.vscode/launch.json`.
