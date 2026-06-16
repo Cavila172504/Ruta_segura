@@ -1,15 +1,19 @@
 import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 
 class DirectionsService {
-  // Nota: En producción, esta API Key debería estar protegida
-  final String _apiKey = 'ADJUNTE_AQUI_SUR_API_KEY'; // El usuario deberá poner la suya o usaremos un proxy
+  String get _apiKey => AppConfig.googleMapsApiKey;
 
   Future<List<LatLng>?> getRoute({
     required LatLng origin,
     required LatLng destination,
   }) async {
+    if (!AppConfig.hasGoogleMapsApiKey) {
+      return null;
+    }
+
     final url = 'https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=$_apiKey';
 
     try {
