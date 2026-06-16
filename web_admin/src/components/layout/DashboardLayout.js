@@ -32,6 +32,11 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
   }, [user, loading, router]);
 
   useEffect(() => {
+    if (loading || !user || profile) return;
+    router.replace('/login');
+  }, [loading, user, profile, router]);
+
+  useEffect(() => {
     if (loading || profile?.role !== 'super_admin') return;
 
     const isSchoolRoute = SCHOOL_ONLY_PATHS.some(

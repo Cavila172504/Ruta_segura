@@ -78,7 +78,7 @@ class _ParentHistoryScreenState extends ConsumerState<ParentHistoryScreen> {
     final uid = ref.watch(authStateProvider).value?.uid;
     final unitCode = ref.watch(activeUnitCodeProvider).asData?.value;
     final companyName = unitCode != null
-        ? ref.watch(companyByUnitProvider(unitCode)).asData?.value?['name']?.toString()
+        ? (ref.watch(companyByUnitProvider(unitCode)).asData?.value?['name']?.toString())
         : null;
 
     if (unitCode == null || unitCode.isEmpty || uid == null) {

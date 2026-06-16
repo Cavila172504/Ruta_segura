@@ -25,9 +25,13 @@ const UsersManagementPage = () => {
         if (profile?.role !== 'super_admin') return;
 
         const q = query(collection(db, 'users', 'admins', 'members'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        });
+        const unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+                setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            },
+            (err) => console.error('[Users] Firestore:', err?.code, err?.message)
+        );
 
         return () => unsubscribe();
     }, [profile]);

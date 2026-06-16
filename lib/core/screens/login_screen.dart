@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../providers/app_providers.dart';
+import '../legal/legal_document_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/driver/screens/driver_main_shell.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
@@ -31,6 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   AuthMode _authMode = AuthMode.login;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true; // Nuevo
+  bool _acceptedTerms = false;
   final String _selectedRole = 'parent';
 
   @override
@@ -141,6 +143,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     if (_authMode == AuthMode.register) {
+      if (!_acceptedTerms) {
+        setState(() => _errorMessage = 'Debe aceptar los términos y la política de privacidad.');
+        return;
+      }
       if (password != confirmPassword) {
         setState(() => _errorMessage = 'Las contraseñas no coinciden');
         return;
@@ -570,6 +576,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
+
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Checkbox(
+                                    value: _acceptedTerms,
+                                    activeColor: AppColors.primary,
+                                    onChanged: (value) {
+                                      setState(() => _acceptedTerms = value ?? false);
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Wrap(
+                                      children: [
+                                        Text(
+                                          'Acepto los ',
+                                          style: GoogleFonts.publicSans(fontSize: 12),
+                                        ),
+                                        InkWell(
+                                          onTap: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => LegalDocumentScreen.terms(),
+                                              ),
+                                            );
+                                          },
+                                          child: Text(
+                                            'Términos',
+                                            style: GoogleFonts.publicSans(
+                                              fontSize: 12,
+                                              color: AppColors.primary,
+                                              fontWeight: FontWeight.bold,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          ' y la ',
+                                          style: GoogleFonts.publicSans(fontSize: 12),
+                                        ),
+                                        InkWell(
+                                          onTap: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => LegalDocumentScreen.privacy(),
+                                              ),
+                                            );
+                                          },
+                                          child: Text(
+                                            'Política de Privacidad',
+                                            style: GoogleFonts.publicSans(
+                                              fontSize: 12,
+                                              color: AppColors.primary,
+                                              fontWeight: FontWeight.bold,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
                             ] else if (_authMode == AuthMode.login &&
                                 !widget.isDriverApp) ...[
                               Align(
@@ -687,15 +757,62 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 48),
 
-                    // Copyright Footer
-                    Text(
-                      'Al ingresar, usted acepta los términos de seguridad vial y monitoreo satelital en tiempo real de la plataforma RutaSegura.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.publicSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
-                      ),
+                    // Legal footer
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Al ingresar acepta ',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.publicSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => LegalDocumentScreen.terms(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Términos',
+                            style: GoogleFonts.publicSans(
+                              fontSize: 12,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          ' y ',
+                          style: GoogleFonts.publicSans(
+                            fontSize: 12,
+                            color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => LegalDocumentScreen.privacy(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Privacidad',
+                            style: GoogleFonts.publicSans(
+                              fontSize: 12,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 32),
                     Row(

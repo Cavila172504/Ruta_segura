@@ -53,23 +53,29 @@ const LoginPage = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, finalPassword);
       const uid = userCredential.user.uid;
 
-      const adminRef = doc(db, "users", "admins", "members", uid);
-      const adminSnap = await getDoc(adminRef);
-
       const superAdminRef = doc(db, "users", "super_admins", "members", uid);
       const superSnap = await getDoc(superAdminRef);
 
-      if (adminSnap.exists() || superSnap.exists()) {
-        const isSuper = superSnap.exists();
-        router.push(isSuper ? '/dashboard/companies' : '/dashboard');
+      const adminRef = doc(db, "users", "admins", "members", uid);
+      const adminSnap = await getDoc(adminRef);
+
+      if (superSnap.exists() || adminSnap.exists()) {
+        router.push(superSnap.exists() ? '/dashboard/companies' : '/dashboard');
       } else {
         await auth.signOut();
         setError(
-          "No tienes permisos de administrador. Ejecuta scripts/create-superuser.js para asignar rol super_admin."
+          "No tienes permisos de administrador. Ejecuta: cd web_admin && node scripts/create-superuser.js"
         );
       }
     } catch (err) {
-      setError("Credenciales incorrectas. Si eres propietario, verifica contraseña en Firebase (create-superuser.js).");
+      const code = err?.code || '';
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+        setError('Correo o contraseña incorrectos. Si acabas de ejecutar create-superuser.js, usa la contraseña de SUPER_ADMIN_PASSWORD en .env.local.');
+      } else if (code === 'permission-denied') {
+        setError('Permisos de Firestore insuficientes. Despliega las reglas: firebase deploy --only firestore:rules');
+      } else {
+        setError(`Error al ingresar (${code || 'desconocido'}). Revisa la consola del navegador.`);
+      }
       console.error(err);
     } finally {
       setLoading(false);
@@ -166,8 +172,13 @@ const LoginPage = () => {
           </button>
         </form>
 
-        <div className="mt-10 pt-10 border-t border-outline-variant/10 w-full text-center">
+        <div className="mt-10 pt-10 border-t border-outline-variant/10 w-full text-center space-y-2">
           <p className="text-[10px] text-slate-400 font-medium">¿Olvidaste tu acceso? Contacta a Soporte Técnico</p>
+          <p className="text-[10px] text-slate-400">
+            <a href="/privacidad" className="hover:text-primary transition-colors">Privacidad</a>
+            {' · '}
+            <a href="/terminos" className="hover:text-primary transition-colors">Términos</a>
+          </p>
         </div>
       </div>
     </div>
