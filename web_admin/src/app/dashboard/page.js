@@ -29,17 +29,25 @@ const DashboardPage = () => {
   useEffect(() => {
     if (authLoading || !SCHOOL_CODE) return;
 
-    const companyUnsub = onSnapshot(doc(db, 'companies', SCHOOL_CODE), (snap) => {
-      if (snap.exists()) {
-        const d = snap.data();
-        setSchoolInfo({
-          name: d.name || SCHOOL_CODE,
-          address: d.schoolAddress || '',
-          lat: d.schoolLat ?? null,
-          lng: d.schoolLng ?? null,
-        });
-      }
-    });
+    const onPermError = (err) => {
+      console.error('[Dashboard] Firestore:', err?.code, err?.message);
+    };
+
+    const companyUnsub = onSnapshot(
+      doc(db, 'companies', SCHOOL_CODE),
+      (snap) => {
+        if (snap.exists()) {
+          const d = snap.data();
+          setSchoolInfo({
+            name: d.name || SCHOOL_CODE,
+            address: d.schoolAddress || '',
+            lat: d.schoolLat ?? null,
+            lng: d.schoolLng ?? null,
+          });
+        }
+      },
+      onPermError
+    );
 
     // 1. Buses / live_tracking  (solo los que tengan GPS real)
     const busUnsub = onSnapshot(
@@ -49,31 +57,36 @@ const DashboardPage = () => {
           .map(d => ({ id: d.id, ...d.data() }))
           .filter(b => (b.lat != null || b.latitude != null) && (b.lng != null || b.longitude != null));
         setBuses(live);
-      }
+      },
+      onPermError
     );
 
     // 2. Conductores registrados (fuente de verdad para el conteo)
     const driverUnsub = onSnapshot(
       collection(db, 'companies', SCHOOL_CODE, 'drivers'),
-      (snap) => setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      (snap) => setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      onPermError
     );
 
     // 3. Estudiantes registrados
     const stuUnsub = onSnapshot(
       collection(db, 'companies', SCHOOL_CODE, 'students'),
-      (snap) => setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      (snap) => setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      onPermError
     );
 
     // 3. Rutas
     const routesUnsub = onSnapshot(
       collection(db, 'companies', SCHOOL_CODE, 'routes'),
-      (snap) => setRoutes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      (snap) => setRoutes(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      onPermError
     );
 
     // 4. Incidentes / reports
     const incUnsub = onSnapshot(
-      collection(db, 'companies', SCHOOL_CODE, 'incident_reports'),
-      (snap) => setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      collection(db, 'companies', SCHOOL_CODE, 'incidents'),
+      (snap) => setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      onPermError
     );
 
     return () => {

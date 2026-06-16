@@ -1070,6 +1070,12 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     try {
                       final authRepo = ref.read(authRepositoryProvider);
                       final uid = await authRepo.getCurrentUserId();
+                      if (uid == null) throw Exception('Sesión no válida');
+
+                      final unitCode = await ref.read(activeUnitCodeProvider.future);
+                      if (unitCode == null || unitCode.isEmpty) {
+                        throw Exception('No hay colegio vinculado.');
+                      }
                       
                       final parentQuery = await FirebaseFirestore.instance
                           .collection('users').doc('parents').collection('members')
@@ -1079,13 +1085,18 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                           ? (parentQuery.docs.first.data()['name'] ?? 'Padre s/n')
                           : 'Usuario Desconocido';
 
-                      await FirebaseFirestore.instance.collection('support_tickets').add({
+                      await FirebaseFirestore.instance
+                          .collection('companies')
+                          .doc(unitCode.trim().toUpperCase())
+                          .collection('support_tickets')
+                          .add({
                         'parentId': uid,
                         'parentName': parentName,
                         'message': message,
+                        'unitCode': unitCode.trim().toUpperCase(),
                         'timestamp': FieldValue.serverTimestamp(),
                         'status': 'open',
-                        'type': 'support_request'
+                        'type': 'support_request',
                       });
 
                       try {

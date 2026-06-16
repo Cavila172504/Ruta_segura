@@ -1,28 +1,23 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+
+import 'core/bootstrap/app_bootstrap.dart';
+import 'core/providers/app_providers.dart';
 import 'core/screens/login_screen.dart';
 import 'core/services/notification_service.dart';
-import 'core/providers/app_providers.dart';
-import 'features/driver/screens/driver_main_shell.dart';
 import 'features/admin/screens/admin_dashboard_screen.dart';
+import 'features/driver/screens/driver_main_shell.dart';
 import 'features/parent/screens/parent_dashboard_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  print('--- ARRANCANDO APP CHOFER ---');
-  
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  ).timeout(const Duration(seconds: 10));
-
-  // Registrar handler para segundo plano
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-  // Inicializar servicio de notificaciones
-  await NotificationService().init();
+  await bootstrapFirebase(
+    appLabel: 'driver',
+    afterFirebaseInit: () async {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      await NotificationService().init();
+    },
+  );
 
   runApp(const ProviderScope(child: DriverApp()));
 }
@@ -55,7 +50,6 @@ class RootAuthWrapper extends ConsumerWidget {
           return LoginScreen(isDriverApp: isDriverApp);
         }
 
-        // Determine user role
         return FutureBuilder<String?>(
           future: ref.read(authRepositoryProvider).getUserRole(user.uid),
           builder: (context, snapshot) {

@@ -85,7 +85,11 @@ app.*.map.json
 # Secrets
 web_admin/scripts/serviceAccountKey.json
 android/key.properties
+android/secrets.properties
 android/keystore/
+env.json
+web_admin/.env.local
+ios/Flutter/Secrets.xcconfig
 *.jks
 *.keystore
 node_modules

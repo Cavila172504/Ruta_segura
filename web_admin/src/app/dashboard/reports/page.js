@@ -57,7 +57,7 @@ export default function ReportsPage() {
       setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    const qIncidents = query(collection(db, 'companies', SCHOOL_CODE, 'incident_reports'), orderBy('timestamp', 'desc'));
+    const qIncidents = query(collection(db, 'companies', SCHOOL_CODE, 'incidents'), orderBy('timestamp', 'desc'));
     const unsubIncidents = onSnapshot(qIncidents, (snap) => {
       setIncidents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);

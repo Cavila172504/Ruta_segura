@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/map_provider.dart';
 import '../../../core/providers/route_provider.dart';
@@ -36,7 +37,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
   final Set<String> _presentIds = {};
   static const LatLng _fallbackSchool = LatLng(-0.3485666414297856, -79.24772636139673);
   LatLng _schoolLocation = _fallbackSchool;
-  final String _googleApiKey = "AIzaSyBRXBhHluPGhrGNTc9cj03aGut7Q6jkd_U";
+  String get _googleApiKey => AppConfig.googleMapsApiKey;
 
   BitmapDescriptor? _busIcon;
   BitmapDescriptor? _schoolIcon;
@@ -304,11 +305,70 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Future<void> _finishTrip(String unitCode, String? driverId) async {
     if (driverId == null) return;
-    await FirebaseFirestore.instance.collection('companies').doc(unitCode).collection('live_tracking').doc(driverId).update({
+
+    final trackingRef = FirebaseFirestore.instance
+        .collection('companies')
+        .doc(unitCode)
+        .collection('live_tracking')
+        .doc(driverId);
+    final trackingSnap = await trackingRef.get();
+    final trackingData = trackingSnap.data() ?? {};
+
+    final studentsSnapshot = await FirebaseFirestore.instance
+        .collection('companies')
+        .doc(unitCode)
+        .collection('students')
+        .get();
+
+    final parentIds = <String>{};
+    var presentCount = 0;
+    var absentCount = 0;
+
+    for (final doc in studentsSnapshot.docs) {
+      final data = doc.data();
+      final parentId = data['parentId']?.toString();
+      if (parentId != null && parentId.isNotEmpty) {
+        parentIds.add(parentId);
+      }
+      final status = data['attendance_status']?.toString() ?? '';
+      if (status == 'absent_today' || data['status'] == 'absent') {
+        absentCount++;
+      } else if (status.isNotEmpty && status != 'pending') {
+        presentCount++;
+      }
+    }
+
+    await trackingRef.update({
       'status': 'finished',
       'isActive': false,
       'finishedAt': FieldValue.serverTimestamp(),
     });
+
+    await FirebaseFirestore.instance
+        .collection('companies')
+        .doc(unitCode)
+        .collection('trip_logs')
+        .add({
+      'driverId': driverId,
+      'driverName': trackingData['driverName'] ?? 'Conductor',
+      'routeType': trackingData['routeType'],
+      'routeName': trackingData['routeType'] == 'to_school'
+          ? 'Ida al Colegio'
+          : trackingData['routeType'] == 'to_home'
+              ? 'Retorno a Casa'
+              : 'Recorrido',
+      'startedAt': trackingData['startedAt'] ?? FieldValue.serverTimestamp(),
+      'finishedAt': FieldValue.serverTimestamp(),
+      'unitCode': unitCode,
+      'parentIds': parentIds.toList(),
+      'studentCount': studentsSnapshot.docs.length,
+      'attendanceSummary': {
+        'present': presentCount,
+        'absent': absentCount,
+      },
+      'status': 'completed',
+    });
+
     if (mounted) ref.read(driverNavigationProvider.notifier).setIndex(0);
   }
 

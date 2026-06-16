@@ -1,0 +1,6 @@
+# UTF-8 for config files
+*.json text eol=lf
+*.rules text eol=lf
+*.properties text eol=lf
+*.xcconfig text eol=lf
+.env* text eol=lf
