@@ -9,7 +9,45 @@
       "client_info": {
         "mobilesdk_app_id": "1:706491407166:android:01fedb49515310b2036a6f",
         "android_client_info": {
-          "package_name": "com.rutasegura.ruta_segura"
+          "package_name": "com.rutasegura.parent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdvkAygHbD0LlsX2WIjwii26iLUWDX0iw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706491407166:android:01fedb49515310b2036a6f",
+        "android_client_info": {
+          "package_name": "com.rutasegura.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdvkAygHbD0LlsX2WIjwii26iLUWDX0iw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706491407166:android:01fedb49515310b2036a6f",
+        "android_client_info": {
+          "package_name": "com.rutasegura.admin"
         }
       },
       "oauth_client": [],

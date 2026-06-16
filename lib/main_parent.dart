@@ -2,7 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'core/config/firebase_app_options.dart';
 import 'core/screens/login_screen.dart';
 import 'core/services/notification_service.dart';
 import 'core/providers/app_providers.dart';
@@ -17,7 +17,7 @@ void main() async {
   try {
     print('Iniciando Firebase...');
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: FirebaseAppOptions.parent,
     ).timeout(const Duration(seconds: 10));
     print('Firebase listo.');
 
