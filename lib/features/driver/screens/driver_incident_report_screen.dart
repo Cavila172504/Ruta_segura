@@ -1,20 +1,164 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/app_providers.dart';
+import '../../../core/providers/route_provider.dart';
 import 'driver_dashboard_screen.dart';
 import 'driver_map_screen.dart';
 import 'driver_attendance_screen.dart';
 
-class DriverIncidentReportScreen extends StatefulWidget {
+class DriverIncidentReportScreen extends ConsumerStatefulWidget {
   const DriverIncidentReportScreen({super.key});
 
   @override
-  State<DriverIncidentReportScreen> createState() => _DriverIncidentReportScreenState();
+  ConsumerState<DriverIncidentReportScreen> createState() => _DriverIncidentReportScreenState();
 }
 
-class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen> {
+class _DriverIncidentReportScreenState extends ConsumerState<DriverIncidentReportScreen> {
   String? _selectedIncidentType;
   bool _shareLocation = true;
+  bool _isSubmitting = false;
+  final TextEditingController _descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitIncident() async {
+    if (_selectedIncidentType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona el tipo de novedad.')),
+      );
+      return;
+    }
+
+    final description = _descriptionController.text.trim();
+    if (description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escribe una descripción del incidente.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final profile = ref.read(userProfileProvider).value;
+      final unitCode = (profile?['unitCode'] ?? 'CAD31').toString();
+      final driverId = profile?['uid']?.toString();
+      final driverName = profile?['name']?.toString() ?? 'Conductor';
+
+      if (driverId == null) {
+        throw Exception('Sesión de conductor no válida.');
+      }
+
+      double? lat;
+      double? lng;
+      if (_shareLocation) {
+        final permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          await Geolocator.requestPermission();
+        }
+        final position = await Geolocator.getCurrentPosition();
+        lat = position.latitude;
+        lng = position.longitude;
+      }
+
+      final students = ref.read(driverStudentsProvider(unitCode)).value ?? [];
+      final parentIds = <String>{};
+      for (final student in students) {
+        final parentId = student['parentId']?.toString();
+        if (parentId != null && parentId.isNotEmpty) {
+          parentIds.add(parentId);
+        }
+      }
+
+      final trackingSnap = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(unitCode)
+          .collection('live_tracking')
+          .doc(driverId)
+          .get();
+      final routeType = trackingSnap.data()?['routeType']?.toString();
+
+      await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(unitCode)
+          .collection('incidents')
+          .add({
+        'type': _selectedIncidentType,
+        'description': description,
+        'driverId': driverId,
+        'driverName': driverName,
+        'routeType': routeType,
+        'routeName': routeType == 'to_school'
+            ? 'Ida al Colegio'
+            : routeType == 'to_home'
+                ? 'Retorno a Casa'
+                : 'Ruta activa',
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'open',
+        'shareLocation': _shareLocation,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
+        'parentIds': parentIds.toList(),
+        'unitCode': unitCode,
+      });
+
+      if (parentIds.isNotEmpty) {
+        WriteBatch batch = FirebaseFirestore.instance.batch();
+        var count = 0;
+        final now = Timestamp.now();
+
+        for (final parentUid in parentIds) {
+          final notifRef = FirebaseFirestore.instance
+              .collection('users')
+              .doc('parents')
+              .collection('members')
+              .doc(parentUid)
+              .collection('notifications')
+              .doc();
+          batch.set(notifRef, {
+            'title': '⚠️ Novedad en ruta',
+            'message': '$_selectedIncidentType: $description',
+            'timestamp': now,
+            'type': 'incident_alert',
+            'isRead': false,
+          });
+          count++;
+          if (count >= 400) {
+            await batch.commit();
+            batch = FirebaseFirestore.instance.batch();
+            count = 0;
+          }
+        }
+        if (count > 0) {
+          await batch.commit();
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Alerta enviada a los padres de la ruta.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo enviar la alerta. Intenta de nuevo.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +317,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                         ),
                                       );
                                     }).toList(),
-                                    onChanged: (newValue) {
+                                    onChanged: _isSubmitting ? null : (newValue) {
                                       setState(() => _selectedIncidentType = newValue);
                                     },
                                   ),
@@ -206,7 +350,9 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                               ),
                               const SizedBox(height: 12),
                               TextField(
+                                controller: _descriptionController,
                                 maxLines: 4,
+                                enabled: !_isSubmitting,
                                 style: GoogleFonts.publicSans(fontWeight: FontWeight.w500),
                                 decoration: InputDecoration(
                                   hintText: 'Detalle lo sucedido aquí...',
@@ -278,7 +424,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                 activeTrackColor: AppColors.secondary,
                                 inactiveThumbColor: Colors.white,
                                 inactiveTrackColor: const Color(0xFF167159).withValues(alpha: 0.2), // on-secondary-container
-                                onChanged: (val) {
+                                onChanged: _isSubmitting ? null : (val) {
                                   setState(() => _shareLocation = val);
                                 },
                               )
@@ -328,7 +474,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
 
                         // Submit Button
                         ElevatedButton.icon(
-                          onPressed: () {},
+                          onPressed: _isSubmitting ? null : _submitIncident,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.error,
                             foregroundColor: Colors.white,
@@ -337,9 +483,15 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                             elevation: 8,
                             shadowColor: AppColors.error.withValues(alpha: 0.4),
                           ),
-                          icon: const Icon(Icons.campaign, size: 28),
+                          icon: _isSubmitting
+                              ? const SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.campaign, size: 28),
                           label: Text(
-                            'ENVIAR ALERTA A TODOS LOS PADRES',
+                            _isSubmitting ? 'ENVIANDO...' : 'ENVIAR ALERTA A TODOS LOS PADRES',
                             style: GoogleFonts.publicSans(
                               fontSize: 14,
                               fontWeight: FontWeight.w900,

@@ -72,7 +72,7 @@ const DashboardPage = () => {
 
     // 4. Incidentes / reports
     const incUnsub = onSnapshot(
-      collection(db, 'companies', SCHOOL_CODE, 'incident_reports'),
+      collection(db, 'companies', SCHOOL_CODE, 'incidents'),
       (snap) => setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
