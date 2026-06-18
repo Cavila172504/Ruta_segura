@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { verifyApiAuth, requireSuperAdmin } from '@/lib/api-auth';
+import { ensureAdminReady, normalizeUnitCode } from '@/lib/admin-api';
 
 export async function GET(request) {
+  const notReady = ensureAdminReady();
+  if (notReady) return notReady;
+
   const authResult = await verifyApiAuth(request, { roles: ['super_admin'] });
   if (authResult.error) return authResult.error;
   const forbidden = requireSuperAdmin(authResult.user);
@@ -14,19 +18,45 @@ export async function GET(request) {
 
     for (const doc of companiesSnap.docs) {
       const data = doc.data();
-      const unitCode = doc.id;
+      const unitCode = normalizeUnitCode(doc.id);
 
-      const [driversSnap, studentsSnap, adminsSnap] = await Promise.all([
+      const [driversSnap, studentsSnap] = await Promise.all([
         adminDb.collection('companies').doc(unitCode).collection('drivers').get(),
         adminDb.collection('companies').doc(unitCode).collection('students').get(),
-        adminDb.collection('users').doc('admins').collection('members').where('unitCode', '==', unitCode).limit(1).get(),
       ]);
+
+      let adminDoc = null;
+      if (data.adminUid) {
+        const snap = await adminDb
+          .collection('users')
+          .doc('admins')
+          .collection('members')
+          .doc(data.adminUid)
+          .get();
+        if (snap.exists) adminDoc = snap.data();
+      }
+      if (!adminDoc) {
+        const adminsSnap = await adminDb
+          .collection('users')
+          .doc('admins')
+          .collection('members')
+          .where('unitCode', '==', unitCode)
+          .limit(1)
+          .get();
+        adminDoc = adminsSnap.docs[0]?.data() || null;
+      }
 
       const students = studentsSnap.docs.map((d) => d.data());
       const activeStudents = students.filter((s) => s.status === 'active').length;
       const pendingStudents = students.filter((s) => s.status === 'pending').length;
 
-      const adminDoc = adminsSnap.docs[0]?.data();
+      const billing = data.billing || {
+        plan: 'basic',
+        monthlyUsd: 0,
+        status: 'active',
+        studentLimit: 80,
+        driverLimit: 2,
+      };
 
       stats.push({
         unitCode,
@@ -45,6 +75,10 @@ export async function GET(request) {
         studentsActive: activeStudents,
         studentsPending: pendingStudents,
         createdAt: data.createdAt || null,
+        billing,
+        billingPlan: billing.plan || 'basic',
+        billingStatus: billing.status || 'active',
+        monthlyUsd: billing.monthlyUsd ?? 0,
       });
     }
 

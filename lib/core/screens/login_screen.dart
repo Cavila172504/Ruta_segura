@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
+import '../config/app_flavor.dart';
 import '../providers/app_providers.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/driver/screens/driver_main_shell.dart';
-import '../../features/parent/screens/parent_dashboard_screen.dart';
+import '../../features/parent/screens/parent_nav_shell.dart';
+import '../../core/services/parent_school_link_service.dart';
+import '../providers/parent_member_utils.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 
 enum AuthMode { login, register, forgotPassword }
@@ -24,8 +27,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController(); // Nuevo
-  final _companyCodeController = TextEditingController(); // Nuevo (Multi-Tenant)
-  final _nameController = TextEditingController(); // Nombres completos
+  final _companyCodeController = TextEditingController();
+  final _cedulaController = TextEditingController();
+  final _nameController = TextEditingController();
   String? _errorMessage;
   bool _isLoading = false;
   AuthMode _authMode = AuthMode.login;
@@ -39,6 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _companyCodeController.dispose();
+    _cedulaController.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -47,29 +52,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
   }
 
-  /// Busca el correo del conductor registrado en el panel (contraseña = cédula).
+  /// Busca el correo del conductor por cédula (índice público driver_auth_lookup).
   Future<String?> _resolveDriverEmailByCedula(String cedula) async {
     final normalized = cedula.trim();
-    final byCompany = await FirebaseFirestore.instance
-        .collectionGroup('drivers')
-        .where('idNumber', isEqualTo: normalized)
-        .limit(1)
-        .get()
-        .timeout(const Duration(seconds: 15));
-    if (byCompany.docs.isNotEmpty) {
-      return byCompany.docs.first.data()['email'] as String?;
-    }
+    if (normalized.length < 6) return null;
 
-    final byMember = await FirebaseFirestore.instance
-        .collection('users')
-        .doc('drivers')
-        .collection('members')
-        .where('idNumber', isEqualTo: normalized)
-        .limit(1)
+    final lookup = await FirebaseFirestore.instance
+        .collection('driver_auth_lookup')
+        .doc(normalized)
         .get()
         .timeout(const Duration(seconds: 15));
-    if (byMember.docs.isNotEmpty) {
-      return byMember.docs.first.data()['email'] as String?;
+    if (lookup.exists) {
+      final email = lookup.data()?['email'] as String?;
+      if (email != null && email.isNotEmpty) return email;
     }
     return null;
   }
@@ -148,6 +143,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (name.isEmpty) {
         setState(() => _errorMessage = 'Debe ingresar sus nombres completos');
         return;
+      }
+      if (!widget.isDriverApp) {
+        final cedula = normalizeCedula(_cedulaController.text);
+        if (cedula.length < 6) {
+          setState(() => _errorMessage = 'Ingresa tu cedula de representante');
+          return;
+        }
+        final schoolCode = normalizeUnitCode(_companyCodeController.text);
+        if (schoolCode.length < 3) {
+          setState(() => _errorMessage = 'Ingresa el codigo del colegio');
+          return;
+        }
       }
     }
 
@@ -248,17 +255,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       debugPrint('Realizando signUp...');
       creds = await authRepo.signUp(email, password, _selectedRole, name);
       debugPrint('SignUp exitoso.');
+
+      if (!widget.isDriverApp && creds?.user != null) {
+        try {
+          final result = await linkParentSchoolWithCedula(
+            user: creds!.user!,
+            unitCode: _companyCodeController.text,
+            cedulaInput: _cedulaController.text,
+          );
+          if (!mounted) return;
+          final extra = result.claimedCount > 0
+              ? ' Se asociaron ${result.claimedCount} estudiante(s).'
+              : '';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Cuenta creada.$extra Revisa tu correo para verificar la cuenta.',
+              ),
+              backgroundColor: AppColors.secondary,
+            ),
+          );
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Cuenta creada, pero no se pudo vincular el colegio: ${friendlyLinkError(e)}',
+              ),
+              backgroundColor: Colors.orange.shade800,
+            ),
+          );
+        }
+      } else if (!mounted) {
+        return;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cuenta creada con éxito. Revisa tu correo para verificar la cuenta.'),
+            backgroundColor: AppColors.secondary,
+          ),
+        );
+      }
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cuenta creada con éxito. Revisa tu correo para verificar la cuenta.'),
-          backgroundColor: AppColors.secondary,
-        ),
-      );
+      await authRepo.signOut();
       setState(() {
         _authMode = AuthMode.login;
         _passwordController.clear();
         _confirmPasswordController.clear();
+        _cedulaController.clear();
+        _companyCodeController.clear();
       });
       return;
     }
@@ -269,9 +315,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       debugPrint('Rol obtenido: $role');
       if (!mounted) return;
       
-      // Redirección dinámica según el rol
+      // Redirección dinámica según el rol (app conductor usa RootAuthWrapper)
       if (role == 'driver') {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => DriverMainShell()));
+        if (!widget.isDriverApp) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const DriverMainShell()),
+          );
+        }
+        return;
       } else if (role == 'admin' || role == 'super_admin') {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AdminDashboardScreen()));
       } else {
@@ -283,25 +334,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           return;
         }
         // 'parent' o cualquier otro valor
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ParentDashboardScreen()));
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const ParentSetupGate()),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final flavor = widget.isDriverApp ? AppFlavor.driver : AppFlavor.parent;
+
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: flavor.splashColor,
       body: Stack(
         children: [
           // Decorative lines
           Positioned(
             bottom: 0, left: 0, right: 0,
-            child: Container(height: 4, color: AppColors.primaryContainer),
+            child: Container(height: 4, color: flavor.accentColor),
           ),
           Positioned(
             top: 0, bottom: 0, left: 0,
-            child: Container(width: 4, color: AppColors.secondary),
+            child: Container(width: 4, color: flavor.accentColor),
           ),
           
           Center(
@@ -357,6 +412,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
+                        if (!widget.isDriverApp)
+                          Text(
+                            flavor.loginSubtitle,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.publicSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: flavor.accentColor,
+                            ),
+                          ),
+                        if (!widget.isDriverApp) const SizedBox(height: 8),
                         Text(
                           'Plataforma de Transporte Escolar',
                           textAlign: TextAlign.center,
@@ -447,7 +513,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Text(
-                                  'Use su cédula como usuario. La contraseña es la misma cédula registrada por el administrador.',
+                                  'Ingrese su número de cédula registrado por el administrador.',
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.publicSans(
                                     fontSize: 11,
@@ -570,6 +636,76 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
+
+                              Text(
+                                'CÉDULA DEL REPRESENTANTE',
+                                style: GoogleFonts.publicSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _cedulaController,
+                                keyboardType: TextInputType.number,
+                                onChanged: (_) {
+                                  if (_errorMessage != null) setState(() => _errorMessage = null);
+                                },
+                                style: GoogleFonts.publicSans(color: AppColors.onSurface),
+                                decoration: InputDecoration(
+                                  hintText: 'Ej: 1725049827',
+                                  hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.5)),
+                                  prefixIcon: const Icon(Icons.badge_outlined, color: Colors.grey),
+                                  filled: true,
+                                  fillColor: AppColors.surfaceContainerLowest,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              Text(
+                                'CÓDIGO DEL COLEGIO',
+                                style: GoogleFonts.publicSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _companyCodeController,
+                                textCapitalization: TextCapitalization.characters,
+                                onChanged: (_) {
+                                  if (_errorMessage != null) setState(() => _errorMessage = null);
+                                },
+                                style: GoogleFonts.publicSans(color: AppColors.onSurface),
+                                decoration: InputDecoration(
+                                  hintText: 'Ej: CAD31',
+                                  hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.5)),
+                                  prefixIcon: const Icon(Icons.school_outlined, color: Colors.grey),
+                                  filled: true,
+                                  fillColor: AppColors.surfaceContainerLowest,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Debe ser el mismo código con el que el colegio inscribió a su hijo.',
+                                style: GoogleFonts.publicSans(
+                                  fontSize: 11,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
                             ] else if (_authMode == AuthMode.login &&
                                 !widget.isDriverApp) ...[
                               Align(
@@ -689,12 +825,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // Copyright Footer
                     Text(
-                      'Al ingresar, usted acepta los términos de seguridad vial y monitoreo satelital en tiempo real de la plataforma RutaSegura.',
+                      'Al ingresar, usted acepta la política de seguridad, el monitoreo de ubicación en tiempo real y el rastreo satelital de RutaSegura durante los recorridos activos.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.publicSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Cavila',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.publicSans(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.onSurfaceVariant.withValues(alpha: 0.25),
+                        letterSpacing: 0.5,
                       ),
                     ),
                     const SizedBox(height: 32),

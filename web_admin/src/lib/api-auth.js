@@ -21,7 +21,9 @@ export async function verifyApiAuth(request, options = {}) {
   const { roles = ['admin', 'super_admin'], unitCode = null, allowViewer = false } = options;
 
   if (!isAdminInitialized()) {
-    return { error: NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 }), user: null };
+    return { error: NextResponse.json({
+      error: 'Servidor sin Firebase Admin. Configure FIREBASE_SERVICE_ACCOUNT en el hosting de producción.',
+    }, { status: 503 }), user: null };
   }
 
   const authHeader = request.headers.get('Authorization');
@@ -41,8 +43,12 @@ export async function verifyApiAuth(request, options = {}) {
       return { error: NextResponse.json({ error: 'Sin permisos' }, { status: 403 }), user: null };
     }
 
-    if (unitCode && role !== 'super_admin' && profile?.unitCode !== unitCode) {
-      return { error: NextResponse.json({ error: 'Sin acceso a unidad' }, { status: 403 }), user: null };
+    if (unitCode && role !== 'super_admin') {
+      const profileUnit = profile?.unitCode != null ? String(profile.unitCode).trim().toUpperCase() : '';
+      const requestedUnit = String(unitCode).trim().toUpperCase();
+      if (profileUnit !== requestedUnit) {
+        return { error: NextResponse.json({ error: 'Sin acceso a unidad' }, { status: 403 }), user: null };
+      }
     }
 
     return { error: null, user: { uid: decoded.uid, role, profile, email: decoded.email } };

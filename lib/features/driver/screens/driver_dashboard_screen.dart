@@ -7,8 +7,8 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
 import 'driver_qr_screen.dart';
 import 'driver_route_creator_screen.dart';
-import '../../../core/screens/login_screen.dart';
 import '../../../core/providers/navigation_provider.dart';
+import '../../../core/providers/parent_member_utils.dart';
 
 class DriverDashboardScreen extends ConsumerStatefulWidget {
   const DriverDashboardScreen({super.key});
@@ -78,6 +78,10 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     if (hour < 12) return '¡BUEN DÍA!';
     if (hour < 18) return '¡BUENAS TARDES!';
     return '¡BUENAS NOCHES!';
+  }
+
+  String _unitCode(Map<String, dynamic>? profile) {
+    return normalizeUnitCode(profile?['unitCode'] as String?);
   }
 
   @override
@@ -152,13 +156,13 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                       Row(
                         children: [
                           _topActionButton(Icons.qr_code_scanner, () {
-                             final unitCode = profileAsync.value?['unitCode'] ?? 'CAD31';
+                             final unitCode = normalizeUnitCode(profileAsync.value?['unitCode'] as String?);
+                             if (unitCode.isEmpty) return;
                              Navigator.push(context, MaterialPageRoute(builder: (_) => DriverQrScreen(unitCode: unitCode)));
                           }),
                           const SizedBox(width: 8),
                           _topActionButton(Icons.logout_rounded, () async {
                               await ref.read(authRepositoryProvider).signOut();
-                              if (context.mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen(isDriverApp: true)));
                           }),
                         ],
                       ),
@@ -184,7 +188,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                         _quickInfo(Icons.today, 'FECHA', dateStr),
                         Container(width: 1, height: 35, color: Colors.grey.shade100),
                         profileAsync.when(
-                          data: (p) => _quickInfo(Icons.tag, 'UNIDAD', p?['unitCode'] ?? 'CAD31'),
+                          data: (p) => _quickInfo(Icons.tag, 'UNIDAD', _unitCode(p).isEmpty ? '—' : _unitCode(p)),
                           loading: () => _quickInfo(Icons.tag, 'UNIDAD', '...'),
                           error: (_, _) => _quickInfo(Icons.tag, 'UNIDAD', '--'),
                         ),
@@ -211,14 +215,15 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                         // Tarjeta de Ruta Actual
                         profileAsync.when(
                           data: (profile) {
-                            final unitCode = profile?['unitCode'] as String? ?? 'CAD31';
+                            final unitCode = _unitCode(profile);
+                            if (unitCode.isEmpty) return _skeleton();
                             return Consumer(
                               builder: (context, ref, _) {
                                 final routeAsync = ref.watch(activeRouteProvider(unitCode));
                                 final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
                                 return routeAsync.when(
                                   loading: () => _skeleton(),
-                                  error: (_, _) => _routeCard('Ruta CAD31', 0, 0, 'CAD31'),
+                                  error: (_, _) => _routeCard('Sin ruta', 0, 0, unitCode),
                                   data: (route) => _routeCard(
                                     route?['name'] ?? 'Ruta Principal',
                                     studentsAsync.value?.length ?? 0,
@@ -239,7 +244,8 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
                         Consumer(
                           builder: (context, ref, _) {
                             final profile = profileAsync.value;
-                            final unitCode = profile?['unitCode'] as String? ?? 'CAD31';
+                            final unitCode = _unitCode(profile);
+                            if (unitCode.isEmpty) return const SizedBox.shrink();
                             final driverId = profile?['uid'] as String? ?? 'UNKNOWN';
                             final tripStatusAsync = ref.watch(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId)));
                             final isTripActive = tripStatusAsync.value?['status'] == 'on_route';
@@ -266,7 +272,8 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
             bottom: 24, left: 24, right: 24,
             child: profileAsync.maybeWhen(
               data: (profile) {
-                final unitCode = profile?['unitCode'] as String? ?? 'CAD31';
+                final unitCode = _unitCode(profile);
+                if (unitCode.isEmpty) return const SizedBox.shrink();
                 final driverId = profile?['uid'] as String? ?? 'UNKNOWN';
                 
                 return Consumer(
@@ -468,7 +475,8 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     return InkWell(
       onTap: () async {
         final driverId = profile?['uid'] ?? 'UNKNOWN';
-        final unitCode = profile?['unitCode'] ?? 'CAD31';
+        final unitCode = _unitCode(profile);
+        if (unitCode.isEmpty) return;
         
         final routeType = await showDialog<String>(
           context: context,

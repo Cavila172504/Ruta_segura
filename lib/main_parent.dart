@@ -6,9 +6,10 @@ import 'firebase_options.dart';
 import 'core/screens/login_screen.dart';
 import 'core/services/notification_service.dart';
 import 'core/providers/app_providers.dart';
+import 'core/config/app_flavor.dart';
 import 'features/driver/screens/driver_main_shell.dart';
 import 'features/admin/screens/admin_dashboard_screen.dart';
-import 'features/parent/screens/parent_dashboard_screen.dart';
+import 'features/parent/screens/parent_nav_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,8 +44,8 @@ class ParentApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RutaSegura - Padre',
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.green),
+      title: AppFlavor.parent.appTitle,
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: AppFlavor.parent.accentColor),
       home: const RootAuthWrapper(),
       debugShowCheckedModeBanner: false,
     );
@@ -85,7 +86,7 @@ class RootAuthWrapper extends ConsumerWidget {
               if (!user.emailVerified) {
                 return const LoginScreen(isDriverApp: false);
               }
-              return const ParentDashboardScreen();
+              return const ParentSetupGate();
             }
           },
         );

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/screens/login_screen.dart';
 
 class DriverProfileScreen extends ConsumerWidget {
   const DriverProfileScreen({super.key});
@@ -49,12 +48,6 @@ class DriverProfileScreen extends ConsumerWidget {
                         icon: const Icon(Icons.logout, color: Colors.white),
                         onPressed: () async {
                           await ref.read(authRepositoryProvider).signOut();
-                          if (context.mounted) {
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (_) => const LoginScreen(isDriverApp: true)),
-                              (route) => false,
-                            );
-                          }
                         },
                         tooltip: 'Cerrar sesión',
                       ),
@@ -135,9 +128,6 @@ class DriverProfileScreen extends ConsumerWidget {
                           ElevatedButton.icon(
                             onPressed: () async {
                               await ref.read(authRepositoryProvider).signOut();
-                              if (context.mounted) {
-                                Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen(isDriverApp: true)), (route) => false);
-                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFFDAD6),

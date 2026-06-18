@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/parent_provider.dart';
 import '../../../core/providers/route_provider.dart';
 import 'add_student_screen.dart';
-import 'parent_dashboard_screen.dart';
+import 'parent_nav_shell.dart';
 
 class ParentSchoolsScreen extends ConsumerStatefulWidget {
   const ParentSchoolsScreen({super.key, this.selectOnly = false});
@@ -17,32 +17,43 @@ class ParentSchoolsScreen extends ConsumerStatefulWidget {
 
 class _ParentSchoolsScreenState extends ConsumerState<ParentSchoolsScreen> {
   final _codeController = TextEditingController();
+  final _cedulaController = TextEditingController();
   String? _error;
+  String? _success;
   bool _linking = false;
 
   @override
   void dispose() {
     _codeController.dispose();
+    _cedulaController.dispose();
     super.dispose();
   }
 
   Future<void> _linkSchool() async {
     final code = _codeController.text.trim();
-    if (code.isEmpty) return;
+    final cedula = _cedulaController.text.trim();
+    if (code.isEmpty || cedula.isEmpty) {
+      setState(() => _error = 'Ingresa el codigo del colegio y tu cedula.');
+      return;
+    }
     setState(() {
       _linking = true;
       _error = null;
+      _success = null;
     });
     try {
-      await linkParentSchool(ref, code);
+      final result = await linkParentSchool(ref, code, cedulaPadre: cedula);
       _codeController.clear();
       if (!mounted) return;
+      setState(() {
+        _success = result.claimedCount > 0
+            ? 'Vinculado. ${result.claimedCount} estudiante(s) asociado(s).'
+            : 'Colegio vinculado correctamente.';
+      });
       if (widget.selectOnly) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        if (!mounted) return;
         Navigator.of(context).pop(true);
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
-        );
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -55,7 +66,7 @@ class _ParentSchoolsScreenState extends ConsumerState<ParentSchoolsScreen> {
     await setParentActiveUnit(ref, code);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
+      MaterialPageRoute(builder: (_) => const ParentShellScreen()),
     );
   }
 
@@ -140,9 +151,25 @@ class _ParentSchoolsScreenState extends ConsumerState<ParentSchoolsScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _cedulaController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Cedula del representante',
+                  hintText: 'Misma cedula del registro escolar',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+              ],
+              if (_success != null) ...[
+                const SizedBox(height: 8),
+                Text(_success!, style: TextStyle(color: Colors.green.shade700, fontSize: 12)),
               ],
               const SizedBox(height: 12),
               SizedBox(

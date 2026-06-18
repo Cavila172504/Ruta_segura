@@ -6,11 +6,13 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/notification_list_provider.dart';
 import '../../../core/providers/notification_provider.dart';
 import '../../../core/screens/login_screen.dart';
-import 'parent_dashboard_screen.dart';
-import 'parent_map_screen.dart';
+import '../../../core/providers/parent_provider.dart';
+import 'parent_nav_shell.dart';
 
 class ParentNotificationsScreen extends ConsumerWidget {
-  const ParentNotificationsScreen({super.key});
+  const ParentNotificationsScreen({super.key, this.embeddedInShell = false});
+
+  final bool embeddedInShell;
 
   final Color _primary = const Color(0xFF004782);
   final Color _surface = const Color(0xFFF8F9FA);
@@ -28,7 +30,7 @@ class ParentNotificationsScreen extends ConsumerWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            bottom: 80,
+            bottom: embeddedInShell ? 0 : 80,
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(top: 100, left: 24, right: 24, bottom: 24),
               child: Column(
@@ -137,28 +139,28 @@ class ParentNotificationsScreen extends ConsumerWidget {
             ),
           ),
 
-          // Bottom Nav Bar
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: SafeArea(
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: [BoxShadow(color: _primary.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _navItem(context, icon: Icons.home, label: 'Inicio', isActive: false, target: const ParentDashboardScreen()),
-                    _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
-                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: true, target: const ParentNotificationsScreen()),
-                  ],
+          if (!embeddedInShell)
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    boxShadow: [BoxShadow(color: _primary.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _navItem(context, icon: Icons.home_rounded, label: 'Inicio', isActive: false, index: 0),
+                      _navItem(context, icon: Icons.map_rounded, label: 'Mapa', isActive: false, index: 1),
+                      _navItem(context, icon: Icons.notifications_rounded, label: 'Notificaciones', isActive: true, index: 2),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          )
+            )
         ],
       ),
     );
@@ -268,21 +270,31 @@ class ParentNotificationsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _navItem(BuildContext context, {required IconData icon, required String label, required bool isActive, required Widget target}) {
-    return GestureDetector(
-      onTap: () {
-        if (!isActive) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => target));
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(color: isActive ? const Color(0xFFdbeaFE) : Colors.transparent, borderRadius: BorderRadius.circular(16)),
+  Widget _navItem(BuildContext context, {required IconData icon, required String label, required bool isActive, required int index}) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (!isActive) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => ParentShellScreen(initialIndex: index)),
+            );
+          }
+        },
+        behavior: HitTestBehavior.opaque,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isActive ? _primary : Colors.grey.shade400),
+            Icon(icon, color: isActive ? _primary : Colors.grey.shade400, size: 24),
             const SizedBox(height: 4),
-            Text(label.toUpperCase(), style: GoogleFonts.publicSans(fontSize: 10, fontWeight: FontWeight.w800, color: isActive ? _primary : Colors.grey.shade400)),
+            Text(
+              label.toUpperCase(),
+              style: GoogleFonts.publicSans(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: isActive ? _primary : Colors.grey.shade400,
+              ),
+            ),
           ],
         ),
       ),

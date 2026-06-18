@@ -15,6 +15,8 @@ import '../../../core/providers/map_provider.dart';
 import '../../../core/providers/route_provider.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../../../core/providers/parent_provider.dart';
+import '../../../core/providers/parent_member_utils.dart';
+import '../../../core/services/incident_report_service.dart';
 import 'widgets/map_hud.dart';
 
 class DriverMapScreen extends ConsumerStatefulWidget {
@@ -24,7 +26,10 @@ class DriverMapScreen extends ConsumerStatefulWidget {
   ConsumerState<DriverMapScreen> createState() => _DriverMapScreenState();
 }
 
-class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
+class _DriverMapScreenState extends ConsumerState<DriverMapScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   StreamSubscription<Position>? _positionSubscription;
   Position? _currentPosition;
   double _speed = 0.0;
@@ -122,14 +127,13 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
         
         // Cargar ruta inicialmente si la posición llegó y hay un viaje activo en progreso
         final profile = ref.read(userProfileProvider).value;
-        final unitCode = profile?['unitCode'] ?? 'CAD31';
+        final unitCode = normalizeUnitCode(profile?['unitCode'] as String?);
         final driverId = profile?['uid'];
-        if (driverId != null) {
-          final tripStatus = ref.read(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId))).value;
-          if (tripStatus?['status'] == 'on_route' && _routePoints.isEmpty && !_isCalculatingRoute) {
-            final students = ref.read(driverStudentsProvider(unitCode)).value ?? [];
-            _getPolyline(LatLng(position.latitude, position.longitude), _schoolLocation, students);
-          }
+        if (unitCode.isEmpty || driverId == null) return;
+        final tripStatus = ref.read(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId))).value;
+        if (tripStatus?['status'] == 'on_route' && _routePoints.isEmpty && !_isCalculatingRoute) {
+          final students = ref.read(driverStudentsProvider(unitCode)).value ?? [];
+          _getPolyline(LatLng(position.latitude, position.longitude), _schoolLocation, students);
         }
 
         _updateFirebase(position);
@@ -144,9 +148,9 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Future<void> _updateFirebase(Position position) async {
     final profile = ref.read(userProfileProvider).value;
-    final unitCode = profile?['unitCode'] ?? 'CAD31';
+    final unitCode = normalizeUnitCode(profile?['unitCode'] as String?);
     final driverId = profile?['uid'];
-    if (driverId == null) return;
+    if (unitCode.isEmpty || driverId == null) return;
 
     // Actualizamos en live_tracking según tu estructura de Firebase
     // NO sobreescribimos 'status' aquí – se controla desde el Dashboard (on_route / finished)
@@ -159,6 +163,19 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
       'heading': _getBusHeading(),
       'lastUpdated': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    final tripStatus = ref.read(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId))).value;
+    if (tripStatus?['status'] == 'on_route' && _speed >= IncidentReportService.speedLimitKmh) {
+      IncidentReportService.reportSpeedIfNeeded(
+        unitCode: unitCode,
+        driverId: driverId,
+        driverName: profile?['name'] ?? 'Conductor',
+        speedKmh: _speed,
+        routeName: tripStatus?['routeName'] as String?,
+        lat: position.latitude,
+        lng: position.longitude,
+      );
+    }
   }
 
   Future<void> _getPolyline(LatLng origin, LatLng destination, List<dynamic> students) async {
@@ -206,9 +223,9 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
           
           // Sincronización en tiempo real: Guardar la nueva ruta para el Padre y Web Admin
           final profile = ref.read(userProfileProvider).value;
-          final unitCode = profile?['unitCode'] ?? 'CAD31';
+          final unitCode = normalizeUnitCode(profile?['unitCode'] as String?);
           final driverId = profile?['uid'];
-          if (driverId != null) {
+          if (unitCode.isNotEmpty && driverId != null) {
             String fullRouteJson = jsonEncode(_routePoints.map((p) => [p.latitude, p.longitude]).toList());
             FirebaseFirestore.instance.collection('companies').doc(unitCode).collection('live_tracking').doc(driverId).set({
               'fullRouteJson': fullRouteJson,
@@ -336,6 +353,7 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return _buildMainMap();
   }
 
@@ -360,7 +378,10 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
 
   Widget _buildMainMap() {
     final profile = ref.watch(userProfileProvider).value;
-    final unitCode = profile?['unitCode']?.toString() ?? 'CAD31';
+    final unitCode = normalizeUnitCode(profile?['unitCode']?.toString());
+    if (unitCode.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final company = ref.watch(companyByUnitProvider(unitCode)).asData?.value;
     final lat = company?['schoolLat'];
     final lng = company?['schoolLng'];
@@ -581,17 +602,15 @@ class _DriverMapScreenState extends ConsumerState<DriverMapScreen> {
       ));
     }
 
-    // Mostrar las paradas de los estudiantes cuando el viaje está activo
-    if (isTripActive) {
-      for (var s in students) {
-        if (s['stopLat'] != null && s['stopLng'] != null) {
-          markers.add(Marker(
-            markerId: MarkerId(s['id']?.toString() ?? s['studentName']?.toString() ?? 'student_${s.hashCode}'),
-            position: LatLng(s['stopLat'] as double, s['stopLng'] as double),
-            icon: _houseIcon ?? BitmapDescriptor.defaultMarker,
-            infoWindow: InfoWindow(title: s['studentName'] ?? 'Estudiante'),
-          ));
-        }
+    // Paradas planificadas por el administrador (visibles siempre que tengan coordenadas)
+    for (var s in students) {
+      if (s['stopLat'] != null && s['stopLng'] != null) {
+        markers.add(Marker(
+          markerId: MarkerId(s['id']?.toString() ?? s['studentName']?.toString() ?? 'student_${s.hashCode}'),
+          position: LatLng((s['stopLat'] as num).toDouble(), (s['stopLng'] as num).toDouble()),
+          icon: _houseIcon ?? BitmapDescriptor.defaultMarker,
+          infoWindow: InfoWindow(title: s['studentName'] ?? 'Estudiante'),
+        ));
       }
     }
     return markers;

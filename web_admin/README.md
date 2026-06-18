@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RutaSegura — Web Admin
 
-## Getting Started
+Panel Next.js para Super Admin, administradores de colegio y monitoreo.
 
-First, run the development server:
+## Diagnóstico rápido
 
 ```bash
+cd web_admin
+npm run check-setup
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre: http://localhost:3000/api/health
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- `adminReady: true` → crear colegios, conductores y APIs funcionan.
+- `adminReady: false` → solo lectura desde Firestore (super admin ve colegios si hay datos).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Configuración local (obligatoria para crear/editar)
 
-## Learn More
+1. Copia `.env.example` → `.env.local`
+2. Firebase Console → **Project settings** → **Service accounts** → **Generate new private key**
+3. Guarda el JSON en `web_admin/secrets/rutasegura-a74f7-firebase-adminsdk.json`
+4. En `.env.local`:
 
-To learn more about Next.js, take a look at the following resources:
+```env
+FIREBASE_SERVICE_ACCOUNT_PATH=secrets/rutasegura-a74f7-firebase-adminsdk.json
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. Reinicia `npm run dev`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Super Admin
 
-## Deploy on Vercel
+Login con ID propietario (si está en `.env.local`) o correo del super usuario.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Script para crear/actualizar super admin en Firestore:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Requiere FIREBASE_SERVICE_ACCOUNT o PATH en .env.local
+node scripts/create-superuser.js
+```
+
+## Producción (Firebase Hosting)
+
+En Firebase Console → App Hosting → Environment / Secrets, define:
+
+- `FIREBASE_SERVICE_ACCOUNT` = JSON completo en una línea **o**
+- Asegura que el servicio de Cloud Run tenga permisos Admin (ADC)
+
+Luego:
+
+```bash
+firebase deploy --only hosting
+```
+
+## Roles
+
+| Rol | Alcance |
+|-----|---------|
+| super_admin | Todos los colegios, facturación global |
+| admin | Un `unitCode` (ej. CAD31) |
+| viewer | Solo lectura del colegio |

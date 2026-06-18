@@ -19,6 +19,8 @@ const DriversPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [driverToDelete, setDriverToDelete] = useState(null);
 
+  const [isSyncingLogin, setIsSyncingLogin] = useState(false);
+
   const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
 
   // Form states refined
@@ -94,6 +96,27 @@ const DriversPage = () => {
     setShowModal(true);
   };
 
+  const handleSyncDriverLogin = async () => {
+    if (!SCHOOL_CODE) return;
+    setIsSyncingLogin(true);
+    try {
+      const response = await authFetch('/api/drivers/sync-login', {
+        method: 'POST',
+        body: JSON.stringify({ unitCode: SCHOOL_CODE }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert(`Acceso app sincronizado: ${data.synced} de ${data.total} conductores.`);
+      } else {
+        alert(data.error || 'No se pudo sincronizar el acceso de conductores.');
+      }
+    } catch (e) {
+      alert('Error de conexión al sincronizar.');
+    } finally {
+      setIsSyncingLogin(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -121,10 +144,16 @@ const DriversPage = () => {
 
       if (response.ok) {
         setShowModal(false);
-        alert('Chofer Guardado Exitosamente');
+        alert('Chofer guardado exitosamente');
       } else {
-        const errData = await response.json();
-        alert("Error: " + (errData.error || "No se pudo procesar la solicitud"));
+        let errText = `Error del servidor (${response.status})`;
+        try {
+          const errData = await response.json();
+          if (errData?.error) errText = errData.error;
+        } catch (_) {
+          /* respuesta no JSON */
+        }
+        alert(errText);
       }
     } catch (error) {
       alert("Error de conexión");
@@ -185,6 +214,16 @@ const DriversPage = () => {
             />
           </div>
           {profile?.role !== 'viewer' && (
+            <>
+            <button
+              type="button"
+              onClick={handleSyncDriverLogin}
+              disabled={isSyncingLogin}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all"
+            >
+              <span className="material-symbols-outlined text-base">sync</span>
+              {isSyncingLogin ? 'Sincronizando...' : 'Sincronizar acceso app'}
+            </button>
             <button 
               onClick={handleOpenCreateModal}
               className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-on-primary px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-primary/20"
@@ -192,6 +231,7 @@ const DriversPage = () => {
               <span className="material-symbols-outlined text-base">person_add</span>
               Nuevo Conductor
             </button>
+            </>
           )}
         </div>
       </section>
@@ -271,8 +311,8 @@ const DriversPage = () => {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <div className="bg-primary px-6 py-4 flex justify-between items-center">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="bg-primary px-6 py-4 flex justify-between items-center shrink-0">
               <div>
                 <h3 className="text-lg font-black text-on-primary font-headline uppercase tracking-tighter italic">
                     {isEditMode ? 'Editar Perfil Conductor' : 'Ingreso Nuevo Conductor'}
@@ -284,7 +324,8 @@ const DriversPage = () => {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Documento</label>
@@ -361,11 +402,12 @@ const DriversPage = () => {
                   <input required type="text" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-primary transition-colors" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
                 </div>
               </div>
+              </div>
 
-              <div className="mt-8 flex justify-end gap-3 border-t border-slate-100 pt-6">
+              <div className="shrink-0 px-6 py-4 flex justify-end gap-3 border-t border-slate-100 bg-white">
                 <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2 text-[10px] font-black text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest">Cancelar</button>
                 <button type="submit" disabled={isSubmitting} className="bg-primary text-white px-8 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.95] transition-all disabled:opacity-50">
-                    {isSubmitting ? 'Procesando...' : 'Registrar Conductor'}
+                    {isSubmitting ? 'Procesando...' : isEditMode ? 'Guardar Cambios' : 'Registrar Conductor'}
                 </button>
               </div>
             </form>

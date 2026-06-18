@@ -32,19 +32,23 @@ final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final authRepo = ref.read(authRepositoryProvider);
   final uid = await authRepo.getCurrentUserId();
   if (uid == null) return null;
-  
-  // Buscamos el perfil en la nueva estructura organizada por roles
-  for (final roleCol in ['super_admins', 'admins', 'parents', 'drivers']) {
-    final query = await FirebaseFirestore.instance
+
+  final driverDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc('drivers')
+      .collection('members')
+      .doc(uid)
+      .get();
+  if (driverDoc.exists) return driverDoc.data();
+
+  for (final roleCol in ['super_admins', 'admins', 'parents']) {
+    final doc = await FirebaseFirestore.instance
         .collection('users')
         .doc(roleCol)
         .collection('members')
-        .where('uid', isEqualTo: uid)
-        .limit(1)
+        .doc(uid)
         .get();
-    if (query.docs.isNotEmpty) {
-      return query.docs.first.data();
-    }
+    if (doc.exists) return doc.data();
   }
   return null;
 });

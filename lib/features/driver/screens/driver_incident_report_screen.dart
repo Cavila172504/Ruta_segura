@@ -1,27 +1,110 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/app_providers.dart';
+import '../../../core/providers/parent_member_utils.dart';
+import '../../../core/services/incident_report_service.dart';
 import 'driver_dashboard_screen.dart';
 import 'driver_map_screen.dart';
 import 'driver_attendance_screen.dart';
 
-class DriverIncidentReportScreen extends StatefulWidget {
+class DriverIncidentReportScreen extends ConsumerStatefulWidget {
   const DriverIncidentReportScreen({super.key});
 
   @override
-  State<DriverIncidentReportScreen> createState() => _DriverIncidentReportScreenState();
+  ConsumerState<DriverIncidentReportScreen> createState() => _DriverIncidentReportScreenState();
 }
 
-class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen> {
+class _DriverIncidentReportScreenState extends ConsumerState<DriverIncidentReportScreen> {
   String? _selectedIncidentType;
   bool _shareLocation = true;
+  bool _isSubmitting = false;
+  final _descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitReport() async {
+    if (_selectedIncidentType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seleccione el tipo de novedad.')),
+      );
+      return;
+    }
+
+    final profile = ref.read(userProfileProvider).value;
+    final unitCode = normalizeUnitCode(profile?['unitCode'] as String?);
+    final driverId = profile?['uid'] as String?;
+    if (unitCode.isEmpty || driverId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Perfil de conductor incompleto.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      double? lat;
+      double? lng;
+      if (_shareLocation) {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        lat = pos.latitude;
+        lng = pos.longitude;
+      }
+
+      final description = _descriptionController.text.trim().isEmpty
+          ? _selectedIncidentType!
+          : _descriptionController.text.trim();
+
+      String category = 'novedad';
+      if (_selectedIncidentType!.toLowerCase().contains('retraso')) {
+        category = 'retraso';
+      }
+
+      await IncidentReportService.create(
+        unitCode: unitCode,
+        driverId: driverId,
+        driverName: profile?['name'] ?? 'Conductor',
+        type: _selectedIncidentType!,
+        category: category,
+        description: description,
+        lat: lat,
+        lng: lng,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Novedad registrada en la bitácora del colegio.'),
+            backgroundColor: Color(0xFF2E7D32),
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al enviar: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF044837), // teal-900
+        backgroundColor: const Color(0xFF044837),
         elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
@@ -37,48 +120,25 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
             letterSpacing: 1,
           ),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 24.0),
-            child: Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.primaryContainer, width: 2),
-                image: const DecorationImage(
-                  image: NetworkImage('https://i.pravatar.cc/150?u=carlos'),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: Stack(
         children: [
-          // Scrollable Content
           Positioned.fill(
-            bottom: 80, // Space for Bottom Nav
+            bottom: 80,
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Critical Alert Banner
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: AppColors.error,
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))
-                      ]
-                    ),
+                    color: AppColors.error,
                     child: Row(
                       children: [
                         const Icon(Icons.warning, color: Colors.white, size: 24),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Text(
-                            'Esta alerta se enviará a todos los padres de esta ruta.',
+                            'La novedad quedará registrada en la bitácora del panel administrativo.',
                             style: GoogleFonts.publicSans(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -90,13 +150,11 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                       ],
                     ),
                   ),
-
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Title
                         Text(
                           'REPORTAR NOVEDAD',
                           style: GoogleFonts.publicSans(
@@ -108,7 +166,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Complete la información para notificar incidencias en tiempo real.',
+                          'Complete la información para registrar incidencias en tiempo real.',
                           style: GoogleFonts.publicSans(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -116,8 +174,6 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                           ),
                         ),
                         const SizedBox(height: 32),
-
-                        // Form - Tipo de Novedad
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
@@ -155,13 +211,13 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                       ),
                                     ),
                                     icon: const Icon(Icons.expand_more, color: AppColors.secondary),
-                                    items: [
+                                    items: const [
                                       'Retraso por Tráfico',
                                       'Falla Mecánica',
                                       'Condiciones Climáticas',
                                       'Cambio de Ruta',
-                                      'Emergencia Médica'
-                                    ].map((String value) {
+                                      'Emergencia Médica',
+                                    ].map((value) {
                                       return DropdownMenuItem<String>(
                                         value: value,
                                         child: Text(
@@ -178,14 +234,11 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                     },
                                   ),
                                 ),
-                              )
+                              ),
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // Form - Descripción
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
@@ -206,6 +259,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                               ),
                               const SizedBox(height: 12),
                               TextField(
+                                controller: _descriptionController,
                                 maxLines: 4,
                                 style: GoogleFonts.publicSans(fontWeight: FontWeight.w500),
                                 decoration: InputDecoration(
@@ -222,14 +276,11 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // Toggle Location Section
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFA0F3D4), // secondary-container
+                            color: const Color(0xFFA0F3D4),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
@@ -239,7 +290,8 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                 child: Row(
                                   children: [
                                     Container(
-                                      width: 48, height: 48,
+                                      width: 48,
+                                      height: 48,
                                       decoration: const BoxDecoration(
                                         color: Colors.white,
                                         shape: BoxShape.circle,
@@ -256,14 +308,14 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                             style: GoogleFonts.publicSans(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              color: const Color(0xFF167159), // on-secondary-container
+                                              color: Color(0xFF167159),
                                             ),
                                           ),
                                           Text(
                                             'Se incluirán coordenadas GPS exactas',
                                             style: GoogleFonts.publicSans(
                                               fontSize: 12,
-                                              color: const Color(0xFF00513e), // on-secondary-fixed-variant
+                                              color: Color(0xFF00513e),
                                             ),
                                           ),
                                         ],
@@ -276,70 +328,29 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                                 value: _shareLocation,
                                 activeThumbColor: Colors.white,
                                 activeTrackColor: AppColors.secondary,
-                                inactiveThumbColor: Colors.white,
-                                inactiveTrackColor: const Color(0xFF167159).withValues(alpha: 0.2), // on-secondary-container
-                                onChanged: (val) {
-                                  setState(() => _shareLocation = val);
-                                },
-                              )
+                                onChanged: (val) => setState(() => _shareLocation = val),
+                              ),
                             ],
                           ),
                         ),
-
-                        const SizedBox(height: 24),
-
-                        // Visual Asset Context
-                        Container(
-                          height: 192, // 48 * 4
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            image: const DecorationImage(
-                              image: NetworkImage('https://images.unsplash.com/photo-1557223562-6c77ef1607ef?q=80&w=600&auto=format&fit=crop'),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  const Color(0xFF044837).withValues(alpha: 0.8), // teal-900
-                                  Colors.transparent,
-                                ],
-                              )
-                            ),
-                            alignment: Alignment.bottomLeft,
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              'VISTA DE CONTEXTO: SEGURIDAD PRIMERO',
-                              style: GoogleFonts.publicSans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-
                         const SizedBox(height: 32),
-
-                        // Submit Button
                         ElevatedButton.icon(
-                          onPressed: () {},
+                          onPressed: _isSubmitting ? null : _submitReport,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.error,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 8,
-                            shadowColor: AppColors.error.withValues(alpha: 0.4),
                           ),
-                          icon: const Icon(Icons.campaign, size: 28),
+                          icon: _isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.campaign, size: 28),
                           label: Text(
-                            'ENVIAR ALERTA A TODOS LOS PADRES',
+                            _isSubmitting ? 'ENVIANDO...' : 'REGISTRAR NOVEDAD',
                             style: GoogleFonts.publicSans(
                               fontSize: 14,
                               fontWeight: FontWeight.w900,
@@ -347,77 +358,82 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'ESTA ACCIÓN NO SE PUEDE DESHACER UNA VEZ ENVIADA',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.publicSans(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: AppColors.outline,
-                          ),
-                        ),
-
                         const SizedBox(height: 64),
                       ],
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
           ),
-
-          // Bottom Nav Bar
           Positioned(
-            bottom: 0, left: 0, right: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 boxShadow: [
-                  BoxShadow(color: AppColors.secondary.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -4))
-                ]
+                  BoxShadow(color: AppColors.secondary.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -4)),
+                ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _navItem(
-                    icon: Icons.route, 
-                    label: 'Ruta', 
-                    isActive: false, 
+                    icon: Icons.route,
+                    label: 'Ruta',
+                    isActive: false,
                     onTap: () {
-                      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const DriverDashboardScreen()), (route) => false);
-                    }
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DriverDashboardScreen()),
+                        (route) => false,
+                      );
+                    },
                   ),
                   _navItem(
-                    icon: Icons.map, 
-                    label: 'Mapa', 
-                    isActive: false, 
+                    icon: Icons.map,
+                    label: 'Mapa',
+                    isActive: false,
                     onTap: () {
-                      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const DriverMapScreen()), (route) => false);
-                    }
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DriverMapScreen()),
+                        (route) => false,
+                      );
+                    },
                   ),
                   _navItem(
-                    icon: Icons.assignment_turned_in, 
-                    label: 'Asistencia', 
-                    isActive: true, 
+                    icon: Icons.assignment_turned_in,
+                    label: 'Asistencia',
+                    isActive: false,
                     onTap: () {
-                      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const DriverAttendanceScreen()), (route) => false);
-                    }
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DriverAttendanceScreen()),
+                        (route) => false,
+                      );
+                    },
                   ),
                   _navItem(icon: Icons.person, label: 'Perfil', isActive: false, onTap: () {}),
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _navItem({required IconData icon, required String label, required bool isActive, required VoidCallback onTap}) {
+  Widget _navItem({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -444,7 +460,7 @@ class _DriverIncidentReportScreenState extends State<DriverIncidentReportScreen>
               letterSpacing: 1,
               color: isActive ? const Color(0xFF044837) : Colors.grey.shade500,
             ),
-          )
+          ),
         ],
       ),
     );

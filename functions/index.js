@@ -128,6 +128,33 @@ exports.resetDailyAttendance = onSchedule(
       for (const docSnap of studentsSnap.docs) {
         const data = docSnap.data();
         if (data.attendance_status) {
+          const now = new Date();
+          const dateKey = now.toLocaleDateString("en-CA", { timeZone: "America/Guayaquil" });
+          const reportCode =
+            ["absent_today", "absent"].includes(data.attendance_status) ? "F" :
+            ["arrived_at_school", "in_bus", "dropped_off_at_home", "present"].includes(data.attendance_status) ? "P" :
+            "-";
+
+          if (reportCode !== "-") {
+            const logId = `${docSnap.id}_${dateKey}`;
+            batch.set(
+              docSnap.ref.parent.parent.collection("attendance_logs").doc(logId),
+              {
+                studentId: docSnap.id,
+                studentName: data.studentName || "",
+                grade: data.grade || "",
+                driverId: data.driverId || "",
+                date: dateKey,
+                status: data.attendance_status,
+                reportCode,
+                source: "system",
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              },
+              { merge: true }
+            );
+            batchCount++;
+          }
+
           batch.update(docSnap.ref, {
             attendance_status: admin.firestore.FieldValue.delete(),
           });

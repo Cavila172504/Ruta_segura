@@ -12,23 +12,23 @@ const SupportPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const { profile, loading: authLoading } = useAuth();
-  const SCHOOL_CODE = profile?.unitCode || 'CAD31';
+  const SCHOOL_CODE = (profile?.unitCode || 'CAD31').trim().toUpperCase();
 
   useEffect(() => {
     if (authLoading || !SCHOOL_CODE) return;
 
-    const ticketsRef = collection(db, 'support_tickets');
-    // En el futuro, los tickets de soporte deberían tener unitCode. 
-    // Por ahora, si no tienen, los mostramos todos o filtramos si el esquema lo permite.
-    // Asumiré que quieres filtrar por los que pertenecen a esta escuela.
+    const ticketsRef = collection(db, 'companies', SCHOOL_CODE, 'support_tickets');
     const q = query(ticketsRef, orderBy('timestamp', 'desc'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+      const list = snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
       }));
       setTickets(list);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error loading support tickets:', error);
       setLoading(false);
     });
 
@@ -37,7 +37,7 @@ const SupportPage = () => {
 
   const updateTicketStatus = async (id, newStatus) => {
     try {
-      const ticketRef = doc(db, 'support_tickets', id);
+      const ticketRef = doc(db, 'companies', SCHOOL_CODE, 'support_tickets', id);
       await updateDoc(ticketRef, { status: newStatus });
     } catch (error) {
       console.error("Error updating status:", error);
@@ -47,7 +47,7 @@ const SupportPage = () => {
   const deleteTicket = async (id) => {
     if (confirm("¿Estás seguro de eliminar este registro de soporte?")) {
       try {
-        await deleteDoc(doc(db, 'support_tickets', id));
+        await deleteDoc(doc(db, 'companies', SCHOOL_CODE, 'support_tickets', id));
       } catch (error) {
         console.error("Error deleting ticket:", error);
       }
@@ -62,9 +62,7 @@ const SupportPage = () => {
     const matchesSearch = ticket.parentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          ticket.message?.toLowerCase().includes(searchTerm.toLowerCase());
                          
-    const matchesUnit = !ticket.unitCode || ticket.unitCode === SCHOOL_CODE;
-                         
-    return matchesTab && matchesSearch && matchesUnit;
+    return matchesTab && matchesSearch;
   });
 
   const formatDate = (timestamp) => {
@@ -79,7 +77,6 @@ const SupportPage = () => {
   return (
     <DashboardLayout title="Centro de Soporte">
       <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-        {/* Header con tabs */}
         <div className="px-8 pt-8 pb-0">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">MENSAJES DE SOPORTE</h2>
@@ -100,7 +97,6 @@ const SupportPage = () => {
             </div>
           </div>
 
-          {/* Buscador */}
           <div className="relative mb-6">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400">search</span>
             <input
@@ -113,7 +109,6 @@ const SupportPage = () => {
           </div>
         </div>
 
-        {/* Tabla de Tickets */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>

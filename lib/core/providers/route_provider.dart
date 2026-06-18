@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'app_providers.dart';
+import 'parent_member_utils.dart';
 import '../utils/polyline_utils.dart';
 
 // Proveedor para obtener el unitCode activo del padre
@@ -10,21 +11,20 @@ final activeUnitCodeProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(authStateProvider).value;
   if (user == null) return null;
 
-  // 1. Intentar obtenerlo del perfil (preferido)
-  final profile = await ref.watch(userProfileProvider.future);
-  if (profile?['activeUnitCode'] != null && profile!['activeUnitCode'].toString().isNotEmpty) {
-    return profile['activeUnitCode'] as String;
+  final parentData = await readParentMemberData(user.uid);
+  final fromProfile = resolveActiveUnitCode(parentData);
+  if (fromProfile != null && fromProfile.isNotEmpty) {
+    return fromProfile;
   }
 
-  // 2. Si no hay en perfil, buscar en la lista de sus estudiantes ya cargados
+  // Si no hay en perfil, buscar en la lista de sus estudiantes ya cargados
   final studentsAsync = await ref.watch(parentStudentsProvider.future);
   if (studentsAsync.isNotEmpty) {
-    return studentsAsync.first['unitCode'] as String?;
+    return normalizeUnitCode(studentsAsync.first['unitCode'] as String?);
   }
 
   return null;
 });
-
 // Proveedor para extraer los driverIds únicos de los estudiantes del padre
 final activeDriverIdsProvider = Provider<List<String>>((ref) {
   final students = ref.watch(parentStudentsProvider).value;
@@ -58,7 +58,7 @@ final activeBusDataProvider = StreamProvider<Map<String, dynamic>?>((ref) async*
 
   yield* FirebaseFirestore.instance
       .collection('companies')
-      .doc(unitCode.trim())
+      .doc(unitCode.trim().toUpperCase())
       .collection('live_tracking')
       .where(FieldPath.documentId, whereIn: safeDriverIds)
       .snapshots()
@@ -109,6 +109,18 @@ final busStatusProvider = Provider<AsyncValue<String>>((ref) {
 });
 
 // Stream de las paradas de los estudiantes del padre (Hogar)
+List<Map<String, dynamic>> _mapParentStudents(
+  QuerySnapshot<Map<String, dynamic>> snap,
+) {
+  return snap.docs
+      .map((doc) => {'id': doc.id, ...doc.data()})
+      .where((student) {
+        final status = (student['status'] as String?)?.toLowerCase() ?? 'active';
+        return status != 'deleted' && status != 'rejected';
+      })
+      .toList();
+}
+
 final parentStudentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final user = ref.watch(authStateProvider).value;
   if (user == null) {
@@ -116,32 +128,10 @@ final parentStudentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) 
     return;
   }
 
-  // Buscamos el documento del padre para extraer el unitCode
-  final parentQuery = await FirebaseFirestore.instance
-      .collection('users')
-      .doc('parents')
-      .collection('members')
-      .where('uid', isEqualTo: user.uid)
-      .limit(1)
-      .get();
+  final memberRef = await ensureParentMemberRef(user);
+  final parentData = (await memberRef.get()).data();
+  String? unitCode = resolveActiveUnitCode(parentData);
 
-  if (parentQuery.docs.isEmpty) {
-    yield [];
-    return;
-  }
-
-  final parentData = parentQuery.docs.first.data();
-  String? unitCode = parentData['activeUnitCode'] as String?;
-
-  // Si no está en el perfil, revisamos la subcolección estática una sola vez
-  if (unitCode == null || unitCode.isEmpty) {
-    final subStudents = await parentQuery.docs.first.reference.collection('students').limit(1).get();
-    if (subStudents.docs.isNotEmpty) {
-      unitCode = subStudents.docs.first.data()['unitCode'] as String?;
-    }
-  }
-
-  // Si logramos encontrar el unitCode, escuchamos la fuente de la verdad (donde el Admin actualiza)
   if (unitCode != null && unitCode.isNotEmpty) {
     yield* FirebaseFirestore.instance
         .collection('companies')
@@ -149,16 +139,15 @@ final parentStudentsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) 
         .collection('students')
         .where('parentId', isEqualTo: user.uid)
         .snapshots()
-        .map((snap) => snap.docs.map((doc) => doc.data()).toList());
-  } else {
-    // Fallback extremo
-    yield* parentQuery.docs.first.reference
-        .collection('students')
-        .snapshots()
-        .map((snap) => snap.docs.map((doc) => doc.data()).toList());
+        .map(_mapParentStudents);
+    return;
   }
-});
 
+  yield* memberRef
+      .collection('students')
+      .snapshots()
+      .map(_mapParentStudents);
+});
 final busRouteProvider = Provider<List<LatLng>>((ref) {
   // Por ahora mantenemos una ruta base, pero se podría cargar de Firestore
   return const [
@@ -208,14 +197,22 @@ final driverStudentsProvider = StreamProvider.family<List<Map<String, dynamic>>,
   final user = ref.watch(authStateProvider).value;
   if (user == null) return Stream.value([]);
 
+  final normalizedUnit = normalizeUnitCode(unitCode);
+  if (normalizedUnit.isEmpty) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('companies')
-      .doc(unitCode)
+      .doc(normalizedUnit)
       .collection('students')
       .where('status', isEqualTo: 'active')
       .where('driverId', isEqualTo: user.uid)
       .snapshots()
-      .map((snap) => snap.docs.map((d) => d.data()).toList());
+      .map((snap) => snap.docs
+          .map((d) => {
+                'id': d.id,
+                ...d.data(),
+              })
+          .toList());
 });
 
 final activeRouteProvider = FutureProvider.family<Map<String, dynamic>?, String>((ref, unitCode) async {

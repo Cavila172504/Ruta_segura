@@ -1,9 +1,12 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+
+const normalizeCedula = (value) => (value || '').replace(/\D/g, '');
 
 const RepresentativesPage = () => {
   const [representatives, setRepresentatives] = useState([]);
@@ -102,7 +105,10 @@ const RepresentativesPage = () => {
     if (!editFormData) return;
     try {
       const repRef = doc(db, 'companies', SCHOOL_CODE, 'students', editFormData.id);
-      await setDoc(repRef, editFormData, { merge: true });
+      await setDoc(repRef, {
+        ...editFormData,
+        cedulaPadreNorm: normalizeCedula(editFormData.cedulaPadre || editFormData.idNumber),
+      }, { merge: true });
       setShowEditModal(false);
       alert("Cambios guardados con éxito.");
     } catch (error) {
@@ -118,6 +124,8 @@ const RepresentativesPage = () => {
       
       const newDoc = {
         ...formData,
+        cedulaPadreNorm: normalizeCedula(formData.cedulaPadre),
+        parentId: '',
         status: 'pending',
         createdAt: serverTimestamp(),
       };
@@ -455,8 +463,11 @@ const RepresentativesPage = () => {
 
 
 
-      <footer className="mt-10 text-[10px] font-medium text-slate-400">
-         2026 - Ruta Segura Cavila95
+      <footer className="mt-10 flex flex-col items-center gap-1 text-[10px] text-slate-400">
+         <Link href="/politica-seguridad" className="hover:text-primary transition-colors">
+           Política de seguridad y ubicación
+         </Link>
+         <span>© {new Date().getFullYear()} RutaSegura <span className="text-slate-300/50 ml-1">Cavila</span></span>
       </footer>
     </DashboardLayout>
   );

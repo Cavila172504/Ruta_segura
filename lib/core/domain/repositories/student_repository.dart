@@ -1,5 +1,5 @@
 abstract class StudentRepository {
-  Future<void> registerStudent({
+  Future<String> registerStudent({
     required String parentId,
     required String studentName,
     required String unitCode,

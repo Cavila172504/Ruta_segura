@@ -4,24 +4,31 @@ import '../../../core/screens/login_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
-import 'parent_map_screen.dart';
-import 'parent_notifications_screen.dart';
+import '../../../core/providers/parent_provider.dart';
+import 'parent_schools_screen.dart';
+import 'parent_nav_shell.dart';
 import 'add_student_screen.dart';
 import '../../../core/providers/notification_provider.dart';
 import '../../../core/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/providers/route_provider.dart';
-import '../../../core/providers/parent_provider.dart';
-import 'parent_schools_screen.dart';
+import '../../../core/providers/parent_member_utils.dart';
+import '../../../core/services/attendance_log_service.dart';
 
 class ParentDashboardScreen extends ConsumerStatefulWidget {
-  const ParentDashboardScreen({super.key});
+  const ParentDashboardScreen({super.key, this.embeddedInShell = false});
+
+  final bool embeddedInShell;
 
   @override
   ConsumerState<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
 }
 
-class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
+class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen>
+    with AutomaticKeepAliveClientMixin {
+
+  @override
+  bool get wantKeepAlive => widget.embeddedInShell;
 
   // Colores del tema Parent (Blue Theme)
   final Color _primary = const Color(0xFF004782);
@@ -53,27 +60,28 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // Iniciar el monitoreo de cercanía y eventos del bus
     ref.watch(proximityMonitoringProvider);
     ref.watch(remoteNotificationsListenerProvider);
 
-    // ── AUTO-NAVEGACIÓN AL MAPA cuando el conductor inicia el recorrido ──
-    ref.listen<AsyncValue<String>>(busStatusProvider, (previous, next) {
-      final prevStatus = previous?.value ?? 'idle';
-      final newStatus = next.value ?? 'idle';
-      // Si cambia de 'idle'/'finished' a 'on_route', navegar al mapa
-      if (newStatus == 'on_route' && prevStatus != 'on_route' && !_hasNavigatedToMap && mounted) {
-        _hasNavigatedToMap = true;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ParentMapScreen()),
-        );
-      }
-      // Resetear la bandera cuando el viaje termine
-      if (newStatus != 'on_route') {
-        _hasNavigatedToMap = false;
-      }
-    });
+    // Auto-navegación al mapa solo cuando no usamos el shell con pestañas.
+    if (!widget.embeddedInShell) {
+      ref.listen<AsyncValue<String>>(busStatusProvider, (previous, next) {
+        final prevStatus = previous?.value ?? 'idle';
+        final newStatus = next.value ?? 'idle';
+        if (newStatus == 'on_route' && prevStatus != 'on_route' && !_hasNavigatedToMap && mounted) {
+          _hasNavigatedToMap = true;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ParentShellScreen(initialIndex: 1)),
+          );
+        }
+        if (newStatus != 'on_route') {
+          _hasNavigatedToMap = false;
+        }
+      });
+    }
 
     // Auto-suscribir al topic FCM del bus cuando carguen los estudiantes.
     // Así el padre recibe push incluso si la app estuvo cerrada un tiempo.
@@ -113,39 +121,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     final days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     final dateStr = '${days[now.weekday % 7]}, ${now.day} de ${months[now.month - 1]} • ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-        final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text('Salir de la App', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
-            content: Text('¿Deseas cerrar la aplicación RutaSegura?', style: GoogleFonts.publicSans()),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text('CANCELAR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: Colors.grey)),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: Text('SALIR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        );
-
-        if (shouldExit == true) {
-          SystemNavigator.pop();
-        }
-      },
-      child: Scaffold(
+    final scaffoldWidget = Scaffold(
         backgroundColor: _surface,
         body: LayoutBuilder(
         builder: (context, constraints) {
@@ -156,7 +132,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 top: 0,
                 left: 0,
                 right: 0,
-                bottom: 80,
+                bottom: widget.embeddedInShell ? 24 : 80,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(top: 140, left: 24, right: 24, bottom: 24),
@@ -447,8 +423,14 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                                   SizedBox(
                                                     height: 36,
                                                     child: ElevatedButton.icon(
-                                                      onPressed: isActive ? () => Navigator.pushReplacement(context,
-                                                          MaterialPageRoute(builder: (_) => const ParentMapScreen())) : null,
+                                                      onPressed: isActive
+                                                          ? () {
+                                                              ref
+                                                                  .read(parentShellTabIndexProvider
+                                                                      .notifier)
+                                                                  .selectTab(1);
+                                                            }
+                                                          : null,
                                                       style: ElevatedButton.styleFrom(
                                                         backgroundColor: _primary,
                                                         foregroundColor: Colors.white,
@@ -597,36 +579,36 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             ),
           ),
 
-          // Bottom Nav Bar
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: SafeArea(
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: [
-                    BoxShadow(color: _primaryContainer.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))
-                  ]
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _navItem(context, icon: Icons.home, label: 'Inicio', isActive: true, target: const ParentDashboardScreen()),
-                    _navItem(context, icon: Icons.map, label: 'Mapa', isActive: false, target: const ParentMapScreen()),
-                    _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: false, target: const ParentNotificationsScreen()),
-                  ],
+          if (!widget.embeddedInShell)
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    boxShadow: [
+                      BoxShadow(color: _primaryContainer.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -8))
+                    ]
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _navItem(context, icon: Icons.home_rounded, label: 'Inicio', isActive: true, target: const ParentShellScreen()),
+                      _navItem(context, icon: Icons.map_rounded, label: 'Mapa', isActive: false, target: const ParentShellScreen(initialIndex: 1)),
+                      _navItem(context, icon: Icons.notifications_rounded, label: 'Notificaciones', isActive: false, target: const ParentShellScreen(initialIndex: 2)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          )
+            )
             ],
           );
         },
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 60),
+        padding: EdgeInsets.only(bottom: widget.embeddedInShell ? 8 : 60),
         child: FloatingActionButton.extended(
           onPressed: () {
             _showAddStudentWarning(context);
@@ -637,7 +619,44 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
           elevation: 4,
         ),
       ),
-    ));
+    );
+
+    if (widget.embeddedInShell) return scaffoldWidget;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text('Salir de la App', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+            content: Text('¿Deseas cerrar la aplicación RutaSegura?', style: GoogleFonts.publicSans()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('CANCELAR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: Text('SALIR', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldExit == true) {
+          SystemNavigator.pop();
+        }
+      },
+      child: scaffoldWidget,
+    );
   }
 
   void _openAddStudent() async {
@@ -694,6 +713,68 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     );
   }
 
+
+  Future<void> _setStudentAttendance(
+    WidgetRef ref,
+    String studentId,
+    String unitCode,
+    String attendanceStatus,
+  ) async {
+    final user = ref.read(authStateProvider).value;
+    if (user == null) throw Exception('Sesión no válida');
+
+    final id = studentId.trim();
+    final code = unitCode.trim().toUpperCase();
+    if (id.isEmpty || code.isEmpty) {
+      throw Exception('Datos del estudiante incompletos.');
+    }
+
+    final payload = <String, dynamic>{
+      'attendance_status': attendanceStatus,
+      'attendance_updated_at': FieldValue.serverTimestamp(),
+    };
+
+    await withNetworkTimeout(
+      FirebaseFirestore.instance
+          .collection('companies')
+          .doc(code)
+          .collection('students')
+          .doc(id)
+          .set(payload, SetOptions(merge: true)),
+    );
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(code)
+          .collection('students')
+          .doc(id)
+          .get();
+      final data = snap.data();
+      if (data != null) {
+        await AttendanceLogService.upsert(
+          unitCode: code,
+          studentId: id,
+          studentName: (data['studentName'] ?? '') as String,
+          driverId: data['driverId'] as String?,
+          status: attendanceStatus,
+          source: 'parent',
+          grade: data['grade'] as String?,
+        );
+      }
+    } catch (_) {}
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc('parents')
+          .collection('members')
+          .doc(user.uid)
+          .collection('students')
+          .doc(id)
+          .set(payload, SetOptions(merge: true));
+    } catch (_) {}
+  }
 
   void _showAbsenceConfirmation(BuildContext context, WidgetRef ref) {
     final studentsAsync = ref.watch(parentStudentsProvider);
@@ -758,47 +839,41 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 ElevatedButton(
                   onPressed: !selection.values.contains(true) ? null : () async {
                     try {
-                      final authRepo = ref.read(authRepositoryProvider);
-                      final uid = await authRepo.getCurrentUserId();
-                      
-                      if (uid != null) {
-                        final batch = FirebaseFirestore.instance.batch();
-                        
-                        // Buscar el documento del padre una sola vez
-                        final parentQuery = await FirebaseFirestore.instance
-                            .collection('users').doc('parents').collection('members')
-                            .where('uid', isEqualTo: uid).limit(1).get();
-
-                        for (var student in students) {
-                          final id = student['studentId'] ?? student['id'];
-                          if (selection[id] == true) {
-                            final unitCode = student['unitCode'];
-                            
-                            // 1. Marcar ausente en la empresa
-                            final compStudentRef = FirebaseFirestore.instance
-                                .collection('companies').doc(unitCode).collection('students').doc(id);
-                            batch.update(compStudentRef, {'attendance_status': 'absent_today'});
-                            
-                            // 2. Marcar ausente en el perfil del padre
-                            if (parentQuery.docs.isNotEmpty) {
-                              batch.update(parentQuery.docs.first.reference.collection('students').doc(id), {'attendance_status': 'absent_today'});
-                            }
-                          }
-                        }
-                        await batch.commit();
+                      for (final student in students) {
+                        final id = (student['studentId'] ?? student['id'])?.toString();
+                        if (id == null || id.isEmpty) continue;
+                        if (selection[id] != true) continue;
+                        final unitCode =
+                            (student['unitCode'] as String?) ?? 'CADE';
+                        await _setStudentAttendance(
+                          ref,
+                          id,
+                          unitCode,
+                          'absent_today',
+                        );
                       }
+
+                      ref.invalidate(parentStudentsProvider);
 
                       if (context.mounted) {
                         Navigator.of(dialogContext).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Notificación enviada al conductor.'), backgroundColor: Colors.black87)
+                          const SnackBar(
+                            content: Text('Notificación enviada al conductor.'),
+                            backgroundColor: Colors.black87,
+                          ),
                         );
                       }
                     } catch (e) {
                       if (context.mounted) {
                         Navigator.of(dialogContext).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Error al enviar el reporte.'))
+                          SnackBar(
+                            content: Text(
+                              'Error al enviar el reporte: ${friendlyNetworkError(e)}',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
                         );
                       }
                     }
@@ -960,39 +1035,33 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             ElevatedButton(
               onPressed: () async {
                 try {
-                  final authRepo = ref.read(authRepositoryProvider);
-                  final uid = await authRepo.getCurrentUserId();
-                  if (uid != null) {
-                    final batch = FirebaseFirestore.instance.batch();
-                    final newValue = setAsAbsent ? 'absent_today' : 'present';
-                    
-                    // 1. Empresa
-                    final compStudentRef = FirebaseFirestore.instance
-                        .collection('companies').doc(unitCode).collection('students').doc(studentId);
-                    batch.update(compStudentRef, {'attendance_status': newValue});
-                    
-                    // 2. Padre
-                    final parentQuery = await FirebaseFirestore.instance
-                        .collection('users').doc('parents').collection('members')
-                        .where('uid', isEqualTo: uid).limit(1).get();
-                    if (parentQuery.docs.isNotEmpty) {
-                      batch.update(parentQuery.docs.first.reference.collection('students').doc(studentId), {'attendance_status': newValue});
-                    }
-
-                    await batch.commit();
-                  }
+                  await _setStudentAttendance(
+                    ref,
+                    studentId.toString(),
+                    unitCode,
+                    setAsAbsent ? 'absent_today' : 'present',
+                  );
+                  ref.invalidate(parentStudentsProvider);
 
                   if (context.mounted) {
                     Navigator.of(dialogContext).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(setAsAbsent ? 'Reportado: $name no asiste hoy.' : 'Reporte anulado: $name sí asiste.'), 
-                        backgroundColor: setAsAbsent ? Colors.redAccent : Colors.green.shade600
-                      )
+                        content: Text(setAsAbsent ? 'Reportado: $name no asiste hoy.' : 'Reporte anulado: $name sí asiste.'),
+                        backgroundColor: setAsAbsent ? Colors.redAccent : Colors.green.shade600,
+                      ),
                     );
                   }
                 } catch (e) {
-                  if (context.mounted) Navigator.of(dialogContext).pop();
+                  if (context.mounted) {
+                    Navigator.of(dialogContext).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: ${friendlyNetworkError(e)}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -1068,36 +1137,61 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     setState(() => isSubmitting = true);
 
                     try {
-                      final authRepo = ref.read(authRepositoryProvider);
-                      final uid = await authRepo.getCurrentUserId();
-                      
-                      final parentQuery = await FirebaseFirestore.instance
-                          .collection('users').doc('parents').collection('members')
-                          .where('uid', isEqualTo: uid).limit(1).get();
-                      
-                      final parentName = parentQuery.docs.isNotEmpty 
-                          ? (parentQuery.docs.first.data()['name'] ?? 'Padre s/n')
-                          : 'Usuario Desconocido';
+                      final authUser = ref.read(authStateProvider).value;
+                      final uid = authUser?.uid;
+                      if (uid == null) throw Exception('Sesión no válida');
 
-                      await FirebaseFirestore.instance.collection('support_tickets').add({
-                        'parentId': uid,
-                        'parentName': parentName,
-                        'message': message,
-                        'timestamp': FieldValue.serverTimestamp(),
-                        'status': 'open',
-                        'type': 'support_request'
-                      });
+                      String unitCode = normalizeUnitCode(
+                        await ref.read(activeUnitCodeProvider.future),
+                      );
+                      if (unitCode.isEmpty) {
+                        final memberData = await readParentMemberData(uid);
+                        unitCode = normalizeUnitCode(
+                          resolveActiveUnitCode(memberData),
+                        );
+                      }
+                      if (unitCode.isEmpty) {
+                        throw Exception(
+                          'Vincula tu colegio antes de contactar soporte.',
+                        );
+                      }
+
+                      final parentName = authUser?.displayName?.trim().isNotEmpty == true
+                          ? authUser!.displayName!.trim()
+                          : (authUser?.email ?? 'Padre');
+
+                      await withNetworkTimeout(
+                        FirebaseFirestore.instance
+                            .collection('companies')
+                            .doc(unitCode)
+                            .collection('support_tickets')
+                            .add({
+                          'parentId': uid,
+                          'parentName': parentName,
+                          'parentEmail': authUser?.email ?? '',
+                          'unitCode': unitCode,
+                          'message': message,
+                          'timestamp': FieldValue.serverTimestamp(),
+                          'status': 'open',
+                          'type': 'support_request',
+                        }),
+                      );
 
                       try {
-                        if (parentQuery.docs.isNotEmpty) {
-                          await parentQuery.docs.first.reference.collection('notifications').add({
-                            'title': 'Soporte enviado',
-                            'message': 'Tu mensaje ha sido recibido por el administrador.',
-                            'type': 'support',
-                            'timestamp': FieldValue.serverTimestamp(),
-                            'isRead': false
-                          });
-                        }
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc('parents')
+                            .collection('members')
+                            .doc(uid)
+                            .collection('notifications')
+                            .add({
+                          'title': 'Soporte enviado',
+                          'message':
+                              'Tu mensaje ha sido recibido por el administrador.',
+                          'type': 'support',
+                          'timestamp': FieldValue.serverTimestamp(),
+                          'isRead': false,
+                        });
                       } catch (e) {
                         debugPrint('Ignorando error de notificación local: $e');
                       }
@@ -1106,15 +1200,23 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                         Navigator.of(dialogContext).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Mensaje enviado a administración. Te contactaremos pronto.'),
+                            content: Text(
+                              'Mensaje enviado a administración. Te contactaremos pronto.',
+                            ),
                             backgroundColor: Colors.blueAccent,
-                          )
+                          ),
                         );
                       }
                     } catch (e) {
                       if (context.mounted) {
                         setState(() => isSubmitting = false);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al enviar el mensaje.')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Error al enviar: ${friendlyNetworkError(e)}',
+                            ),
+                          ),
+                        );
                       }
                     }
                   },

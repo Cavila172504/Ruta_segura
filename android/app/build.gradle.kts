@@ -48,6 +48,25 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "app"
+    productFlavors {
+        create("parent") {
+            dimension = "app"
+            applicationId = "com.rutasegura.parent"
+            resValue("string", "app_name", "RutaSegura Padre")
+        }
+        create("driver") {
+            dimension = "app"
+            applicationId = "com.rutasegura.driver"
+            resValue("string", "app_name", "RutaSegura Conductor")
+        }
+        create("admin") {
+            dimension = "app"
+            applicationId = "com.rutasegura.admin"
+            resValue("string", "app_name", "RutaSegura Admin")
+        }
+    }
+
     buildTypes {
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {

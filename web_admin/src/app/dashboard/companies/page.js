@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { authFetch } from '@/lib/api-client';
+import { fetchCompaniesStatsFromClient } from '@/lib/companies-client';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
@@ -12,12 +13,14 @@ const CompanyLocationPicker = dynamic(
 );
 
 const CompaniesPage = () => {
-    const { profile, loading } = useAuth();
+    const { profile, loading, setActiveUnitCode } = useAuth();
     const router = useRouter();
 
     const [companies, setCompanies] = useState([]);
     const [totals, setTotals] = useState(null);
     const [fetching, setFetching] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [adminWarning, setAdminWarning] = useState('');
     const [detailCompany, setDetailCompany] = useState(null);
 
     const [showModal, setShowModal] = useState(false);
@@ -63,17 +66,64 @@ const CompaniesPage = () => {
     const fetchCompanies = async () => {
         try {
             setFetching(true);
+            setLoadError('');
+            setAdminWarning('');
+
+            const healthRes = await fetch('/api/health');
+            const health = await healthRes.json().catch(() => ({}));
+            if (!health.adminReady) {
+                setAdminWarning(
+                    'Modo lectura: Firebase Admin no está en el servidor. Verás datos desde Firestore; crear colegios/conductores requiere configurar FIREBASE_SERVICE_ACCOUNT.'
+                );
+            }
+
             const res = await authFetch('/api/companies/stats');
             const data = await res.json();
-            if (data.companies) {
+
+            if (res.ok && data.companies) {
                 setCompanies(data.companies);
                 setTotals(data.totals);
+                return;
             }
+
+            if (res.status === 503 || res.status === 500) {
+                const fallback = await fetchCompaniesStatsFromClient();
+                setCompanies(fallback.companies);
+                setTotals(fallback.totals);
+                if (!fallback.companies.length) {
+                    setLoadError(data.error || 'No hay colegios en Firestore o sin permisos de lectura.');
+                }
+                return;
+            }
+
+            setLoadError(data.error || `Error del servidor (${res.status})`);
+            setCompanies([]);
+            setTotals(null);
         } catch (error) {
-            console.error("Error fetching", error);
+            console.error('Error fetching companies', error);
+            try {
+                const fallback = await fetchCompaniesStatsFromClient();
+                setCompanies(fallback.companies);
+                setTotals(fallback.totals);
+                setAdminWarning(
+                    'Conexión API falló; mostrando datos en modo lectura desde Firestore.'
+                );
+            } catch (clientErr) {
+                console.error(clientErr);
+                setLoadError(
+                    'No se pudo conectar con Firebase. Revisa login super admin, reglas Firestore y FIREBASE_SERVICE_ACCOUNT.'
+                );
+                setCompanies([]);
+                setTotals(null);
+            }
         } finally {
             setFetching(false);
         }
+    };
+
+    const enterAsSchool = (company) => {
+        setActiveUnitCode(company.unitCode, company.name);
+        router.push('/dashboard');
     };
 
     const handleChange = (e) => {
@@ -207,6 +257,19 @@ const CompaniesPage = () => {
                 </button>
             </div>
 
+            {adminWarning && (
+                <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-sm font-bold">
+                    {adminWarning}
+                </div>
+            )}
+
+            {loadError && (
+                <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-bold">
+                    {loadError}
+                    <button type="button" onClick={fetchCompanies} className="ml-4 underline">Reintentar</button>
+                </div>
+            )}
+
             {totals && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                     {[
@@ -236,6 +299,7 @@ const CompaniesPage = () => {
                                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Administrador</th>
                                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Conductores</th>
                                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estudiantes</th>
+                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Plan</th>
                                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -266,8 +330,18 @@ const CompaniesPage = () => {
                                         </td>
                                         <td className="px-6 py-6 text-center font-black text-lg">{c.driversCount}</td>
                                         <td className="px-6 py-6 text-center font-black text-lg">{c.studentsTotal}</td>
+                                        <td className="px-6 py-6 text-center">
+                                            <span className="text-[10px] font-black uppercase text-slate-600">{c.billingPlan || 'basic'}</span>
+                                            <p className="text-xs text-slate-400">${c.monthlyUsd ?? 0}/mes</p>
+                                        </td>
                                         <td className="px-6 py-6 text-right">
                                             <div className="flex items-center justify-end gap-3 flex-wrap">
+                                                <button
+                                                    onClick={() => enterAsSchool(c)}
+                                                    className="bg-emerald-600 text-white px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all"
+                                                >
+                                                    Entrar
+                                                </button>
                                                 <button
                                                     onClick={() => setDetailCompany(c)}
                                                     className="bg-primary text-white px-5 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all"
@@ -290,8 +364,11 @@ const CompaniesPage = () => {
                                         </td>
                                     </tr>
                             ))}
-                            {companies.length === 0 && (
-                                <tr><td colSpan="7" className="text-center py-10 text-slate-400">No hay instituciones registradas aún.</td></tr>
+                            {companies.length === 0 && !loadError && (
+                                <tr><td colSpan="8" className="text-center py-10 text-slate-400">No hay instituciones registradas aún.</td></tr>
+                            )}
+                            {companies.length === 0 && loadError && (
+                                <tr><td colSpan="8" className="text-center py-10 text-slate-400">No se pudo cargar el listado. Ver mensaje arriba.</td></tr>
                             )}
                         </tbody>
                     </table>

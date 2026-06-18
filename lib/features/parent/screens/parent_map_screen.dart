@@ -1,27 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'parent_dashboard_screen.dart';
-import 'parent_notifications_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/providers/route_provider.dart';
 import '../../../core/providers/notification_provider.dart';
 import '../../../core/providers/parent_provider.dart';
-
 import '../../../core/services/notification_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'parent_nav_shell.dart';
 import 'dart:ui' as ui;
 import 'dart:async';
 import 'package:flutter/services.dart';
 
 class ParentMapScreen extends ConsumerStatefulWidget {
-  const ParentMapScreen({super.key});
+  const ParentMapScreen({super.key, this.embeddedInShell = false});
+
+  final bool embeddedInShell;
 
   @override
   ConsumerState<ParentMapScreen> createState() => _ParentMapScreenState();
 }
 
-class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
+class _ParentMapScreenState extends ConsumerState<ParentMapScreen>
+    with AutomaticKeepAliveClientMixin {
   final Color _primaryColor = const Color(0xFFFFD600); // Yellow from mockup
   final Color _statusGreen = const Color(0xFFC8E6C9); // Mint/Green from mockup
   static const LatLng _fallbackSchool = LatLng(-0.3485666414297856, -79.24772636139673);
@@ -67,7 +68,11 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
   final Set<String> _notifiedStudents = {};
 
   @override
+  bool get wantKeepAlive => widget.embeddedInShell;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     ref.watch(remoteNotificationsListenerProvider);
     
     // 1. Lógica de Alerta de Proximidad Inteligente (500 metros) con ETA
@@ -429,8 +434,9 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
           ),
         ],
       ),
-      // --- BARRA DE NAVEGACIÓN INFERIOR RESTAURADA ---
-      bottomNavigationBar: SafeArea(
+      bottomNavigationBar: widget.embeddedInShell
+          ? null
+          : SafeArea(
         child: Container(
           height: 70,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -441,9 +447,9 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _navItem(context, icon: Icons.home, label: 'Inicio', isActive: false, target: const ParentDashboardScreen()),
-              _navItem(context, icon: Icons.map, label: 'Mapa', isActive: true, target: const ParentMapScreen()),
-              _navItem(context, icon: Icons.notifications, label: 'Notificaciones', isActive: false, target: const ParentNotificationsScreen()),
+              _navItem(context, icon: Icons.home_rounded, label: 'Inicio', isActive: false, index: 0),
+              _navItem(context, icon: Icons.map_rounded, label: 'Mapa', isActive: true, index: 1),
+              _navItem(context, icon: Icons.notifications_rounded, label: 'Notificaciones', isActive: false, index: 2),
             ],
           ),
         ),
@@ -451,11 +457,16 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
     );
   }
 
-  Widget _navItem(BuildContext context, {required IconData icon, required String label, required bool isActive, required Widget target}) {
+  Widget _navItem(BuildContext context, {required IconData icon, required String label, required bool isActive, required int index}) {
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          if (!isActive) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => target));
+          if (!isActive) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => ParentShellScreen(initialIndex: index)),
+            );
+          }
         },
         behavior: HitTestBehavior.opaque,
         child: Column(

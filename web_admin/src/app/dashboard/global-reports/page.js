@@ -4,13 +4,15 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { authFetch } from '@/lib/api-client';
-import * as XLSX from 'xlsx';
+import { fetchCompaniesStatsFromClient } from '@/lib/companies-client';
+import { exportToXls } from '@/lib/export-excel';
 
 export default function GlobalReportsPage() {
   const { profile, loading } = useAuth();
   const router = useRouter();
   const [data, setData] = useState(null);
   const [fetching, setFetching] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     if (!loading && profile?.role !== 'super_admin') {
@@ -23,11 +25,27 @@ export default function GlobalReportsPage() {
     (async () => {
       try {
         setFetching(true);
+        setLoadError('');
         const res = await authFetch('/api/companies/stats');
         const json = await res.json();
-        if (res.ok) setData(json);
+        if (res.ok) {
+          setData(json);
+          return;
+        }
+        if (res.status === 503 || res.status === 500) {
+          const fallback = await fetchCompaniesStatsFromClient();
+          setData(fallback);
+          return;
+        }
+        setLoadError(json.error || `Error ${res.status}`);
       } catch (e) {
         console.error(e);
+        try {
+          const fallback = await fetchCompaniesStatsFromClient();
+          setData(fallback);
+        } catch (clientErr) {
+          setLoadError('No se pudieron cargar los informes globales.');
+        }
       } finally {
         setFetching(false);
       }
@@ -45,12 +63,12 @@ export default function GlobalReportsPage() {
       EstudiantesTotal: c.studentsTotal,
       EstudiantesActivos: c.studentsActive,
       Pendientes: c.studentsPending,
+      Plan: c.billingPlan || 'basic',
+      MontoMensualUSD: c.monthlyUsd ?? 0,
+      EstadoFacturacion: c.billingStatus || 'active',
       Estado: c.status,
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Facturacion');
-    XLSX.writeFile(wb, `RutaSegura_Global_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    exportToXls(rows, `RutaSegura_Global_${new Date().toISOString().slice(0, 10)}`, 'Facturacion');
   };
 
   if (loading || profile?.role !== 'super_admin') return null;
@@ -92,6 +110,12 @@ export default function GlobalReportsPage() {
           </div>
         ))}
       </div>
+
+      {loadError && (
+        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-bold">
+          {loadError}
+        </div>
+      )}
 
       {fetching ? (
         <p className="text-slate-400 font-bold animate-pulse">Calculando métricas globales...</p>

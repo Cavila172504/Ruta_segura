@@ -6,7 +6,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
-import '../../../core/screens/login_screen.dart';
+import '../../../core/providers/parent_member_utils.dart';
+import '../../../core/services/attendance_log_service.dart';
+import '../../../core/services/incident_report_service.dart';
 
 // --- COLORES SEGÚN REQUERIMIENTOS ---
 const Map<String, Color> _colores = {
@@ -66,10 +68,10 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
       // Actualizar ubicación en Firestore para que el padre pueda verlo
       final profile = ref.read(userProfileProvider).value;
       if (profile != null) {
-        final unitCode = profile['unitCode'] ?? 'CAD31';
+        final unitCode = normalizeUnitCode(profile['unitCode'] as String?);
         final driverId = profile['uid'];
         
-        if (driverId != null) {
+        if (unitCode.isNotEmpty && driverId != null) {
           // GPS en live_tracking lo escribe solo driver_map_screen (evita duplicados).
           // Verificar aproximación (600m) en MODO IDA para notificar a los padres
           final routeStatusAsync = ref.read(driverRouteStatusProvider((unitCode: unitCode, driverId: driverId)));
@@ -139,6 +141,9 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
       int count = 0;
       WriteBatch batch = FirebaseFirestore.instance.batch();
       final now = DateTime.now();
+      final profile = ref.read(userProfileProvider).value;
+      final driverId = profile?['uid'] as String?;
+      final driverName = profile?['name'] as String? ?? 'Conductor';
 
       for (var student in students) {
         final studentId = student['id'];
@@ -175,6 +180,29 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
         }
       }
       if (count > 0) await batch.commit();
+
+      for (var student in students) {
+        if (student['status'] == 'absent' || student['attendance_status'] == 'absent_today') continue;
+        await AttendanceLogService.upsert(
+          unitCode: unitCode,
+          studentId: student['id'],
+          studentName: student['studentName'] ?? '',
+          driverId: driverId,
+          status: 'arrived_at_school',
+          source: 'driver',
+          grade: student['grade'],
+        );
+      }
+
+      if (driverId != null) {
+        await IncidentReportService.reportDelayIfNeeded(
+          unitCode: unitCode,
+          driverId: driverId,
+          driverName: driverName,
+          arrivalTime: now,
+          routeName: students.isNotEmpty ? (students.first['assignedRoute'] as String?) : null,
+        );
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Confirmación de llegada enviada con éxito.'), backgroundColor: Color(0xFF2E7D32)));
@@ -197,6 +225,17 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
         'attendance_status': 'dropped_off_at_home'
       });
 
+      final profile = ref.read(userProfileProvider).value;
+      await AttendanceLogService.upsert(
+        unitCode: unitCode,
+        studentId: student['id'],
+        studentName: student['studentName'] ?? '',
+        driverId: profile?['uid'] as String?,
+        status: 'dropped_off_at_home',
+        source: 'driver',
+        grade: student['grade'],
+      );
+
       if (student['parentId'] != null) {
         await _enviarNotificacionFCM(
           student['parentId'],
@@ -213,7 +252,10 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
-    final unitCode = profileAsync.value?['unitCode'] as String? ?? 'CAD31';
+    final unitCode = normalizeUnitCode(profileAsync.value?['unitCode'] as String?);
+    if (unitCode.isEmpty) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     final driverId = profileAsync.value?['uid'] as String? ?? 'UNKNOWN';
     final studentsAsync = ref.watch(driverStudentsProvider(unitCode));
     
@@ -253,9 +295,6 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                             icon: const Icon(Icons.logout, color: Colors.white),
                             onPressed: () async {
                               await ref.read(authRepositoryProvider).signOut();
-                              if (context.mounted) {
-                                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen(isDriverApp: true)), (r) => false);
-                              }
                             },
                           ),
                         ],
@@ -525,9 +564,22 @@ class _DriverAttendanceScreenState extends ConsumerState<DriverAttendanceScreen>
                     try {
                       // ── SINCRONIZACIÓN EN TIEMPO REAL CON LA BASE DE DATOS ──
                       final studentRef = FirebaseFirestore.instance.collection('companies').doc(unitCode).collection('students').doc(s['id']);
+                      final newStatus = val ? 'in_bus' : 'pending';
                       await studentRef.update({
-                        'attendance_status': val ? 'in_bus' : 'pending'
+                        'attendance_status': newStatus
                       });
+                      if (val) {
+                        final profile = ref.read(userProfileProvider).value;
+                        await AttendanceLogService.upsert(
+                          unitCode: unitCode,
+                          studentId: s['id'],
+                          studentName: s['studentName'] ?? '',
+                          driverId: profile?['uid'] as String?,
+                          status: 'in_bus',
+                          source: 'driver',
+                          grade: s['grade'],
+                        );
+                      }
                     } catch (e) {
                       debugPrint('Error actualizando estado en Firestore: $e');
                     }

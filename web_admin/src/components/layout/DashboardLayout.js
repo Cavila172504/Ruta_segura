@@ -1,8 +1,10 @@
 "use client";
 import React, { useEffect } from 'react';
+import Link from 'next/link';
 import Sidebar from './Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
+import DevCredit from '@/components/legal/DevCredit';
 
 const SUPER_ADMIN_ALLOWED = [
   '/dashboard/companies',
@@ -82,7 +84,7 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
       />
 
       <div
-        className={`flex-1 flex flex-col ${isSidebarCollapsed ? 'md:ml-[80px]' : 'md:ml-[240px]'} ml-0 min-w-0 transition-all duration-300`}
+        className={`flex-1 flex flex-col ${isSidebarCollapsed ? 'md:ml-[80px]' : 'md:ml-[240px]'} ml-0 min-w-0 min-h-screen transition-all duration-300`}
       >
         <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-md shadow-sm flex justify-between items-center h-16 px-4 md:px-8 border-b border-outline-variant/10">
           <div className="flex items-center gap-3">
@@ -114,7 +116,20 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
           </div>
         </header>
 
-        <main className="p-4 md:p-8 max-w-[1600px] mx-auto w-full">{children}</main>
+        <main className="p-4 md:p-8 max-w-[1600px] mx-auto w-full flex-1">{children}</main>
+
+        <footer className="px-4 md:px-8 py-4 border-t border-slate-100/80 text-center shrink-0">
+          <p className="text-[10px] text-slate-400">
+            <Link href="/politica-seguridad" className="hover:text-primary transition-colors">
+              Política de seguridad y ubicación
+            </Link>
+            <span className="mx-2 text-slate-300">·</span>
+            © {new Date().getFullYear()} RutaSegura
+            <span className="inline-block ml-2 align-middle">
+              <DevCredit />
+            </span>
+          </p>
+        </footer>
       </div>
     </div>
   );

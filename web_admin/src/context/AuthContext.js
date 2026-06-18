@@ -84,7 +84,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const SCHOOL_CODE =
-    profile?.role === "super_admin" ? activeUnitCode : profile?.unitCode;
+    profile?.role === "super_admin"
+      ? activeUnitCode
+      : profile?.unitCode?.trim().toUpperCase() || null;
 
   return (
     <AuthContext.Provider

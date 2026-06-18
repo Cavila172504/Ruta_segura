@@ -62,9 +62,7 @@ class FirebaseAuthRepository implements AuthRepository {
               'email': email,
               'role': role,
               'createdAt': FieldValue.serverTimestamp(),
-            });
-
-        await _auth.signOut();
+            }, SetOptions(merge: true));
       }
       return creds;
     } catch (e) {

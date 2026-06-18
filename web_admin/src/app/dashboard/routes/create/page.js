@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { db } from '../../../../lib/firebase';
 import { collection, addDoc, getDocs, serverTimestamp, query, where } from 'firebase/firestore';
 import { Search, Save, Download, Users, Truck, Clock, Trash2, MapPin, CheckCircle2, XCircle, Copy } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { exportToXls } from '../../../../lib/export-excel';
 
 export default function CreateRoutePage() {
   const [routeName, setRouteName] = useState('NUEVA RUTA CADE');
@@ -63,10 +63,7 @@ export default function CreateRoutePage() {
       return row;
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Ruta");
-    XLSX.writeFile(workbook, `${routeName}_Reporte.xlsx`);
+    exportToXls(dataToExport, `${routeName}_Reporte`, 'Ruta');
   };
 
   const toggleStudentSelection = (student) => {

@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/providers/route_provider.dart';
+import '../../../core/providers/parent_member_utils.dart';
 import '../../../core/providers/parent_provider.dart';
 import '../../../core/providers/map_provider.dart';
 
@@ -58,7 +59,10 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
-    final unitCode = profileAsync.value?['unitCode'] as String? ?? 'CAD31';
+    final unitCode = normalizeUnitCode(profileAsync.value?['unitCode'] as String?);
+    if (unitCode.isEmpty) {
+      return const Scaffold(body: Center(child: Text('Unidad escolar no configurada')));
+    }
     final company = ref.watch(companyByUnitProvider(unitCode)).asData?.value;
     final sLat = company?['schoolLat'];
     final sLng = company?['schoolLng'];
@@ -267,7 +271,14 @@ class _DriverRouteCreatorScreenState extends ConsumerState<DriverRouteCreatorScr
         'unitId': unitCode,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': 'driver',
-        'assigned_students': _routeSequence, // Usamosassigned_students para web_admin
+        'assignedStudents': _routeSequence.map((s) => {
+          'id': s['id'],
+          'studentName': s['studentName'],
+          'stopLat': s['stopLat'],
+          'stopLng': s['stopLng'],
+          'grade': s['grade'],
+          'serviceType': s['serviceType'],
+        }).toList(),
         'status': 'active',
         'shift': 'MATUTINA'
       });

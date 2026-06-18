@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { verifyApiAuth, requireSuperAdmin } from '@/lib/api-auth';
-
-function normalizeUnitCode(code) {
-  return String(code || '').trim().toUpperCase();
-}
+import {
+  ensureAdminReady,
+  mapAuthApiError,
+  normalizeUnitCode,
+  rollbackAuthUser,
+} from '@/lib/admin-api';
 
 function parseCoord(value) {
   const n = Number(value);
@@ -12,10 +14,15 @@ function parseCoord(value) {
 }
 
 export async function POST(request) {
+  const notReady = ensureAdminReady();
+  if (notReady) return notReady;
+
   const authResult = await verifyApiAuth(request, { roles: ['super_admin'] });
   if (authResult.error) return authResult.error;
   const forbidden = requireSuperAdmin(authResult.user);
   if (forbidden) return forbidden;
+
+  let createdUid = null;
 
   try {
     const body = await request.json();
@@ -56,6 +63,7 @@ export async function POST(request) {
       password: adminPassword,
       displayName: adminName,
     });
+    createdUid = userRecord.uid;
 
     await companyRef.set({
       name: companyName.trim(),
@@ -68,6 +76,13 @@ export async function POST(request) {
       adminUid: userRecord.uid,
       adminEmail,
       status: 'active',
+      billing: {
+        plan: 'basic',
+        monthlyUsd: 0,
+        status: 'active',
+        studentLimit: 80,
+        driverLimit: 2,
+      },
     });
 
     await adminDb
@@ -87,11 +102,15 @@ export async function POST(request) {
     return NextResponse.json({ message: 'Empresa creada exitosamente', unitCode });
   } catch (error) {
     console.error('Error creating company:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (createdUid) await rollbackAuthUser(createdUid);
+    return NextResponse.json({ error: mapAuthApiError(error) }, { status: 500 });
   }
 }
 
 export async function GET(request) {
+  const notReady = ensureAdminReady();
+  if (notReady) return notReady;
+
   const authResult = await verifyApiAuth(request, { roles: ['super_admin'] });
   if (authResult.error) return authResult.error;
   const forbidden = requireSuperAdmin(authResult.user);
@@ -187,6 +206,9 @@ export async function PATCH(request) {
     if (schoolAddress !== undefined) updates.schoolAddress = schoolAddress.trim();
     if (schoolLat != null) updates.schoolLat = schoolLat;
     if (schoolLng != null) updates.schoolLng = schoolLng;
+    if (body.billing && typeof body.billing === 'object') {
+      updates.billing = { ...(companyDoc.data().billing || {}), ...body.billing };
+    }
 
     if (Object.keys(updates).length > 0) {
       await companyRef.update(updates);

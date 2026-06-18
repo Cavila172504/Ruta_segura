@@ -6,9 +6,10 @@ import 'firebase_options.dart';
 import 'core/screens/login_screen.dart';
 import 'core/services/notification_service.dart';
 import 'core/providers/app_providers.dart';
+import 'core/config/app_flavor.dart';
 import 'features/driver/screens/driver_main_shell.dart';
 import 'features/admin/screens/admin_dashboard_screen.dart';
-import 'features/parent/screens/parent_dashboard_screen.dart';
+import 'features/parent/screens/parent_nav_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,8 +34,8 @@ class DriverApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RutaSegura - Chofer',
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
+      title: AppFlavor.driver.appTitle,
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: AppFlavor.driver.accentColor),
       home: const RootAuthWrapper(isDriverApp: true),
       debugShowCheckedModeBanner: false,
     );
@@ -74,7 +75,7 @@ class RootAuthWrapper extends ConsumerWidget {
               if (!user.emailVerified) {
                 return LoginScreen(isDriverApp: isDriverApp);
               }
-              return const ParentDashboardScreen();
+              return const ParentSetupGate();
             }
           },
         );

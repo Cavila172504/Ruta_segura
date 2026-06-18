@@ -1,0 +1,156 @@
+﻿rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function isSuperAdmin() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/super_admins/members/$(uid()));
+    }
+
+    function isAdmin() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/admins/members/$(uid()));
+    }
+
+    function adminUnit() {
+      return get(/databases/$(database)/documents/users/admins/members/$(uid())).data.unitCode;
+    }
+
+    function isAdminOfUnit(unitCode) {
+      return isAdmin() && adminUnit() == unitCode;
+    }
+
+    function isDriver() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/drivers/members/$(uid()));
+    }
+
+    function driverUnit() {
+      return get(/databases/$(database)/documents/users/drivers/members/$(uid())).data.unitCode;
+    }
+
+    function parentDoc(memberId) {
+      return get(/databases/$(database)/documents/users/parents/members/$(memberId));
+    }
+
+    function isParentMember(memberId) {
+      return isAuth() && parentDoc(memberId).data.uid == uid();
+    }
+
+    // ─── Usuarios globales ───────────────────────────────────────────────────
+
+    match /users/super_admins/members/{memberId} {
+      allow read: if isAuth() && uid() == memberId;
+      allow write: if false;
+    }
+
+    match /users/admins/members/{memberId} {
+      allow read: if isAuth() && (uid() == memberId || isSuperAdmin() || isAdminOfUnit(resource.data.unitCode));
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /users/drivers/members/{driverId} {
+      allow read: if isAuth() && (
+        uid() == driverId
+        || isSuperAdmin()
+        || isAdminOfUnit(resource.data.unitCode)
+      );
+      allow write: if isSuperAdmin() || isAdminOfUnit(request.resource.data.unitCode);
+    }
+
+    match /users/parents/members/{memberId} {
+      allow read: if isParentMember(memberId) || isSuperAdmin();
+      allow create: if isAuth() && request.resource.data.uid == uid();
+      allow update: if isParentMember(memberId);
+      allow delete: if isSuperAdmin();
+
+      match /notifications/{notifId} {
+        allow read, write: if isParentMember(memberId);
+      }
+
+      match /students/{studentId} {
+        allow read, write: if isParentMember(memberId);
+      }
+    }
+
+    match /user_tokens/{tokenUid} {
+      allow read, write: if isAuth() && uid() == tokenUid;
+    }
+
+    // ─── Empresas / colegios ─────────────────────────────────────────────────
+
+    match /companies/{unitCode} {
+      // Padres validan código de colegio al registrar estudiante
+      allow get: if isAuth();
+      allow list: if isSuperAdmin() || isAdmin();
+      allow create: if isSuperAdmin()
+        || (isAuth()
+          && request.resource.data.unitCode == unitCode
+          && request.resource.data.keys().hasOnly(['unitCode', 'lastUpdate', 'status']));
+      allow delete: if isSuperAdmin();
+      allow update: if isSuperAdmin() || isAdminOfUnit(unitCode);
+
+      match /students/{studentId} {
+        allow read: if isAuth() && (
+          isSuperAdmin()
+          || isAdminOfUnit(unitCode)
+          || (isDriver() && driverUnit() == unitCode)
+          || resource.data.parentId == uid()
+        );
+        allow create: if isAuth() && request.resource.data.parentId == uid();
+        allow update: if isSuperAdmin()
+          || isAdminOfUnit(unitCode)
+          || (isDriver() && driverUnit() == unitCode)
+          || (isAuth() && resource.data.parentId == uid());
+        allow delete: if isSuperAdmin() || isAdminOfUnit(unitCode);
+      }
+
+      match /drivers/{driverId} {
+        allow read: if isAuth() && (
+          isSuperAdmin()
+          || isAdminOfUnit(unitCode)
+          || uid() == driverId
+        );
+        allow write: if isSuperAdmin() || isAdminOfUnit(unitCode);
+      }
+
+      match /live_tracking/{driverId} {
+        allow read: if isAuth();
+        allow create, update: if isAuth() && uid() == driverId;
+        allow delete: if isSuperAdmin() || isAdminOfUnit(unitCode);
+      }
+
+      match /routes/{routeId} {
+        allow read: if isAuth() && (
+          isSuperAdmin() || isAdminOfUnit(unitCode) || (isDriver() && driverUnit() == unitCode)
+        );
+        allow write: if isSuperAdmin() || isAdminOfUnit(unitCode);
+      }
+
+      match /incidents/{incidentId} {
+        allow read: if isAuth() && (
+          isSuperAdmin() || isAdminOfUnit(unitCode) || (isDriver() && driverUnit() == unitCode)
+        );
+        allow create: if isAuth() && (isDriver() && driverUnit() == unitCode);
+        allow update, delete: if isSuperAdmin() || isAdminOfUnit(unitCode);
+      }
+
+      match /support_tickets/{ticketId} {
+        allow read, write: if isSuperAdmin() || isAdminOfUnit(unitCode);
+      }
+
+      match /{subcollection}/{docId} {
+        allow read, write: if isSuperAdmin() || isAdminOfUnit(unitCode);
+      }
+    }
+  }
+}

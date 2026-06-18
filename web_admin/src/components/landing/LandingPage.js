@@ -1,10 +1,11 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
-import Image from 'next/image';
+import DevCredit from '@/components/legal/DevCredit';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -312,8 +313,8 @@ export default function LandingPage() {
 
       {/* ── FOOTER ──────────────────────────────────────────────────────── */}
       <footer className="bg-slate-950 text-slate-400 py-12 border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="md:col-span-2">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+          <div className="sm:col-span-2 lg:col-span-2">
             <div className="flex items-center gap-2 mb-4">
               <img 
                 src="/images/logo.png" 
@@ -336,6 +337,20 @@ export default function LandingPage() {
           </div>
 
           <div>
+            <h4 className="text-white font-bold mb-4">Legal</h4>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link href="/politica-seguridad" className="hover:text-white transition-colors">
+                  Política de seguridad y ubicación
+                </Link>
+              </li>
+              <li className="text-slate-500 text-xs leading-relaxed pt-1">
+                Uso de GPS y rastreo en tiempo real para la seguridad del transporte escolar.
+              </li>
+            </ul>
+          </div>
+
+          <div>
             <h4 className="text-white font-bold mb-4">Acceso Institucional</h4>
             <ul className="space-y-2 text-sm">
               <li>
@@ -349,6 +364,12 @@ export default function LandingPage() {
         </div>
         <div className="max-w-7xl mx-auto px-6 md:px-12 mt-12 pt-8 border-t border-white/5 text-xs flex flex-col md:flex-row justify-between items-center gap-4">
           <p>© {new Date().getFullYear()} RutaSegura. Todos los derechos reservados.</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-slate-500">
+            <Link href="/politica-seguridad" className="hover:text-white transition-colors">
+              Política de seguridad y ubicación
+            </Link>
+            <DevCredit />
+          </div>
         </div>
       </footer>
     </div>

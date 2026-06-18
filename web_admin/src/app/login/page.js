@@ -1,11 +1,13 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { resolveOwnerLoginEmail, isOwnerLoginConfigured } from '@/lib/owner-login';
 import { useIdleRedirect } from '@/hooks/useIdleRedirect';
+import DevCredit from '@/components/legal/DevCredit';
 
 const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
@@ -166,8 +168,16 @@ const LoginPage = () => {
           </button>
         </form>
 
-        <div className="mt-10 pt-10 border-t border-outline-variant/10 w-full text-center">
+        <div className="mt-10 pt-10 border-t border-outline-variant/10 w-full text-center space-y-3">
           <p className="text-[10px] text-slate-400 font-medium">¿Olvidaste tu acceso? Contacta a Soporte Técnico</p>
+          <p className="text-[10px] text-slate-400 leading-relaxed max-w-sm mx-auto">
+            Al ingresar acepta el{' '}
+            <Link href="/politica-seguridad" className="text-primary hover:underline font-bold">
+              uso de ubicación y rastreo en tiempo real
+            </Link>{' '}
+            de RutaSegura.
+          </p>
+          <DevCredit />
         </div>
       </div>
     </div>

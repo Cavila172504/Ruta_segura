@@ -48,8 +48,6 @@ dependencies:
   firebase_messaging: 16.1.3
   intl: ^0.19.0
   http: ^1.6.0
-  image_picker: ^1.2.1
-  firebase_storage: ^13.3.0
   url_launcher: ^6.3.1
   flutter_polyline_points: ^3.1.0
 
@@ -66,6 +64,15 @@ flutter_launcher_icons:
   min_sdk_android: 21
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/logo.png"
+  flavors:
+    parent:
+      image_path: "assets/images/logo.png"
+      adaptive_icon_background: "#004782"
+      adaptive_icon_foreground: "assets/images/casa.png"
+    driver:
+      image_path: "assets/images/logo.png"
+      adaptive_icon_background: "#FFD600"
+      adaptive_icon_foreground: "assets/images/autobus-escolar.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

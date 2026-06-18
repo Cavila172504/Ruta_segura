@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,9 +11,7 @@ import '../../../core/providers/parent_provider.dart';
 import '../../../core/providers/route_provider.dart';
 import '../../../core/services/notification_service.dart';
 import 'parent_map_picker_screen.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:io';
+import '../../../core/providers/parent_member_utils.dart';
 
 class AddStudentScreen extends ConsumerStatefulWidget {
   const AddStudentScreen({super.key, this.fixedUnitCode});
@@ -33,7 +32,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final MobileScannerController _scannerController = MobileScannerController();
 
   LatLng? _selectedLocation; // Ubicación en el mapa
-  XFile? _studentImage; // Foto del estudiante
   String? _selectedGrade; // Grado/Curso
   String? _selectedServiceType; // Tipo de Recorrido
   String? _schoolName; // Nombre del colegio detectado
@@ -121,32 +119,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 50);
-      if (image != null && mounted) {
-        setState(() => _studentImage = image);
-      }
-    } catch (e) {
-      if (mounted) {
-         setState(() => _errorMessage = 'No se pudo acceder a la cámara. Verifica los permisos.');
-      }
-    }
-  }
-
-  Future<String?> _uploadStudentImage(String studentId) async {
-    if (_studentImage == null) return null;
-    try {
-      final ref = FirebaseStorage.instance.ref().child('students_photos').child('$studentId.jpg');
-      await ref.putFile(File(_studentImage!.path));
-      return await ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('Error subiendo imagen: $e');
-      return null;
-    }
-  }
-
   Future<void> _registerStudent() async {
     FocusScope.of(context).unfocus(); // Ocultar teclado al guardar
     
@@ -196,19 +168,11 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       final parentUid = await authRepo.getCurrentUserId();
       if (parentUid == null) throw Exception("Sesión no válida");
 
-      setState(() => _errorMessage = 'Subiendo fotografía y datos...');
-      
-      final docId = unitCode.trim().toUpperCase();
-      
-      // Subir foto si existe
-      String? photoUrl;
-      if (_studentImage != null) {
-        photoUrl = await _uploadStudentImage(DateTime.now().millisecondsSinceEpoch.toString());
-      }
+      setState(() => _errorMessage = 'Guardando estudiante...');
 
-      // Implementación directa en el Repo 
+      final docId = unitCode.trim().toUpperCase();
       final studentRepo = ref.read(studentRepositoryProvider);
-      
+
       await studentRepo.registerStudent(
         parentId: parentUid,
         studentName: name,
@@ -219,27 +183,35 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         stopLat: _selectedLocation!.latitude,
         stopLng: _selectedLocation!.longitude,
         grade: _selectedGrade,
-        photoUrl: photoUrl,
         serviceType: _selectedServiceType,
       );
 
       ref.invalidate(linkedUnitCodesProvider);
       ref.invalidate(activeUnitCodeProvider);
       ref.invalidate(parentStudentsProvider);
+      ref.invalidate(userProfileProvider);
 
-      // Suscribirse a los topicos de notificacion para este bus
-      await NotificationService().subscribeToBus(unitCode);
+      try {
+        await NotificationService()
+            .subscribeToBus(unitCode)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {}
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Estudiante registrado exitosamente'),
+          content: Text(
+            'Estudiante registrado. El colegio debe aprobar la inscripcion.',
+          ),
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.of(context).pop(); // Volver al dashboard
+      Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = 'Error al registrar: ${e.toString()}');
+      if (mounted) {
+        setState(() => _errorMessage =
+            'Error al registrar: ${friendlyNetworkError(e)}');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -302,33 +274,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // FOTO DEL ESTUDIANTE
-              Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey.shade200,
-                      backgroundImage: _studentImage != null ? FileImage(File(_studentImage!.path)) : null,
-                      child: _studentImage == null ? const Icon(Icons.person, size: 50, color: Colors.grey) : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: InkWell(
-                        onTap: _pickImage,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
 
               // Cédula del Padre
               Text(
