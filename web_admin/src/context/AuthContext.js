@@ -76,6 +76,10 @@ export const AuthProvider = ({ children }) => {
         setProfile(null);
         _setActiveUnitCode(null);
         _setActiveUnitName(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("activeUnitCode");
+          localStorage.removeItem("activeUnitName");
+        }
       }
       setLoading(false);
     });

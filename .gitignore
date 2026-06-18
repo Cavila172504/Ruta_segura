@@ -84,6 +84,9 @@ app.*.map.json
 /android/app/release
 # Secrets
 web_admin/scripts/serviceAccountKey.json
+web_admin/.env.local
+web_admin/secrets/*
+!web_admin/secrets/.gitkeep
 android/key.properties
 android/keystore/
 android/secrets.properties

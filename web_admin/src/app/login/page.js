@@ -1,17 +1,24 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { resolveOwnerLoginEmail, isOwnerLoginConfigured } from '@/lib/owner-login';
+import { setServerSession } from '@/lib/session-auth';
 import { useIdleRedirect } from '@/hooks/useIdleRedirect';
 import DevCredit from '@/components/legal/DevCredit';
+import BrandLogo from '@/components/ui/BrandLogo';
 
 const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
-const LoginPage = () => {
+function safeDashboardPath(path) {
+  if (!path || !path.startsWith('/dashboard') || path.includes('//')) return null;
+  return path;
+}
+
+function LoginForm() {
   const [loginInput, setLoginInput] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -19,7 +26,10 @@ const LoginPage = () => {
   const [loginReadOnly, setLoginReadOnly] = useState(true);
   const [passwordReadOnly, setPasswordReadOnly] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const ownerLoginEnabled = isOwnerLoginConfigured();
+  const redirectFrom = safeDashboardPath(searchParams.get('from'));
+  const sessionExpired = searchParams.get('session') === 'expired';
 
   useIdleRedirect({ timeoutMs: IDLE_TIMEOUT_MS, redirectTo: '/', enabled: !loading });
 
@@ -33,6 +43,12 @@ const LoginPage = () => {
     return () => clearTimeout(clearAutofill);
   }, []);
 
+  useEffect(() => {
+    if (sessionExpired) {
+      setError('Tu sesión expiró. Vuelve a iniciar sesión.');
+    }
+  }, [sessionExpired]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -43,10 +59,13 @@ const LoginPage = () => {
       const finalPassword = password.trim();
 
       if (!email.includes('@')) {
+        const isNumericId = /^\d+$/.test(loginInput.trim());
         setError(
           ownerLoginEnabled
             ? 'Ingresa tu correo corporativo o tu ID de propietario.'
-            : 'Ingresa tu correo electrónico corporativo.'
+            : isNumericId
+              ? 'El ID de propietario no está activo en este entorno. Usa tu correo de super admin (el de Firebase Auth).'
+              : 'Ingresa tu correo electrónico corporativo.'
         );
         setLoading(false);
         return;
@@ -63,15 +82,21 @@ const LoginPage = () => {
 
       if (adminSnap.exists() || superSnap.exists()) {
         const isSuper = superSnap.exists();
-        router.push(isSuper ? '/dashboard/companies' : '/dashboard');
+        const idToken = await userCredential.user.getIdToken();
+        await setServerSession(idToken);
+
+        const defaultPath = isSuper ? '/dashboard/companies' : '/dashboard';
+        router.push(redirectFrom || defaultPath);
       } else {
         await auth.signOut();
         setError(
-          "No tienes permisos de administrador. Ejecuta scripts/create-superuser.js para asignar rol super_admin."
+          "No tienes permisos de administrador. Contacta al administrador del sistema."
         );
       }
     } catch (err) {
-      setError("Credenciales incorrectas. Si eres propietario, verifica contraseña en Firebase (create-superuser.js).");
+      setError(err.message?.includes('sesión del servidor')
+        ? err.message
+        : "Credenciales incorrectas. Verifica tu correo y contraseña.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -91,9 +116,12 @@ const LoginPage = () => {
       </button>
 
       <div className="max-w-md w-full bg-surface-container-lowest rounded-3xl shadow-[0px_20px_60px_rgba(83,74,183,0.1)] overflow-hidden flex flex-col items-center p-10 border border-outline-variant/10">
-        <div className="mb-8 text-center text-primary">
-          <h1 className="text-3xl font-extrabold font-headline tracking-tight">RutaSegura</h1>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">School Admin Access</p>
+        <div className="mb-8 text-center text-primary flex flex-col items-center gap-3">
+          <BrandLogo className="h-14 w-auto" alt="RutaSegura" />
+          <div>
+            <h1 className="text-3xl font-extrabold font-headline tracking-tight">RutaSegura</h1>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">School Admin Access</p>
+          </div>
         </div>
 
         <form onSubmit={handleLogin} autoComplete="off" className="w-full space-y-6" data-lpignore="true" data-1p-ignore="true">
@@ -117,8 +145,8 @@ const LoginPage = () => {
                 autoComplete="one-time-code"
                 data-lpignore="true"
                 data-1p-ignore="true"
-                placeholder=""
-                className="login-field w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl text-lg font-bold focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                placeholder={ownerLoginEnabled ? 'ID propietario o correo' : 'correo@colegio.com'}
+                className="login-field w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl text-lg font-bold focus:ring-4 focus:ring-primary/10 transition-all outline-none placeholder:text-slate-400 placeholder:font-semibold placeholder:text-sm"
               />
             </div>
           </div>
@@ -182,6 +210,18 @@ const LoginPage = () => {
       </div>
     </div>
   );
-};
+}
+
+const LoginPage = () => (
+  <Suspense
+    fallback={
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    }
+  >
+    <LoginForm />
+  </Suspense>
+);
 
 export default LoginPage;

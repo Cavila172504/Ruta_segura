@@ -1,35 +1,36 @@
-import { collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { calculateMrr, DEFAULT_BILLING, enrichCompanyBilling } from "@/lib/billing";
 
 export async function fetchCompaniesStatsFromClient() {
-  const companiesSnap = await getDocs(collection(db, 'companies'));
+  const companiesSnap = await getDocs(collection(db, "companies"));
   const stats = [];
 
   for (const docSnap of companiesSnap.docs) {
     const data = docSnap.data();
-    const unitCode = docSnap.id.toUpperCase();
+    const unitCode = docSnap.id.trim().toUpperCase();
 
     const [driversSnap, studentsSnap] = await Promise.all([
-      getDocs(collection(db, 'companies', unitCode, 'drivers')),
-      getDocs(collection(db, 'companies', unitCode, 'students')),
+      getDocs(collection(db, "companies", unitCode, "drivers")),
+      getDocs(collection(db, "companies", unitCode, "students")),
     ]);
 
     let adminDoc = null;
     if (data.adminUid) {
-      const adminsSnap = await getDocs(
+      const adminSnap = await getDocs(
         query(
-          collection(db, 'users', 'admins', 'members'),
-          where('uid', '==', data.adminUid),
+          collection(db, "users", "admins", "members"),
+          where("uid", "==", data.adminUid),
           limit(1)
         )
       );
-      adminDoc = adminsSnap.docs[0]?.data() || null;
+      adminDoc = adminSnap.docs[0]?.data() || null;
     }
     if (!adminDoc) {
       const adminsSnap = await getDocs(
         query(
-          collection(db, 'users', 'admins', 'members'),
-          where('unitCode', '==', unitCode),
+          collection(db, "users", "admins", "members"),
+          where("unitCode", "==", unitCode),
           limit(1)
         )
       );
@@ -37,38 +38,30 @@ export async function fetchCompaniesStatsFromClient() {
     }
 
     const students = studentsSnap.docs.map((d) => d.data());
-    const activeStudents = students.filter((s) => s.status === 'active').length;
-    const pendingStudents = students.filter((s) => s.status === 'pending').length;
-    const billing = data.billing || {
-      plan: 'basic',
-      monthlyUsd: 0,
-      status: 'active',
-      studentLimit: 80,
-      driverLimit: 2,
-    };
+    const activeStudents = students.filter((s) => s.status === "active").length;
+    const pendingStudents = students.filter((s) => s.status === "pending").length;
 
-    stats.push({
-      unitCode,
-      name: data.name || unitCode,
-      adminEmail: data.adminEmail || adminDoc?.email || null,
-      adminName: adminDoc?.name || null,
-      adminUid: data.adminUid || adminDoc?.uid || null,
-      status: data.status || 'active',
-      transportCompany: data.transportCompany || '',
-      schoolLat: data.schoolLat ?? null,
-      schoolLng: data.schoolLng ?? null,
-      schoolAddress: data.schoolAddress || '',
-      hasSchoolLocation: data.schoolLat != null && data.schoolLng != null,
-      driversCount: driversSnap.size,
-      studentsTotal: studentsSnap.size,
-      studentsActive: activeStudents,
-      studentsPending: pendingStudents,
-      createdAt: data.createdAt || null,
-      billing,
-      billingPlan: billing.plan || 'basic',
-      billingStatus: billing.status || 'active',
-      monthlyUsd: billing.monthlyUsd ?? 0,
-    });
+    stats.push(
+      enrichCompanyBilling({
+        unitCode,
+        name: data.name || unitCode,
+        adminEmail: data.adminEmail || adminDoc?.email || null,
+        adminName: adminDoc?.name || null,
+        adminUid: data.adminUid || adminDoc?.uid || null,
+        status: data.status || "active",
+        transportCompany: data.transportCompany || "",
+        schoolLat: data.schoolLat ?? null,
+        schoolLng: data.schoolLng ?? null,
+        schoolAddress: data.schoolAddress || "",
+        hasSchoolLocation: data.schoolLat != null && data.schoolLng != null,
+        driversCount: driversSnap.size,
+        studentsTotal: studentsSnap.size,
+        studentsActive: activeStudents,
+        studentsPending: pendingStudents,
+        createdAt: data.createdAt || null,
+        billing: data.billing || DEFAULT_BILLING,
+      })
+    );
   }
 
   stats.sort((a, b) => a.name.localeCompare(b.name));
@@ -82,6 +75,7 @@ export async function fetchCompaniesStatsFromClient() {
     }),
     { companies: 0, drivers: 0, students: 0, studentsActive: 0 }
   );
+  totals.monthlyRecurringUsd = calculateMrr(stats);
 
   return { totals, companies: stats };
 }

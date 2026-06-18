@@ -11,8 +11,7 @@ const SupportPage = () => {
   const [activeTab, setActiveTab] = useState('Abiertos');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { profile, loading: authLoading } = useAuth();
-  const SCHOOL_CODE = (profile?.unitCode || 'CAD31').trim().toUpperCase();
+  const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
 
   useEffect(() => {
     if (authLoading || !SCHOOL_CODE) return;
@@ -73,6 +72,17 @@ const SupportPage = () => {
       hour: '2-digit', minute: '2-digit' 
     });
   };
+
+  if (!authLoading && !SCHOOL_CODE) {
+    return (
+      <DashboardLayout title="Centro de Soporte">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-amber-900">
+          <p className="font-bold">Colegio no seleccionado</p>
+          <p className="text-sm mt-1">Inicia sesión como administrador de colegio o usa &quot;Entrar como colegio&quot; desde Instituciones.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Centro de Soporte">

@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 
 const normalizeCedula = (value) => (value || '').replace(/\D/g, '');
 
@@ -31,6 +32,7 @@ const RepresentativesPage = () => {
   });
 
   const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
+  const toast = useToast();
 
   // Sincronizar unitCode del formulario con el perfil
   useEffect(() => {
@@ -70,7 +72,7 @@ const RepresentativesPage = () => {
       });
     } catch (error) {
       console.error("Error updating status:", error);
-      alert("Hubo un error al actualizar el estado.");
+      toast.error("Hubo un error al actualizar el estado.");
     }
   };
 
@@ -86,10 +88,10 @@ const RepresentativesPage = () => {
       await deleteDoc(repRef);
       setShowDeleteModal(false);
       setDeletingRep(null);
-      alert("✅ Eliminado con éxito.");
+      toast.success("Eliminado con éxito.");
     } catch (error) {
       console.error("Error al eliminar:", error);
-      alert("❌ Error: No se pudo eliminar.");
+      toast.error("No se pudo eliminar.");
     }
   };
 
@@ -110,10 +112,10 @@ const RepresentativesPage = () => {
         cedulaPadreNorm: normalizeCedula(editFormData.cedulaPadre || editFormData.idNumber),
       }, { merge: true });
       setShowEditModal(false);
-      alert("Cambios guardados con éxito.");
+      toast.success("Cambios guardados con éxito.");
     } catch (error) {
       console.error("Error saving:", error);
-      alert("Error al guardar los cambios.");
+      toast.error("Error al guardar los cambios.");
     }
   };
 
@@ -135,10 +137,10 @@ const RepresentativesPage = () => {
       setFormData({
         unitCode: SCHOOL_CODE
       });
-      alert('Registro creado exitosamente.');
+      toast.success('Registro creado exitosamente.');
     } catch (error) {
       console.error("Error adding student:", error);
-      alert('Error al crear registro.');
+      toast.error('Error al crear registro.');
     }
   };
 

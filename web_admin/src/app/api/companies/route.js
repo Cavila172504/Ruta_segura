@@ -7,6 +7,7 @@ import {
   normalizeUnitCode,
   rollbackAuthUser,
 } from '@/lib/admin-api';
+import { DEFAULT_BILLING, validateBillingPatch } from '@/lib/billing';
 
 function parseCoord(value) {
   const n = Number(value);
@@ -78,7 +79,7 @@ export async function POST(request) {
       status: 'active',
       billing: {
         plan: 'basic',
-        monthlyUsd: 0,
+        pricePerStudentUsd: 0,
         status: 'active',
         studentLimit: 80,
         driverLimit: 2,
@@ -207,7 +208,14 @@ export async function PATCH(request) {
     if (schoolLat != null) updates.schoolLat = schoolLat;
     if (schoolLng != null) updates.schoolLng = schoolLng;
     if (body.billing && typeof body.billing === 'object') {
-      updates.billing = { ...(companyDoc.data().billing || {}), ...body.billing };
+      const validated = validateBillingPatch(body.billing);
+      if (!validated.ok) {
+        return NextResponse.json({ error: validated.error }, { status: 400 });
+      }
+      updates.billing = {
+        ...(companyDoc.data().billing || DEFAULT_BILLING),
+        ...validated.billing,
+      };
     }
 
     if (Object.keys(updates).length > 0) {

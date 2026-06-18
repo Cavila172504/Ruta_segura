@@ -4,6 +4,9 @@ import Link from 'next/link';
 import Sidebar from './Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
+import { clearServerSession } from '@/lib/session-auth';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
 import DevCredit from '@/components/legal/DevCredit';
 
 const SUPER_ADMIN_ALLOWED = [
@@ -32,6 +35,13 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (loading || !user || profile) return;
+    clearServerSession()
+      .catch(() => {})
+      .finally(() => signOut(auth).finally(() => router.replace('/login')));
+  }, [loading, user, profile, router]);
 
   useEffect(() => {
     if (loading || profile?.role !== 'super_admin') return;

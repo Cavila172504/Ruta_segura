@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { 
   BarChart3, 
   Users, 
@@ -48,6 +49,7 @@ export default function ReportsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const { profile, SCHOOL_CODE } = useAuth();
+  const toast = useToast();
 
   useEffect(() => {
     if (!SCHOOL_CODE) return;
@@ -211,7 +213,7 @@ export default function ReportsPage() {
   const handleExportTabExcel = () => {
     const { rows, fileName, sheetName } = buildTabExcelData();
     if (!rows.length) {
-      alert('No hay datos para exportar en esta sección.');
+      toast.info('No hay datos para exportar en esta sección.');
       return;
     }
     setIsExportingExcel(true);

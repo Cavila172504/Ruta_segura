@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" fill="none" role="img" aria-label="RutaSegura">
+  <rect width="240" height="64" rx="12" fill="#3b309e"/>
+  <path d="M28 44V20h8.5l9.5 14.2V20H54v24h-8.4L36 29.8V44H28z" fill="#fff"/>
+  <path d="M62 44V20h14.5c5.2 0 8.8 3.1 8.8 7.6 0 3.4-1.8 5.8-4.7 6.8L86 44h-9.2l-3.6-8.2H70.5V44H62zm8.5-14.2h5.2c1.8 0 2.9-1 2.9-2.5s-1.1-2.5-2.9-2.5h-5.2v5z" fill="#fff"/>
+  <text x="98" y="40" fill="#fff" font-family="Arial, sans-serif" font-size="22" font-weight="700">RutaSegura</text>
+</svg>

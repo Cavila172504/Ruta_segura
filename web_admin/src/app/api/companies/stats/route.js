@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { verifyApiAuth, requireSuperAdmin } from '@/lib/api-auth';
 import { ensureAdminReady, normalizeUnitCode } from '@/lib/admin-api';
+import { calculateMrr, DEFAULT_BILLING, enrichCompanyBilling } from '@/lib/billing';
 
 export async function GET(request) {
   const notReady = ensureAdminReady();
@@ -50,36 +51,27 @@ export async function GET(request) {
       const activeStudents = students.filter((s) => s.status === 'active').length;
       const pendingStudents = students.filter((s) => s.status === 'pending').length;
 
-      const billing = data.billing || {
-        plan: 'basic',
-        monthlyUsd: 0,
-        status: 'active',
-        studentLimit: 80,
-        driverLimit: 2,
-      };
-
-      stats.push({
-        unitCode,
-        name: data.name || unitCode,
-        adminEmail: data.adminEmail || adminDoc?.email || null,
-        adminName: adminDoc?.name || null,
-        adminUid: data.adminUid || adminDoc?.uid || null,
-        status: data.status || 'active',
-        transportCompany: data.transportCompany || '',
-        schoolLat: data.schoolLat ?? null,
-        schoolLng: data.schoolLng ?? null,
-        schoolAddress: data.schoolAddress || '',
-        hasSchoolLocation: data.schoolLat != null && data.schoolLng != null,
-        driversCount: driversSnap.size,
-        studentsTotal: studentsSnap.size,
-        studentsActive: activeStudents,
-        studentsPending: pendingStudents,
-        createdAt: data.createdAt || null,
-        billing,
-        billingPlan: billing.plan || 'basic',
-        billingStatus: billing.status || 'active',
-        monthlyUsd: billing.monthlyUsd ?? 0,
-      });
+      stats.push(
+        enrichCompanyBilling({
+          unitCode,
+          name: data.name || unitCode,
+          adminEmail: data.adminEmail || adminDoc?.email || null,
+          adminName: adminDoc?.name || null,
+          adminUid: data.adminUid || adminDoc?.uid || null,
+          status: data.status || 'active',
+          transportCompany: data.transportCompany || '',
+          schoolLat: data.schoolLat ?? null,
+          schoolLng: data.schoolLng ?? null,
+          schoolAddress: data.schoolAddress || '',
+          hasSchoolLocation: data.schoolLat != null && data.schoolLng != null,
+          driversCount: driversSnap.size,
+          studentsTotal: studentsSnap.size,
+          studentsActive: activeStudents,
+          studentsPending: pendingStudents,
+          createdAt: data.createdAt || null,
+          billing: data.billing || DEFAULT_BILLING,
+        }),
+      );
     }
 
     stats.sort((a, b) => a.name.localeCompare(b.name));
@@ -93,6 +85,7 @@ export async function GET(request) {
       }),
       { companies: 0, drivers: 0, students: 0, studentsActive: 0 }
     );
+    totals.monthlyRecurringUsd = calculateMrr(stats);
 
     return NextResponse.json({ totals, companies: stats });
   } catch (error) {

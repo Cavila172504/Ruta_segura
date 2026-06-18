@@ -18,11 +18,16 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 async function setupCAD31() {
-  const email    = 'deyafreiresalazar@gmail.com';
-  const password = '12345678';
-  const name     = 'Jhonny';
-  const unitCode = 'CAD31';
-  const schoolName = 'CADE';
+  const email = process.env.SCHOOL_ADMIN_EMAIL?.trim();
+  const password = process.env.SCHOOL_ADMIN_PASSWORD?.trim();
+  const name = process.env.SCHOOL_ADMIN_NAME?.trim() || 'Administrador';
+  const unitCode = process.env.SCHOOL_UNIT_CODE?.trim().toUpperCase() || 'CAD31';
+  const schoolName = process.env.SCHOOL_NAME?.trim() || unitCode;
+
+  if (!email || !password || password.length < 8) {
+    console.error('Define SCHOOL_ADMIN_EMAIL y SCHOOL_ADMIN_PASSWORD (min. 8 caracteres) en .env.local');
+    process.exit(1);
+  }
 
   console.log('------------------------------------------');
   console.log('  Configurando cuenta CAD31 - CADE');

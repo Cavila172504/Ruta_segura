@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '@/context/AuthContext';
+import { clearServerSession } from '@/lib/session-auth';
 
 const SUPER_ADMIN_PATHS = [
   '/dashboard/companies',
@@ -16,10 +17,13 @@ const SUPER_ADMIN_PATHS = [
 const Sidebar = ({ profile, isOpen, setIsOpen, isCollapsed }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const { clearSupportContext } = useAuth();
   const isSuperAdmin = profile?.role === 'super_admin';
 
   const handleLogout = async () => {
     try {
+      clearSupportContext();
+      await clearServerSession();
       await signOut(auth);
       router.push('/login');
     } catch (error) {

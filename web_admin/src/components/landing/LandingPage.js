@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import DevCredit from '@/components/legal/DevCredit';
+import BrandLogo from '@/components/ui/BrandLogo';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -50,8 +51,7 @@ export default function LandingPage() {
         href={WHATSAPP_LINK} 
         target="_blank" 
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center animate-bounce"
-        style={{ animationDuration: '3s' }}
+        className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-105 transition-transform flex items-center justify-center"
       >
         {/* WhatsApp Icon SVG */}
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
@@ -68,11 +68,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => scrollToSection('hero')}>
             {/* Logo de la Empresa */}
-            <img 
-              src="/images/logo.png" 
-              alt="Ruta Segura Logo" 
-              className="h-10 md:h-12 w-auto object-contain"
-            />
+            <BrandLogo className="h-10 md:h-12 w-auto object-contain" alt="Ruta Segura Logo" />
           </div>
 
           <nav className="hidden lg:flex items-center gap-8 font-bold text-sm text-slate-600">
@@ -162,7 +158,6 @@ export default function LandingPage() {
                 src="/images/parent_app_mockup.png" 
                 alt="App Padre RutaSegura" 
                 className="relative z-10 w-full max-w-[400px] rounded-[32px] shadow-2xl border-4 border-white object-cover"
-                onError={(e) => e.target.style.display = 'none'} // Fallback si no existe la imagen local
               />
             </div>
             <div className="order-1 lg:order-2">
@@ -221,7 +216,6 @@ export default function LandingPage() {
                 src="/images/driver_app_mockup.png" 
                 alt="App Conductor RutaSegura" 
                 className="relative z-10 w-full max-w-[400px] rounded-[32px] shadow-2xl border-4 border-white object-cover"
-                onError={(e) => e.target.style.display = 'none'}
               />
             </div>
           </div>
@@ -234,7 +228,6 @@ export default function LandingPage() {
                 src="/images/admin_dashboard_mockup.png" 
                 alt="Panel Web Admin RutaSegura" 
                 className="relative z-10 w-full rounded-2xl shadow-2xl border border-white/50 object-cover"
-                onError={(e) => e.target.style.display = 'none'}
               />
             </div>
             <div className="order-1 lg:order-2">

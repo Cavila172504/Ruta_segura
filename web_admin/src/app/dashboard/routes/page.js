@@ -5,13 +5,47 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { Truck, MapPin, ChevronDown, ChevronUp, Map, Download, Plus, Trash2, Save, X, Eye, Search, AlertCircle, User, CreditCard, HelpCircle, Info } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import 'leaflet/dist/leaflet.css';
+import { MAP_VECTOR_STREETS_STYLE } from '@/lib/polyline';
 
-const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
-const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false });
+const StudentLocationMap = dynamic(
+  () =>
+    import('react-map-gl/maplibre').then(({ default: Map, Marker }) => {
+      function Pin() {
+        return (
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              background: '#4361ee',
+              borderRadius: '50% 50% 50% 0',
+              transform: 'rotate(-45deg)',
+              border: '2px solid white',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+            }}
+          />
+        );
+      }
+      return function StudentLocationMap({ lat, lng }) {
+        return (
+          <Map
+            mapStyle={MAP_VECTOR_STREETS_STYLE}
+            initialViewState={{ longitude: lng, latitude: lat, zoom: 16 }}
+            style={{ height: '100%', width: '100%' }}
+            scrollZoom={false}
+            attributionControl={false}
+          >
+            <Marker longitude={lng} latitude={lat} anchor="bottom">
+              <Pin />
+            </Marker>
+          </Map>
+        );
+      };
+    }),
+  { ssr: false }
+);
 
 export default function RoutesPage() {
   const [routes, setRoutes] = useState([]);
@@ -24,10 +58,10 @@ export default function RoutesPage() {
   const [studentMapData, setStudentMapData] = useState(null);
   const [showStudentPicker, setShowStudentPicker] = useState(null);
   const [studentSearch, setStudentSearch] = useState('');
-  const [L, setL] = useState(null);
   const [syncStatus, setSyncStatus] = useState({}); // { routeId: 'synced' | 'pending' }
 
   const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
+  const toast = useToast();
   const days = ['L', 'M', 'MI', 'J', 'V', 'S', 'D'];
   
   // Colores Institucionales Suaves
@@ -37,7 +71,6 @@ export default function RoutesPage() {
   useEffect(() => {
     if (authLoading || !SCHOOL_CODE) return;
 
-    import('leaflet').then((leaflet) => setL(leaflet.default));
     const unsubRoutes = onSnapshot(query(collection(db, 'companies', SCHOOL_CODE, 'routes'), orderBy('createdAt', 'desc')), (snap) => {
       setRoutes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
@@ -66,8 +99,8 @@ export default function RoutesPage() {
         createdAt: serverTimestamp()
       });
       setShowCreate(false);
-      alert('Ruta Guardada');
-    } catch (e) { alert('Error: ' + e.message); }
+      toast.success('Ruta guardada');
+    } catch (e) { toast.error('Error: ' + e.message); }
   };
 
   const addStudentToRoute = async (routeId, student) => {
@@ -151,9 +184,9 @@ export default function RoutesPage() {
         status: 'active',
       });
       setSyncStatus((prev) => ({ ...prev, [routeId]: 'synced' }));
-      alert('🚀 ¡HOJA DE RUTA SINCRONIZADA! El conductor ya puede ver los cambios.');
+      toast.success('Hoja de ruta sincronizada. El conductor ya puede ver los cambios.');
     } catch (e) {
-      alert('Error en la sincronización: ' + e.message);
+      toast.error('Error en la sincronización: ' + e.message);
     }
   };
 
@@ -386,11 +419,8 @@ export default function RoutesPage() {
                  <button onClick={() => setStudentMapData(null)} className="w-8 h-8 flex items-center justify-center bg-white/10 rounded-full hover:bg-white/20"><X className="w-4 h-4" /></button>
               </div>
               <div className="h-64 bg-slate-100">
-                 {studentMapData.stopLat && L ? (
-                   <MapContainer center={[studentMapData.stopLat, studentMapData.stopLng]} zoom={15} style={{ height: '100%', width: '100%' }}>
-                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      <Marker position={[studentMapData.stopLat, studentMapData.stopLng]} />
-                   </MapContainer>
+                 {studentMapData.stopLat ? (
+                   <StudentLocationMap lat={studentMapData.stopLat} lng={studentMapData.stopLng} />
                  ) : (
                    <div className="flex flex-col items-center justify-center h-full text-slate-300 p-8 text-center italic font-bold text-xs"><AlertCircle className="w-10 h-10 mb-2 opacity-20" />SIN UBICACIÓN</div>
                  )}

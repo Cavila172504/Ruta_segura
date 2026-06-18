@@ -7,7 +7,25 @@ import LiveRoutesPanel from '@/components/dashboard/LiveRoutesPanel';
 import { collection, onSnapshot, doc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import dynamic from 'next/dynamic';
+
+function parseLatLng(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const n = Number(value.trim().replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  }
+  if (typeof value === 'object') {
+    if (typeof value.latitude === 'number') return value.latitude;
+    if (typeof value.lat === 'number') return value.lat;
+    if (typeof value.longitude === 'number') return value.longitude;
+    if (typeof value.lng === 'number') return value.lng;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
 const LiveMap = dynamic(() => import('@/components/dashboard/LiveMap'), {
   ssr: false,
@@ -35,6 +53,7 @@ const getFilteredActiveBuses = (buses) => {
 
 const DashboardPage = () => {
   const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
+  const toast = useToast();
 
   const [buses, setBuses] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -53,8 +72,8 @@ const DashboardPage = () => {
         setSchoolInfo({
           name: d.name || SCHOOL_CODE,
           address: d.schoolAddress || '',
-          lat: d.schoolLat ?? null,
-          lng: d.schoolLng ?? null,
+          lat: parseLatLng(d.schoolLat),
+          lng: parseLatLng(d.schoolLng),
         });
       }
     });
@@ -266,7 +285,7 @@ const DashboardPage = () => {
                 await Promise.all(
                   qSnap.docs.map((d) => deleteDoc(doc(db, 'companies', SCHOOL_CODE, 'active_buses', d.id)))
                 );
-                alert('Mapa limpiado correctamente');
+                toast.success('Mapa limpiado correctamente');
               }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition-colors"
             >

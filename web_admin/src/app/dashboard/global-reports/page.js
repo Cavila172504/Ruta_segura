@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { authFetch } from '@/lib/api-client';
 import { fetchCompaniesStatsFromClient } from '@/lib/companies-client';
 import { exportToXls } from '@/lib/export-excel';
+import ResponsiveTable from '@/components/ui/ResponsiveTable';
+import BillingStatusBadge from '@/components/ui/BillingStatusBadge';
 
 export default function GlobalReportsPage() {
   const { profile, loading } = useAuth();
@@ -64,7 +66,9 @@ export default function GlobalReportsPage() {
       EstudiantesActivos: c.studentsActive,
       Pendientes: c.studentsPending,
       Plan: c.billingPlan || 'basic',
-      MontoMensualUSD: c.monthlyUsd ?? 0,
+      PrecioPorEstudianteUSD: c.pricePerStudentUsd ?? 0,
+      EstudiantesActivos: c.studentsActive,
+      TotalMensualUSD: c.monthlyChargeUsd ?? 0,
       EstadoFacturacion: c.billingStatus || 'active',
       Estado: c.status,
     }));
@@ -73,7 +77,7 @@ export default function GlobalReportsPage() {
 
   if (loading || profile?.role !== 'super_admin') return null;
 
-  const totals = data?.totals || { companies: 0, drivers: 0, students: 0, studentsActive: 0 };
+  const totals = data?.totals || { companies: 0, drivers: 0, students: 0, studentsActive: 0, monthlyRecurringUsd: 0 };
 
   return (
     <DashboardLayout title="Informes Globales (Super Admin)">
@@ -96,12 +100,13 @@ export default function GlobalReportsPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
         {[
           { label: 'Colegios', value: totals.companies, icon: 'corporate_fare' },
           { label: 'Conductores', value: totals.drivers, icon: 'directions_bus' },
           { label: 'Estudiantes', value: totals.students, icon: 'school' },
           { label: 'Activos', value: totals.studentsActive, icon: 'verified' },
+          { label: 'Facturacion (USD)', value: `$${totals.monthlyRecurringUsd ?? 0}`, icon: 'payments' },
         ].map((k) => (
           <div key={k.label} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
             <span className="material-symbols-outlined text-primary text-2xl mb-2">{k.icon}</span>
@@ -120,13 +125,17 @@ export default function GlobalReportsPage() {
       {fetching ? (
         <p className="text-slate-400 font-bold animate-pulse">Calculando métricas globales...</p>
       ) : (
-        <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm">
-          <table className="w-full text-left">
+        <ResponsiveTable>
+          <table className="w-full text-left min-w-[1200px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Código</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Institución</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin / Correo</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Plan</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">USD/est.</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Total/mes</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estado</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Conductores</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estudiantes</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Activos</th>
@@ -142,6 +151,10 @@ export default function GlobalReportsPage() {
                     <p className="text-sm font-bold text-slate-700">{c.adminName || '—'}</p>
                     <p className="text-xs text-slate-400">{c.adminEmail || '—'}</p>
                   </td>
+                  <td className="px-6 py-5 text-center font-black uppercase text-slate-600">{c.billingPlan || 'basic'}</td>
+                  <td className="px-6 py-5 text-center font-black text-lg">${c.pricePerStudentUsd ?? 0}</td>
+                  <td className="px-6 py-5 text-center font-black text-lg text-violet-700">${c.monthlyChargeUsd ?? 0}</td>
+                  <td className="px-6 py-5 text-center"><BillingStatusBadge status={c.billingStatus || 'active'} /></td>
                   <td className="px-6 py-5 text-center font-black text-lg">{c.driversCount}</td>
                   <td className="px-6 py-5 text-center font-black text-lg">{c.studentsTotal}</td>
                   <td className="px-6 py-5 text-center font-bold text-emerald-600">{c.studentsActive}</td>
@@ -150,7 +163,7 @@ export default function GlobalReportsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </DashboardLayout>
   );

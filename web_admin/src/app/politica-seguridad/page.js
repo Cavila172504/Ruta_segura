@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SecurityPolicyContent from '@/components/legal/SecurityPolicyContent';
 import DevCredit from '@/components/legal/DevCredit';
+import BrandLogo from '@/components/ui/BrandLogo';
 
 export const metadata = {
   title: 'Política de Seguridad y Ubicación | RutaSegura',
@@ -16,7 +17,7 @@ export default function PoliticaSeguridadPage() {
             <span className="material-symbols-outlined text-base">arrow_back</span>
             Volver al inicio
           </Link>
-          <img src="/images/logo.png" alt="RutaSegura" className="h-8 w-auto" />
+          <BrandLogo className="h-8 w-auto" alt="RutaSegura" />
         </div>
       </header>
 

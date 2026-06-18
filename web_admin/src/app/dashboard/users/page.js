@@ -5,9 +5,11 @@ import { collection, onSnapshot, query, doc, deleteDoc } from 'firebase/firestor
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { authFetch } from '@/lib/api-client';
+import { useToast } from '@/context/ToastContext';
 
 const UsersManagementPage = () => {
     const { profile } = useAuth();
+    const toast = useToast();
     const [users, setUsers] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -43,14 +45,14 @@ const UsersManagementPage = () => {
 
             const data = await response.json();
             if (data.success) {
-                alert('Usuario creado exitosamente');
+                toast.success('Usuario creado exitosamente');
                 setIsModalOpen(false);
                 setFormData({ name: '', email: '', password: '', unitCode: '', role: 'viewer' });
             } else {
-                alert('Error: ' + data.error);
+                toast.error('Error: ' + data.error);
             }
         } catch (error) {
-            alert('Error de red: ' + error.message);
+            toast.error('Error de red: ' + error.message);
         } finally {
             setLoading(false);
         }

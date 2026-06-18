@@ -5,6 +5,7 @@ import { collection, onSnapshot, query, orderBy, doc, getDoc } from 'firebase/fi
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { authFetch } from '@/lib/api-client';
+import { useToast } from '@/context/ToastContext';
 
 const DriversPage = () => {
   const [drivers, setDrivers] = useState([]);
@@ -22,6 +23,7 @@ const DriversPage = () => {
   const [isSyncingLogin, setIsSyncingLogin] = useState(false);
 
   const { profile, loading: authLoading, SCHOOL_CODE } = useAuth();
+  const toast = useToast();
 
   // Form states refined
   const [formData, setFormData] = useState({
@@ -106,12 +108,12 @@ const DriversPage = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        alert(`Acceso app sincronizado: ${data.synced} de ${data.total} conductores.`);
+        toast.success(`Acceso app sincronizado: ${data.synced} de ${data.total} conductores.`);
       } else {
-        alert(data.error || 'No se pudo sincronizar el acceso de conductores.');
+        toast.error(data.error || 'No se pudo sincronizar el acceso de conductores.');
       }
     } catch (e) {
-      alert('Error de conexión al sincronizar.');
+      toast.error('Error de conexión al sincronizar.');
     } finally {
       setIsSyncingLogin(false);
     }
@@ -127,7 +129,7 @@ const DriversPage = () => {
 
       const idNumber = formData.idNumber?.trim() || '';
       if (idNumber.length < 6) {
-        alert('La cédula debe tener al menos 6 dígitos (es la contraseña de acceso en la app del conductor).');
+        toast.error('La cédula debe tener al menos 6 dígitos (es la contraseña de acceso en la app del conductor).');
         setIsSubmitting(false);
         return;
       }
@@ -144,7 +146,7 @@ const DriversPage = () => {
 
       if (response.ok) {
         setShowModal(false);
-        alert('Chofer guardado exitosamente');
+        toast.success('Chofer guardado exitosamente');
       } else {
         let errText = `Error del servidor (${response.status})`;
         try {
@@ -153,10 +155,10 @@ const DriversPage = () => {
         } catch (_) {
           /* respuesta no JSON */
         }
-        alert(errText);
+        toast.error(errText);
       }
     } catch (error) {
-      alert("Error de conexión");
+      toast.error("Error de conexión");
     } finally {
       setIsSubmitting(false);
     }
@@ -176,10 +178,10 @@ const DriversPage = () => {
         setDriverToDelete(null);
       } else {
         const err = await response.json();
-        alert("Error del servidor: " + (err.error || "Desconocido"));
+        toast.error("Error del servidor: " + (err.error || "Desconocido"));
       }
     } catch (error) {
-      alert("Error de conexión: " + error.message);
+      toast.error("Error de conexión: " + error.message);
     } finally {
       setIsDeleting(false);
     }
